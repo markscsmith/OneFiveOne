@@ -1,0 +1,17 @@
+
+gym
+gymnasium
+numba
+numpy
+pandas
+Pillow
+pyboy
+scipy
+Shimmy
+stable-baselines3
+tensorboard
+tensorflow
+timg
+torch
+torchaudio
+torchvision
