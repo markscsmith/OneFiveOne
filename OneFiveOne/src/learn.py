@@ -8,6 +8,8 @@ import torch
 import torch.nn as nn
 from timg import Renderer, Ansi24HblockMethod
 from PIL import Image
+import io
+import base64
 
 from stable_baselines3.common.torch_layers import BaseFeaturesExtractor
 from stable_baselines3.common.policies import ActorCriticPolicy
@@ -43,23 +45,36 @@ class PyBoyEnv(gym.Env):
     def __init__(self, game_path):
         super(PyBoyEnv, self).__init__()
         self.pyboy = PyBoy(game_path, window_type='headless')
-        
+
         # Define the memory range for 'number of Pokémon caught'
         self.caught_pokemon_start = 0xD2F7
         self.caught_pokemon_end = 0xD309
+        self.seen_events = set()
 
         # Define action_space and observation_space
         self.action_space = gym.spaces.Discrete(8)  # Modify as needed
         # Here we define the observation space to include the game's entire memory
         # and an additional value for the 'number of Pokémon caught'
-        self.observation_space = gym.spaces.Box(low=0, high=255, shape=(0x10000 + 1,), dtype=np.uint8)
+        # self.observation_space = gym.spaces.Box(low=0, high=255, shape=(0x10000 + 1,), dtype=np.uint8)
+        self.observation_space = gym.spaces.Box(low=0, high=255, shape=(142611,), dtype=np.uint8)
 
     def step(self, action):
         # Apply an action to the emulator
         self.pyboy.send_input(action)
+        
+        self.pyboy.tick()
+        if self.pyboy.frame_count % 1000 == 0:
+            obj = Renderer()
+            obj.load_image(Image.fromarray(self.pyboy.botsupport_manager().screen().screen_ndarray()))
+            obj.render(Ansi24HblockMethod)
 
         # Read the entire memory and the specific range for Pokémon caught
-        memory_values = np.array([self.pyboy.get_memory_value(address) for address in range(0x10000)])
+        # memory_values = np.array([self.pyboy.get_memory_value(address) for address in range(0x10000)])
+        flo = io.BytesIO()
+        flo.seek(0)
+        self.pyboy.save_state(flo)
+        flo.seek(0)
+        memory_values = np.frombuffer(flo.read(), dtype=np.uint8)
         pokemon_caught = sum([self.pyboy.get_memory_value(address) for address in range(self.caught_pokemon_start, self.caught_pokemon_end + 1)])
         observation = np.append(memory_values, pokemon_caught)
         # if self.pyboy.frame_count % 10000 == 0:
@@ -74,31 +89,41 @@ class PyBoyEnv(gym.Env):
         return observation, reward, done, info
 
     def reset(self):
-        self.pyboy
-        memory_values = np.array([self.pyboy.get_memory_value(address) for address in range(0x10000)])
+        info = {}
+        print("OS:SHAPE:", self.observation_space.shape)
+        print("PyBoy:", dir(self.pyboy))
+        # memory_values = self.pyboy.mb.ram.internal_ram0.append(self.pyboy.mb.ram.internal_ram1)
+        # memory_values = np.array([self.pyboy.get_memory_value(address) for address in range(0x10000)])
+        flo = io.BytesIO()
+        flo.seek(0)
+        self.pyboy.save_state(flo)
+        flo.seek(0)
+        memory_values = np.frombuffer(flo.read(), dtype=np.uint8)
         pokemon_caught = sum([self.pyboy.get_memory_value(address) for address in range(self.caught_pokemon_start, self.caught_pokemon_end + 1)])
-        observation = np.append(memory_values, pokemon_caught)
+        unique_events = [self.pyboy.get_memory_value(address) for address in range(0xD5A6, 0xD85F)]
+        hashable_strings = "".join([base64.b64encode(bytes(chunk)).decode('utf-8') for chunk in unique_events])
+
+
+        found_events = 0
+        if hashable_strings not in self.seen_events:
+            self.seen_events.add(hashable_strings)
+            print("OS:EVENTS:", hashable_strings)
+            
+        
+
+        observation = np.append(memory_values, pokemon_caught + len(self.seen_events))
         # use timg to output the current screen
         obj = Renderer()
         obj.load_image(Image.fromarray(self.pyboy.botsupport_manager().screen().screen_ndarray()))
         obj.render(Ansi24HblockMethod)
+        print("OS:INFO:", observation, info)
+        print("OS:SHAPE:", observation.shape)
         return observation
 
 
     def close(self):
         self.pyboy.stop()
 
-
-# Function to create and train the PPO model
-# def train_model(env, steps):
-#     policy_kwargs = dict(
-#         net_arch=[dict(pi=[128, 128, 128], vf=[128, 128, 128])],
-#         activation_fn=torch.nn.ReLU
-#     )
-#     model = PPO('MlpPolicy', env, policy_kwargs=policy_kwargs, verbose=1, device='cuda')
-#     model.policy = CustomNetwork(env.observation_space, env.action_space)  # Use the custom network
-#     model.learn(total_timesteps=steps)
-#     return model
 
 def train_model(env, steps):
     # You can adjust the policy keyword arguments as needed
@@ -109,32 +134,39 @@ def train_model(env, steps):
     # Autodetect mps, cuda, rocm
     device = 'cpu'
     device = 'mps' if torch.backends.mps.is_available() and torch.backends.mps.is_built() else device
-    device = 'cuda' if torch.cuda.is_available() else 'cpu'
-    
+    device = 'cuda' if torch.cuda.is_available() else device
+
     model = PPO('MlpPolicy', env, policy_kwargs=policy_kwargs, verbose=1, device=device)  # Use 'cpu' if GPU is not available
     model.learn(total_timesteps=steps)
     return model
 
 # Function to run the emulator with the Gym environment
-def run_emulator(game_path, emunum=0, steps=0, result_queue=None):
+def run_emulator(game_path, save_state_path, emunum=0, steps=0, result_queue=None):
     env = PyBoyEnv(game_path)
+    env.pyboy.load_state(open(save_state_path,'rb'))
     model = train_model(env, steps)
 
     obs = env.reset()
-    for _ in range(steps):
-        action, _ = model.predict(obs)
-        obs, rewards, dones, info = env.step(action)
+    actions = [None] * steps  # Create a pre-sized list of length "steps"
 
+    for i in range(steps):
+        action, _ = model.predict(obs)
+        actions[i] = action
+        obs = env.step(action)[0]
+    print(f"Actions {emunum}:", actions)
     env.close()
 
 if __name__ == '__main__':
+    steps = 20000
     if len(sys.argv) < 2:
         print("Please provide the path to the game as a command line argument.")
         sys.exit(1)
 
     game_path = sys.argv[1]
+    save_state_path = sys.argv[2]
 
     num_cores = multiprocessing.cpu_count()
+    # num_cores = 1
     # games = glob.glob(game_path)
 
     manager = multiprocessing.Manager()
@@ -143,22 +175,7 @@ if __name__ == '__main__':
     processes = []
 
     for i in range(num_cores):
-        process = multiprocessing.Process(target=run_emulator, args=(game_path, i, 20000, result_queue))
-        processes.append(process)
-        process.start()
-
-    for process in processes:
-        process.join()
-    num_cores = multiprocessing.cpu_count()
-    
-
-    manager = multiprocessing.Manager()
-    result_queue = manager.Queue()
-
-    processes = []
-
-    for i in range(num_cores):
-        process = multiprocessing.Process(target=run_emulator, args=(game_path, i, 20000, result_queue))
+        process = multiprocessing.Process(target=run_emulator, args=(game_path, save_state_path, i, steps, result_queue))
         processes.append(process)
         process.start()
 
