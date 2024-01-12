@@ -73,7 +73,8 @@ class PyBoyEnv(gym.Env):
             obj = Renderer()
             obj.load_image(Image.fromarray(self.pyboy.botsupport_manager().screen().screen_ndarray()))
             terminal_size = os.get_terminal_size()
-            obj.resize(terminal_size.columns, terminal_size.lines * 2 * 160 // 144)
+            if terminal_size.columns < 160 or terminal_size.lines < 144 / 2:
+                obj.resize(terminal_size.columns, terminal_size.lines * 2 * 160 // 144)
             obj.render(Ansi24HblockMethod)
             print("OS:FRAME:", self.pyboy.frame_count)
             print("OS:EMUNUM:", self.emunum)
@@ -128,7 +129,8 @@ class PyBoyEnv(gym.Env):
         
         obj.load_image(Image.fromarray(self.pyboy.botsupport_manager().screen().screen_ndarray()))
         terminal_size = os.get_terminal_size()
-        obj.resize(terminal_size.columns, terminal_size.lines * 2 * 160 // 144)
+        if terminal_size.columns < 160 or terminal_size.lines < 144 / 2:
+            obj.resize(terminal_size.columns, terminal_size.lines * 2 * 160 // 144)
         obj.render(Ansi24HblockMethod)
         print("OS:SHAPE:", observation.shape, seed)
         return observation
@@ -162,7 +164,7 @@ def run_emulator(game_path, save_state_path, emunum=0, steps=0, result_queue=Non
 
     obs = env.reset()
     actions = [None] * steps  # Create a pre-sized list of length "steps"
-    ticks = 10
+    ticks = 1
     for i in range(steps):
         action, _ = model.predict(obs)
         # print("OS:ACTION:", action)
