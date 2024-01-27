@@ -1,17 +1,44 @@
 import multiprocessing
-from pyboy import PyBoy
+from pyboy import PyBoy, WindowEvent
 from stable_baselines3 import PPO
 from stable_baselines3.common.env_util import SubprocVecEnv
 from stable_baselines3.common.callbacks import BaseCallback, EveryNTimesteps
-from timg import Renderer, Ansi24HblockMethod, Ansi8HblockMethod
+from stable_baselines3.common.torch_layers import BaseFeaturesExtractor
+from stable_baselines3.common.policies import ActorCriticPolicy
+
+from timg import Renderer, Ansi24HblockMethod
 from PIL import Image
 from os.path import exists
 import gymnasium as gym
 import numpy as np
 import base64
 import torch
+import torch.nn as nn
 import io
 import os
+
+
+class CustomFeatureExtractor(BaseFeaturesExtractor):
+    def __init__(self, observation_space: gym.Space, features_dim: int = 128):
+        super(CustomFeatureExtractor, self).__init__(observation_space, features_dim)
+
+        # Define your custom layers here
+        self.extractor = nn.Sequential(
+            nn.Linear(np.prod(observation_space.shape), 256),
+            nn.ReLU(),
+            nn.Linear(256, 128),
+            nn.ReLU(),
+            nn.Linear(128, features_dim),
+            nn.ReLU(),
+        )
+
+    def forward(self, observations: torch.Tensor) -> torch.Tensor:
+        return self.extractor(observations)
+
+class CustomNetwork(ActorCriticPolicy):
+    def __init__(self, *args, **kwargs):
+        super(CustomNetwork, self).__init__(*args, **kwargs)
+        self.lr_schedule=0.025
 
 class PokeCaughtCallback(BaseCallback):
     def __init__(self, verbose=0):
@@ -30,6 +57,7 @@ class PokeCaughtCallback(BaseCallback):
         ys = self.training_env.get_attr('last_player_y')
         xbs = self.training_env.get_attr('last_player_x_block')
         ybs = self.training_env.get_attr('last_player_y_block')
+        actions = self.training_env.get_attr('actions')
         # Example: print or process the retrieved values
 
         # Find the best performing environment
@@ -53,7 +81,8 @@ class PokeCaughtCallback(BaseCallback):
                                     terminal_size.lines * 2)
             
         self.timg_render.render(Ansi24HblockMethod)
-        print(f"Best: {best_env_idx} 🟢 {all_pokemon_caught[best_env_idx]} 🎬 {frames[best_env_idx]} 🌎 {len(visiteds[best_env_idx])} 🏆 {rewards[best_env_idx]} 🦶 {stationary_frames[best_env_idx]} X: {xs[best_env_idx]} Y: {ys[best_env_idx]} XB: {xbs[best_env_idx]} YB: {ybs[best_env_idx]}")
+        print(f"Best: {best_env_idx} 🟢 {all_pokemon_caught[best_env_idx]} 🎬 {frames[best_env_idx]} 🌎 {len(visiteds[best_env_idx])} 🏆 {rewards[best_env_idx]} 🦶 {stationary_frames[best_env_idx]} X: {xs[best_env_idx]} Y: {ys[best_env_idx]} XB: {xbs[best_env_idx]} YB: {ybs[best_env_idx]}, Actinos {actions[best_env_idx][-3:]}")
+
         
         
         return True
@@ -63,6 +92,7 @@ class PyBoyEnv(gym.Env):
         super(PyBoyEnv, self).__init__()
         self.pyboy = PyBoy(game_path, window_type="headless")
         self.renderer = Renderer()
+        self.actions = []
         # Define the memory range for 'number of Pokémon caught'
         self.caught_pokemon_start = 0xD2F7
         self.caught_pokemon_end = 0xD309
@@ -82,12 +112,16 @@ class PyBoyEnv(gym.Env):
         self.last_player_y = 0
         self.last_player_x_block = 0
         self.last_player_y_block = 0
+        self.buttons = [WindowEvent.PRESS_ARROW_UP, WindowEvent.PRESS_ARROW_DOWN, WindowEvent.PRESS_ARROW_LEFT, WindowEvent.PRESS_ARROW_RIGHT, WindowEvent.PRESS_BUTTON_A, 
+                        WindowEvent.PRESS_BUTTON_B, WindowEvent.PRESS_BUTTON_START, WindowEvent.PRESS_BUTTON_SELECT, WindowEvent.RELEASE_ARROW_UP, WindowEvent.RELEASE_ARROW_DOWN, 
+                        WindowEvent.RELEASE_ARROW_LEFT, WindowEvent.RELEASE_ARROW_RIGHT, WindowEvent.RELEASE_BUTTON_A, WindowEvent.RELEASE_BUTTON_B, WindowEvent.RELEASE_BUTTON_START, 
+                        WindowEvent.RELEASE_BUTTON_SELECT]
         
 
         
 
         # Define actioqn_space and observation_space
-        self.action_space = gym.spaces.Discrete(8)
+        self.action_space = gym.spaces.Discrete(16)
         self.observation_space = gym.spaces.Box(low=0, high=255, shape=(698,),
                                                  dtype=np.uint8)
     
@@ -110,7 +144,8 @@ class PyBoyEnv(gym.Env):
     def step(self, action):
         self.frames = self.pyboy.frame_count
         ticks = 24
-        self.pyboy.send_input(action)
+        self.pyboy.send_input(self.buttons[action])
+        self.actions.append(action)
         for _ in range(ticks):
             self.pyboy.tick()
         # flo = io.BytesIO()
@@ -141,7 +176,7 @@ class PyBoyEnv(gym.Env):
         memory_values = memory_values[0xD5A6:0xD85F]
         observation = np.append(memory_values, (pokemon_caught + 1) * len(self.visited_xy))
 
-        reward = (pokemon_caught * 100) + (len(self.visited_xy) - (self.stationary_frames // 10))
+        reward = (pokemon_caught * 100) + len(self.visited_xy)
 
         # if np.random.randint(777) == 0 or self.last_pokemon_count != pokemon_caught or self.last_score - reward > 100:
         #     self.render()
@@ -222,6 +257,12 @@ if __name__ == "__main__":
     steps = 20000 * num_cpu
     file_name = "model"
     def train_model(env, num_steps):
+        policy_kwargs = dict(
+            features_extractor_class=CustomFeatureExtractor,
+            features_extractor_kwargs={},
+            net_arch=[dict(pi=[128, 64, 32], vf=[128, 64, 32])],
+            activation_fn=nn.ReLU,
+        )
         device = "cpu"
         device = (
             "mps"
@@ -240,7 +281,7 @@ if __name__ == "__main__":
             model.rollout_buffer.reset()
             
         else:
-            model = PPO("MlpPolicy", env, verbose=1, device=device)
+           model = PPO(policy=CustomNetwork, env=env, policy_kwargs=policy_kwargs, verbose=1, device=device)
         # TODO: Progress callback that collects data from each frame for stats
         model.learn(total_timesteps=num_steps, progress_bar=True, callback=current_stats)
         return model
