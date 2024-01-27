@@ -90,7 +90,7 @@ class PokeCaughtCallback(BaseCallback):
 class PyBoyEnv(gym.Env):
     def __init__(self, game_path, emunum, save_state_path=None):
         super(PyBoyEnv, self).__init__()
-        self.pyboy = PyBoy(game_path, window_type="headless")
+        self.pyboy = PyBoy(game_path, window_type="headless", cgb=True)
         self.renderer = Renderer()
         self.actions = []
         # Define the memory range for 'number of Pokémon caught'
