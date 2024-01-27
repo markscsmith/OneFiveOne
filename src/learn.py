@@ -14,8 +14,10 @@ import numpy as np
 import base64
 import torch
 import torch.nn as nn
-import io
+import time
 import os
+import datetime
+
 
 
 class CustomFeatureExtractor(BaseFeaturesExtractor):
@@ -44,6 +46,7 @@ class PokeCaughtCallback(BaseCallback):
     def __init__(self, verbose=0):
         super(PokeCaughtCallback, self).__init__(verbose)
         self.timg_render = Renderer()
+        
 
     def _on_step(self) -> bool:
         # Retrieve pokemon_caught from each environment
@@ -58,33 +61,41 @@ class PokeCaughtCallback(BaseCallback):
         xbs = self.training_env.get_attr('last_player_x_block')
         ybs = self.training_env.get_attr('last_player_y_block')
         actions = self.training_env.get_attr('actions')
+        filename_datetimes = self.training_env.get_attr('filename_datetime')
+
+        all_frames = self.training_env.get_attr('screen_images')
+
+
+        # for env_num, (rendered_frames, visited, steps, reward, filename_datetime)  in enumerate(zip(all_frames, visiteds, frames, rewards, filename_datetimes)):
+        #     print(f"{str(env_num).zfill(3)} 🟣 {all_pokemon_caught[env_num]} 🎬 {steps} 🌎 {len(visited)} 🏆 {reward}")
+        #     # Combine frames into gif
+        #     rendered_frames[0].save(f"/Volumes/Mag/frames/{env_num}-{filename_datetime}.gif", save_all=True, append_images=rendered_frames[1:], optimize=False, duration=100, loop=0)
+            # for frame_num, frame in enumerate(rendered_frames):
+            #     frame.save(f"/Volumes/Mag/frames/{env_num}-{frame_num}-{filename_datetime}.png")
         # Example: print or process the retrieved values
 
         # Find the best performing environment
         # best_env_idx = np.argmax(rewards)
         best_env_idx = np.argmax(stationary_frames)
 
-        
 
         # for env_num, (pokemon_count, visited, steps, reward)  in enumerate(zip(all_pokemon_caught, visiteds, frames, rewards)):
         # for env_num, (pokemon_count, visited, steps, reward)  in enumerate(zip(all_pokemon_caught, visiteds, frames, rewards)):
         #     print(f"{str(env_num).zfill(3)} 🟣 {pokemon_count} 🎬 {steps} 🌎 {len(visited)} 🏆 {reward}")
 
         best_image = renders[best_env_idx]
-        
+
         terminal_size = os.get_terminal_size()
         # convert best image to grayscale
         self.timg_render.load_image(best_image)
-        
+
         if terminal_size.columns < 160 or terminal_size.lines < 144 / 2:
             self.timg_render.resize(terminal_size.columns,
                                     terminal_size.lines * 2)
-            
+
         self.timg_render.render(Ansi24HblockMethod)
         print(f"Best: {best_env_idx} 🟢 {all_pokemon_caught[best_env_idx]} 🎬 {frames[best_env_idx]} 🌎 {len(visiteds[best_env_idx])} 🏆 {rewards[best_env_idx]} 🦶 {stationary_frames[best_env_idx]} X: {xs[best_env_idx]} Y: {ys[best_env_idx]} XB: {xbs[best_env_idx]} YB: {ybs[best_env_idx]}, Actinos {actions[best_env_idx][-3:]}")
 
-        
-        
         return True
 
 class PyBoyEnv(gym.Env):
@@ -93,13 +104,14 @@ class PyBoyEnv(gym.Env):
         self.pyboy = PyBoy(game_path, window_type="headless", cgb=True)
         self.renderer = Renderer()
         self.actions = []
+        self.screen_images = []
         # Define the memory range for 'number of Pokémon caught'
         self.caught_pokemon_start = 0xD2F7
         self.caught_pokemon_end = 0xD309
         self.player_x_mem = 0xD361
         self.player_y_mem = 0xD362
         self.player_x_block_mem = 0xD363
-        self.player_y_block_mem = 0xD364 
+        self.player_y_block_mem = 0xD364
         self.seen_events = set()
         self.emunum = emunum
         self.save_state_path = save_state_path
@@ -117,14 +129,19 @@ class PyBoyEnv(gym.Env):
                         WindowEvent.RELEASE_ARROW_LEFT, WindowEvent.RELEASE_ARROW_RIGHT, WindowEvent.RELEASE_BUTTON_A, WindowEvent.RELEASE_BUTTON_B, WindowEvent.RELEASE_BUTTON_START, 
                         WindowEvent.RELEASE_BUTTON_SELECT]
         
+                # Get the current date and time
+        current_datetime = datetime.datetime.now()
 
-        
+        # Format the datetime as a string suitable for a Unix filename
+        self.filename_datetime = current_datetime.strftime("%Y-%m-%d_%H-%M-%S")
+
+
 
         # Define actioqn_space and observation_space
         self.action_space = gym.spaces.Discrete(16)
         self.observation_space = gym.spaces.Box(low=0, high=255, shape=(698,),
                                                  dtype=np.uint8)
-    
+
     def generate_image(self):
         return Image.fromarray(self.pyboy.botsupport_manager().screen().screen_ndarray())
 
@@ -138,8 +155,8 @@ class PyBoyEnv(gym.Env):
             self.renderer.resize(terminal_size.columns,
                                  terminal_size.lines * 2 * 160 // 144)
         self.renderer.render(Ansi24HblockMethod)
-        
-        
+
+
 
     def step(self, action):
         self.frames = self.pyboy.frame_count
@@ -148,6 +165,9 @@ class PyBoyEnv(gym.Env):
         self.actions.append(action)
         for _ in range(ticks):
             self.pyboy.tick()
+
+
+
         # flo = io.BytesIO()
         # self.pyboy.save_state(flo)
         # flo.seek(0)
@@ -156,7 +176,7 @@ class PyBoyEnv(gym.Env):
         pokemon_caught = sum(
             memory_values[self.caught_pokemon_start: self.caught_pokemon_end]
         )
-        
+
 
         px = memory_values[self.player_x_mem]
         py = memory_values[self.player_y_mem]
@@ -188,7 +208,8 @@ class PyBoyEnv(gym.Env):
         self.last_pokemon_count = pokemon_caught
         return observation, reward, terminated, truncated, info
 
-    def reset(self, seed=None):
+    def reset(self, seed=None, **kwargs):
+        super().reset(**kwargs)
         print("OS:SHAPE:", self.observation_space.shape)
         # memory_values = self.pyboy.mb.ram.internal_ram0.append(self.pyboy.mb.ram.internal_ram1)
         # memory_values = np.array([self.pyboy.get_memory_value(address) for address in range(0x10000)])
@@ -207,7 +228,6 @@ class PyBoyEnv(gym.Env):
             # print("OS:EVENTS:", hashable_strings)
 
         memory_values = memory_values[0xD5A6:0xD85F]
-        seed = 0
         observation = np.append(
             memory_values, pokemon_caught + len(self.seen_events))
         # use timg to output the current screen
@@ -225,18 +245,18 @@ class PyBoyEnv(gym.Env):
         # obj.render(Ansi24HblockMethod)
         print("OS:SHAPE:", observation.shape, seed)
         return observation, {"seed": seed}
-    
+
 
 
 
 def make_env(game_path, emunum):
     def _init():
-        env = PyBoyEnv(game_path, emunum=emunum)
-        
+        new_env = PyBoyEnv(game_path, emunum=emunum)
+
         if os.path.exists(game_path + ".state"):
-             env.pyboy.load_state(open(game_path + ".state", "rb"))
-        env.pyboy.set_emulation_speed(0)
-        return env
+            new_env.pyboy.load_state(open(game_path + ".state", "rb"))
+        new_env.pyboy.set_emulation_speed(0)
+        return new_env
     return _init
 
 
@@ -253,8 +273,8 @@ if __name__ == "__main__":
     # num_cpu = 1
     env = SubprocVecEnv([make_env(args.game_path,
                                   emunum) for emunum in range(num_cpu)])
-    
-    steps = 20000 * num_cpu
+
+    steps = 2000 * num_cpu
     file_name = "model"
     def train_model(env, num_steps):
         policy_kwargs = dict(
@@ -270,7 +290,7 @@ if __name__ == "__main__":
             else device
         )
         device = "cuda" if torch.cuda.is_available() else device
-        
+
         if exists(file_name + '.zip'):
             print('\nloading checkpoint')
             model = PPO.load(file_name, env=env, device=device)
@@ -279,12 +299,12 @@ if __name__ == "__main__":
 #            model.rollout_buffer.buffer_size = steps
             model.rollout_buffer.n_envs = num_cpu
             model.rollout_buffer.reset()
-            
+
         else:
-           model = PPO(policy=CustomNetwork, env=env, policy_kwargs=policy_kwargs, verbose=1, device=device)
+            model = PPO(policy=CustomNetwork, env=env, policy_kwargs=policy_kwargs, verbose=1, device=device)
         # TODO: Progress callback that collects data from each frame for stats
         model.learn(total_timesteps=num_steps, progress_bar=True, callback=current_stats)
         return model
-    runsteps = 3000000 * 6 # hrs
+    runsteps = 3000000 * 2 # hrs
     model = train_model(env, runsteps)
     model.save(f"{file_name}.zip")
