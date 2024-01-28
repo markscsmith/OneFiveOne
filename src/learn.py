@@ -2,7 +2,7 @@ import multiprocessing
 from pyboy import PyBoy, WindowEvent
 from stable_baselines3 import PPO
 from stable_baselines3.common.env_util import SubprocVecEnv
-from stable_baselines3.common.callbacks import BaseCallback, EveryNTimesteps
+from stable_baselines3.common.callbacks import BaseCallback, EveryNTimesteps, CheckpointCallback
 from stable_baselines3.common.torch_layers import BaseFeaturesExtractor
 from stable_baselines3.common.policies import ActorCriticPolicy
 
@@ -17,7 +17,44 @@ import torch.nn as nn
 import time
 import os
 import datetime
+import hashlib
+import glob
+class PokeCart():
+    def __init__(self, cart_data) -> None:
+        # calculate checksum of cart_data
+        self.cart_data = cart_data
+        self.checksum = hashlib.md5(cart_data).hexdigest()
+    
 
+
+    def identify_cart(self):
+        # identify cart
+        carts = {"a6924ce1f9ad2228e1c6580779b23878":  "POKEMONG.GBC",
+                 "9f2922b235a5eeb78d65594e82ef5dde":  "PMCRYSTA.GBC",
+                 "d9290db87b1f0a23b89f99ee4469e34b":  "POKEMONY.GBC",
+                 "50927e843568814f7ed45ec4f944bd8b":  "POKEMONB.GBC",
+                 "3e098020b56c807393cc2ebae5e1857a":  "POKEMONS.GBC",
+                 "3d45c1ee9abd5738df46d2bdda8b57dc":  "POKEMONR.GBC",}
+        if self.checksum in carts:
+            return carts[self.checksum]
+        else:
+            print("Unknown cart:", self.checksum)
+            return None
+
+    def cart_offset(self):
+        # Pokemon Yellow has offset -1 vs blue and green
+        # TODO: Pokemon Gold Silver and Crystal
+        carts ={ "POKEMONG.GBC": 0x00000000,
+                 "PMCRYSTA.GBC": 0x00000000,
+                 "POKEMONY.GBC": 0x00000000 - 1,
+                 "POKEMONB.GBC": 0x00000000,
+                 "POKEMONS.GBC": 0x00000000,
+                 "POKEMONR.GBC": 0x00000000,}
+        if self.identify_cart() in carts:
+            return carts[self.identify_cart()]
+        else:
+            print("Unknown cart:", self.checksum)
+            return 0x00000000
 
 
 class CustomFeatureExtractor(BaseFeaturesExtractor):
@@ -36,6 +73,51 @@ class CustomFeatureExtractor(BaseFeaturesExtractor):
 
     def forward(self, observations: torch.Tensor) -> torch.Tensor:
         return self.extractor(observations)
+
+class ModelMergeCallback(BaseCallback):
+    def __init__(self, num_hosts, verbose=0):
+        super(ModelMergeCallback, self).__init__(verbose)
+        self.filename_datetime = datetime.datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
+        self.num_hosts = num_hosts
+
+    def _on_step(self) -> bool:
+        hostname = os.uname()[1]
+        file_name = f"{self.filename_datetime}-{self.model.num_timesteps}"
+        self.model.save(f"/Volumes/Mag/ofo/{file_name}.zip")
+        found_models = self.scan_models()
+        retries = 0
+        num_retries = 15
+        while len(found_models) < self.num_hosts and retries < num_retries:
+            retries += 1
+            time.sleep(1)
+            print(f"Waiting for other hosts to save models for {retries - num_retries} seconds: {len(found_models)}, {self.num_hosts}")
+            found_models = self.scan_models()
+
+        if len(found_models) == self.num_hosts:
+            merged_model = self.merge_models(found_models)
+            self.model.set_parameters(merged_model.get_parameters())
+        return True
+
+    def scan_models(self):
+        model_files = glob.glob(f"/Volumes/Mag/ofo/*-*.zip")
+        found_models = []
+        for model_file in model_files:
+            if int(model_file.split("-")[-1].split(".")[0]) >= self.model.num_timesteps:
+                found_models.append(model_file)
+        return found_models
+
+    def merge_models(self, model_files):
+        models = [PPO.load(model_file, device='cpu') for model_file in model_files]
+        merged_weights = {}
+        
+        for key in models[0].get_parameters().keys():
+            merged_weights[key] = torch.mean(torch.stack([model.get_parameters()[key] for model in models]), dim=0)
+        
+        merged_model = models[0].clone()
+        merged_model.set_parameters(merged_weights)
+        return merged_model
+
+
 
 class CustomNetwork(ActorCriticPolicy):
     def __init__(self, *args, **kwargs):
@@ -98,24 +180,6 @@ class PokeCaughtCallback(BaseCallback):
 
         return True
 
-class ButtonStates():
-    def __init__(self) -> None:
-        self.A = False
-        self.B = False
-        self.UP = False
-        self.DOWN = False
-        self.LEFT = False
-        self.RIGHT = False
-        self.START = False
-        self.SELECT = False
-
-    def __str__(self) -> str:
-        return f"{self.A}{self.B}{self.UP}{self.DOWN}{self.LEFT}{self.RIGHT}{self.START}{self.SELECT}"
-    def PRESS_ARROW_DOWN(self):
-        self.DOWN = True
-
-        
-
 class PyBoyEnv(gym.Env):
     def __init__(self, game_path, emunum, save_state_path=None):
         super(PyBoyEnv, self).__init__()
@@ -124,12 +188,13 @@ class PyBoyEnv(gym.Env):
         self.actions = []
         self.screen_images = []
         # Define the memory range for 'number of Pokémon caught'
-        self.caught_pokemon_start = 0xD2F7
-        self.caught_pokemon_end = 0xD309
-        self.player_x_mem = 0xD361
-        self.player_y_mem = 0xD362
-        self.player_x_block_mem = 0xD363
-        self.player_y_block_mem = 0xD364
+        self.cart = PokeCart(open(game_path, "rb").read())
+        self.caught_pokemon_start = 0xD2F7 - self.cart.cart_offset()
+        self.caught_pokemon_end = 0xD309 - self.cart.cart_offset()
+        self.player_x_mem = 0xD361 - self.cart.cart_offset()
+        self.player_y_mem = 0xD362 - self.cart.cart_offset()
+        self.player_x_block_mem = 0xD363 - self.cart.cart_offset()
+        self.player_y_block_mem = 0xD364 - self.cart.cart_offset()
         self.seen_events = set()
         self.emunum = emunum
         self.save_state_path = save_state_path
@@ -143,16 +208,18 @@ class PyBoyEnv(gym.Env):
         self.last_player_x_block = 0
         self.last_player_y_block = 0
         self.screen_image_arrays = set()
-        self.buttons = [WindowEvent.PRESS_ARROW_UP, WindowEvent.PRESS_ARROW_DOWN, WindowEvent.PRESS_ARROW_LEFT, WindowEvent.PRESS_ARROW_RIGHT, WindowEvent.PRESS_BUTTON_A, 
-                        WindowEvent.PRESS_BUTTON_B, WindowEvent.PRESS_BUTTON_START, WindowEvent.PRESS_BUTTON_SELECT, WindowEvent.RELEASE_ARROW_UP, WindowEvent.RELEASE_ARROW_DOWN, 
-                        WindowEvent.RELEASE_ARROW_LEFT, WindowEvent.RELEASE_ARROW_RIGHT, WindowEvent.RELEASE_BUTTON_A, WindowEvent.RELEASE_BUTTON_B, WindowEvent.RELEASE_BUTTON_START, 
+        self.buttons = [WindowEvent.PRESS_ARROW_UP, WindowEvent.PRESS_ARROW_DOWN, WindowEvent.PRESS_ARROW_LEFT,
+                        WindowEvent.PRESS_ARROW_RIGHT,WindowEvent.PRESS_BUTTON_A, WindowEvent.PRESS_BUTTON_B,
+                        WindowEvent.PRESS_BUTTON_START, WindowEvent.PRESS_BUTTON_SELECT, WindowEvent.RELEASE_ARROW_UP,
+                        WindowEvent.RELEASE_ARROW_DOWN, WindowEvent.RELEASE_ARROW_LEFT, WindowEvent.RELEASE_ARROW_RIGHT,
+                        WindowEvent.RELEASE_BUTTON_A, WindowEvent.RELEASE_BUTTON_B, WindowEvent.RELEASE_BUTTON_START,
                         WindowEvent.RELEASE_BUTTON_SELECT, WindowEvent.PASS]
-        
-        
+
+
         self.buttons_names = "UDLRABS!udlrabs. "
-        
-        
-                # Get the current date and time
+
+
+        # Get the current date and time
         current_datetime = datetime.datetime.now()
 
         # Format the datetime as a string suitable for a Unix filename
@@ -167,7 +234,7 @@ class PyBoyEnv(gym.Env):
 
     def generate_image(self):
         return Image.fromarray(self.pyboy.botsupport_manager().screen().screen_ndarray())
-    
+
     def generate_screen_ndarray(self):
         return self.pyboy.botsupport_manager().screen().screen_ndarray().tobytes()
 
@@ -291,10 +358,16 @@ if __name__ == "__main__":
     import argparse
     parser = argparse.ArgumentParser()
     parser.add_argument("game_path", type=str)
+    parser.add_argument("--num_hosts", type=int, default=1)
     args = parser.parse_args()
     num_cpu = multiprocessing.cpu_count()
+    # Hostname and timestamp
+    checkpoint_callback = EveryNTimesteps(n_steps=100000, callback=CheckpointCallback(save_freq=1000, save_path=f"/Volumes/Mag/{os.uname()[1]}-{time.time()}.zip", name_prefix="poke"))
+
 
     current_stats = EveryNTimesteps(n_steps=1000, callback=PokeCaughtCallback())
+
+    model_merge_callback = EveryNTimesteps(n_steps=1000, callback=ModelMergeCallback(args.num_hosts))
 
 
     # num_cpu = 1
@@ -321,16 +394,17 @@ if __name__ == "__main__":
         if exists(file_name + '.zip'):
             print('\nloading checkpoint')
             model = PPO.load(file_name, env=env, device=device)
-#           model.n_steps = steps
+            # model.n_steps = steps
             model.n_envs = num_cpu
-#            model.rollout_buffer.buffer_size = steps
+            # model.rollout_buffer.buffer_size = steps
             model.rollout_buffer.n_envs = num_cpu
             model.rollout_buffer.reset()
 
         else:
             model = PPO(policy=CustomNetwork, env=env, policy_kwargs=policy_kwargs, verbose=1, device=device)
         # TODO: Progress callback that collects data from each frame for stats
-        model.learn(total_timesteps=num_steps, progress_bar=True, callback=current_stats)
+        callbacks = [checkpoint_callback, model_merge_callback, current_stats]
+        model.learn(total_timesteps=num_steps, progress_bar=True, callback=callbacks)
         return model
     runsteps = 3000000 * 2 # hrs
     model = train_model(env, runsteps)
