@@ -7,7 +7,7 @@ from stable_baselines3.common.torch_layers import BaseFeaturesExtractor
 from stable_baselines3.common.policies import ActorCriticPolicy
 
 from timg import Renderer, Ansi24HblockMethod
-from PIL import Image
+from PIL import Image, ImageDraw, ImageFont
 from os.path import exists
 import gymnasium as gym
 import numpy as np
@@ -92,9 +92,25 @@ class ModelMergeCallback(BaseCallback):
             found_models = self.scan_models()
 
         if len(found_models) == self.num_hosts:
+            print("Merging models")
             merged_model = self.merge_models(found_models)
+        print("Generating GIFs")
+        self.generate_gif_and_actions()
          
         return True
+
+    def generate_gif_and_actions(self):
+        screen_image_lists = self.training_env.get_attr('screen_images')
+        actions = self.training_env.get_attr('actions')
+        for env_num, (screenarary, action) in enumerate(zip(screen_image_lists, actions)):
+            # Overlay the action text on each frame in screenarray
+            new_frames = []
+            for frame_num, frame in enumerate(screenarary):
+                new_frames.append(add_string_overlay(frame, action[frame_num], position=(20, 20), font_size=40, color=(255, 0, 0)))
+            # Combine frames into gif
+            new_frames[0].save(f"/Volumes/Mag/frames/{env_num}-{self.filename_datetime}.gif", save_all=True, append_images=screenarary[1:], optimize=False, loop=0)
+            
+
 
     def scan_models(self):
         model_files = glob.glob(f"/Volumes/Mag/ofo/*-*.zip")
@@ -110,6 +126,7 @@ class ModelMergeCallback(BaseCallback):
         params = [model.policy.state_dict() for model in models]
         average_params = {key: sum([param[key] for param in params]) / len(params) for key in params[0].keys()}
         self.model.policy.load_state_dict(average_params)
+        print("Models merged.")
         return True
 
 
@@ -176,6 +193,48 @@ class PokeCaughtCallback(BaseCallback):
 
         return True
 
+def add_string_overlay(
+    image, display_string, position=(20, 20), font_size=40, color=(255, 0, 0)
+):
+    """
+    Add a number as an overlay on the image.
+
+    Parameters:
+    - image: PIL.Image.Image
+        The image to which the number will be added
+    - number: int or str
+        The number to add
+    - position: tuple of int, optional (default=(20, 20))
+        The (x, y) position at which to add the number
+    - font_size: int, optional (default=40)
+        The font size of the number
+    - color: tuple of int, optional (default=(255, 0, 0))
+        The RGB color of the number
+
+    Returns:
+    PIL.Image.Image
+        The image with the number added
+    """
+    # Initialize a drawing context
+    draw = ImageDraw.Draw(image)
+
+    try:
+        # Use a truetype or opentype font file
+        # font = ImageFont.truetype("arial.ttf", font_size)
+        font = ImageFont.truetype(
+            "arial.ttf",
+            font_size,
+        )
+    except IOError:
+        # If the font file is not available, the default PIL font is used
+        font = ImageFont.load_default()
+
+    # Draw the text
+    # print(f"Drawing string {display_string} at {position} in color {color} on image of size {image.size}")
+    draw.text(position, str(display_string), font=font, fill=color)
+
+    return image
+
 class PyBoyEnv(gym.Env):
     def __init__(self, game_path, emunum, save_state_path=None):
         super(PyBoyEnv, self).__init__()
@@ -204,6 +263,7 @@ class PyBoyEnv(gym.Env):
         self.last_player_x_block = 0
         self.last_player_y_block = 0
         self.screen_image_arrays = set()
+        self.screen_image_arrays_list = []
         self.buttons = [WindowEvent.PRESS_ARROW_UP, WindowEvent.PRESS_ARROW_DOWN, WindowEvent.PRESS_ARROW_LEFT,
                         WindowEvent.PRESS_ARROW_RIGHT,WindowEvent.PRESS_BUTTON_A, WindowEvent.PRESS_BUTTON_B,
                         WindowEvent.PRESS_BUTTON_START, WindowEvent.PRESS_BUTTON_SELECT, WindowEvent.RELEASE_ARROW_UP,
@@ -255,6 +315,7 @@ class PyBoyEnv(gym.Env):
         for _ in range(ticks):
             self.pyboy.tick()
             self.screen_image_arrays.add(self.generate_screen_ndarray())
+            self.screen_images.append(self.generate_image())
 
 
 
@@ -363,7 +424,7 @@ if __name__ == "__main__":
 
     current_stats = EveryNTimesteps(n_steps=1000, callback=PokeCaughtCallback())
 
-    model_merge_callback = EveryNTimesteps(n_steps=100000, callback=ModelMergeCallback(args.num_hosts))
+    model_merge_callback = EveryNTimesteps(n_steps=50000, callback=ModelMergeCallback(args.num_hosts))
 
 
     # num_cpu = 1
