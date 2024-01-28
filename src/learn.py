@@ -82,7 +82,7 @@ class ModelMergeCallback(BaseCallback):
 
     def _on_step(self) -> bool:
         hostname = os.uname()[1]
-        file_name = f"{self.filename_datetime}-{self.model.num_timesteps}"
+        file_name = f"{hostname}-{self.filename_datetime}-{self.model.num_timesteps}"
         self.model.save(f"/Volumes/Mag/ofo/{file_name}.zip")
         found_models = self.scan_models()
         retries = 0
@@ -99,10 +99,11 @@ class ModelMergeCallback(BaseCallback):
         return True
 
     def scan_models(self):
-        model_files = glob.glob(f"/Volumes/Mag/ofo/*-*.zip")
+        model_files = glob.glob("/Volumes/Mag/ofo/*-*.zip")
         found_models = []
         for model_file in model_files:
             if int(model_file.split("-")[-1].split(".")[0]) >= self.model.num_timesteps:
+                print(f"Found model: {model_file}")
                 found_models.append(model_file)
         return found_models
 
