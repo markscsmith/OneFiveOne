@@ -107,7 +107,7 @@ class ModelMergeCallback(BaseCallback):
             # Overlay the action text on each frame in screenarray
             new_frames = []
             for frame_num, frame in enumerate(screenarary):
-                new_frames.append(add_string_overlay(frame, action[frame_num], position=(20, 20), font_size=40, color=(255, 0, 0)))
+                new_frames.append(add_string_overlay(Image.fromarray(frame.screen_ndarray()), action[frame_num], position=(20, 20), font_size=40, color=(255, 0, 0)))
             # Combine frames into gif
             new_frames[0].save(f"/Volumes/Mag/frames/{hostname}-{env_num}-{self.filename_datetime}.gif", save_all=True, append_images=screenarary[1:], optimize=False, loop=0)
             
@@ -265,6 +265,7 @@ class PyBoyEnv(gym.Env):
         self.last_player_y_block = 0
         self.screen_image_arrays = set()
         self.screen_image_arrays_list = []
+        
         self.buttons = [WindowEvent.PRESS_ARROW_UP, WindowEvent.PRESS_ARROW_DOWN, WindowEvent.PRESS_ARROW_LEFT,
                         WindowEvent.PRESS_ARROW_RIGHT,WindowEvent.PRESS_BUTTON_A, WindowEvent.PRESS_BUTTON_B,
                         WindowEvent.PRESS_BUTTON_START, WindowEvent.PRESS_BUTTON_SELECT, WindowEvent.RELEASE_ARROW_UP,
@@ -290,7 +291,7 @@ class PyBoyEnv(gym.Env):
                                                  dtype=np.uint8)
 
     def generate_image(self):
-        return Image.fromarray(self.pyboy.botsupport_manager().screen().screen_ndarray())
+        return self.pyboy.botsupport_manager().screen().screen_image()
 
     def generate_screen_ndarray(self):
         return self.pyboy.botsupport_manager().screen().screen_ndarray().tobytes()
