@@ -93,7 +93,7 @@ class ModelMergeCallback(BaseCallback):
 
         if len(found_models) == self.num_hosts:
             merged_model = self.merge_models(found_models)
-            self.model.set_parameters(merged_model.get_parameters())
+         
         return True
 
     def scan_models(self):
@@ -106,37 +106,12 @@ class ModelMergeCallback(BaseCallback):
 
     def merge_models(self, model_files):
         models = [PPO.load(model_file, device='cpu') for model_file in model_files]
-        merged_weights = {}
 
-        for key in models[0].get_parameters().keys():
-            # Stack tensors corresponding to each key
-            tensor_stack = torch.stack([model.get_parameters()[key].detach() for model in models])
-            merged_weights[key] = torch.mean(tensor_stack, dim=0)
-        
-        merged_model = models[0].clone()
-        merged_model.set_parameters(merged_weights)
-        return merged_model
+        params = [model.policy.state_dict() for model in models]
+        average_params = {key: sum([param[key] for param in params]) / len(params) for key in params[0].keys()}
+        self.model.policy.load_state_dict(average_params)
+        return True
 
-
-    def scan_models(self):
-        model_files = glob.glob("/Volumes/Mag/ofo/*-*.zip")
-        found_models = []
-        for model_file in model_files:
-            if int(model_file.split("-")[-1].split(".")[0]) >= self.model.num_timesteps:
-                print(f"Found model: {model_file}")
-                found_models.append(model_file)
-        return found_models
-
-    def merge_models(self, model_files):
-        models = [PPO.load(model_file, device='cpu') for model_file in model_files]
-        merged_weights = {}
-        
-        for key in models[0].get_parameters().keys():
-            merged_weights[key] = torch.mean(torch.stack([model.get_parameters()[key] for model in models]), dim=0)
-        
-        merged_model = models[0].clone()
-        merged_model.set_parameters(merged_weights)
-        return merged_model
 
 
 
