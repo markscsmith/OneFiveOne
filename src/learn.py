@@ -87,7 +87,7 @@ class ModelMergeCallback(BaseCallback):
         found_models = self.scan_models()
         retries = 0
         num_retries = 15
-        while len(found_models) < self.num_hosts # and retries < num_retries:
+        while len(found_models) < self.num_hosts: # and retries < num_retries:
             retries += 1
             time.sleep(1)
             print(f"Waiting for other hosts to save models for {retries - num_retries} seconds: {len(found_models)}, {self.num_hosts}")
