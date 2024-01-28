@@ -94,6 +94,7 @@ class ModelMergeCallback(BaseCallback):
             found_models = self.scan_models()
 
         if len(found_models) == self.num_hosts:
+            time.sleep(5)
             merged_model = self.merge_models(found_models)
             self.model.set_parameters(merged_model.get_parameters())
         return True
