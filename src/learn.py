@@ -363,7 +363,7 @@ if __name__ == "__main__":
 
     current_stats = EveryNTimesteps(n_steps=1000, callback=PokeCaughtCallback())
 
-    model_merge_callback = EveryNTimesteps(n_steps=1000, callback=ModelMergeCallback(args.num_hosts))
+    model_merge_callback = EveryNTimesteps(n_steps=100000, callback=ModelMergeCallback(args.num_hosts))
 
 
     # num_cpu = 1
