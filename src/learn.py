@@ -102,13 +102,14 @@ class ModelMergeCallback(BaseCallback):
     def generate_gif_and_actions(self):
         screen_image_lists = self.training_env.get_attr('screen_images')
         actions = self.training_env.get_attr('actions')
+        hostname = os.uname()[1]
         for env_num, (screenarary, action) in enumerate(zip(screen_image_lists, actions)):
             # Overlay the action text on each frame in screenarray
             new_frames = []
             for frame_num, frame in enumerate(screenarary):
                 new_frames.append(add_string_overlay(frame, action[frame_num], position=(20, 20), font_size=40, color=(255, 0, 0)))
             # Combine frames into gif
-            new_frames[0].save(f"/Volumes/Mag/frames/{env_num}-{self.filename_datetime}.gif", save_all=True, append_images=screenarary[1:], optimize=False, loop=0)
+            new_frames[0].save(f"/Volumes/Mag/frames/{hostname}-{env_num}-{self.filename_datetime}.gif", save_all=True, append_images=screenarary[1:], optimize=False, loop=0)
             
 
 
@@ -309,7 +310,7 @@ class PyBoyEnv(gym.Env):
 
     def step(self, action):
         self.frames = self.pyboy.frame_count
-        ticks = 1
+        ticks = 16
         self.pyboy.send_input(self.buttons[action])
         self.actions.append(self.buttons_names[action])
         for _ in range(ticks):
