@@ -98,6 +98,24 @@ class PokeCaughtCallback(BaseCallback):
 
         return True
 
+class ButtonStates():
+    def __init__(self) -> None:
+        self.A = False
+        self.B = False
+        self.UP = False
+        self.DOWN = False
+        self.LEFT = False
+        self.RIGHT = False
+        self.START = False
+        self.SELECT = False
+
+    def __str__(self) -> str:
+        return f"{self.A}{self.B}{self.UP}{self.DOWN}{self.LEFT}{self.RIGHT}{self.START}{self.SELECT}"
+    def PRESS_ARROW_DOWN(self):
+        self.DOWN = True
+
+        
+
 class PyBoyEnv(gym.Env):
     def __init__(self, game_path, emunum, save_state_path=None):
         super(PyBoyEnv, self).__init__()
@@ -124,10 +142,15 @@ class PyBoyEnv(gym.Env):
         self.last_player_y = 0
         self.last_player_x_block = 0
         self.last_player_y_block = 0
+        self.screen_image_arrays = set()
         self.buttons = [WindowEvent.PRESS_ARROW_UP, WindowEvent.PRESS_ARROW_DOWN, WindowEvent.PRESS_ARROW_LEFT, WindowEvent.PRESS_ARROW_RIGHT, WindowEvent.PRESS_BUTTON_A, 
                         WindowEvent.PRESS_BUTTON_B, WindowEvent.PRESS_BUTTON_START, WindowEvent.PRESS_BUTTON_SELECT, WindowEvent.RELEASE_ARROW_UP, WindowEvent.RELEASE_ARROW_DOWN, 
                         WindowEvent.RELEASE_ARROW_LEFT, WindowEvent.RELEASE_ARROW_RIGHT, WindowEvent.RELEASE_BUTTON_A, WindowEvent.RELEASE_BUTTON_B, WindowEvent.RELEASE_BUTTON_START, 
-                        WindowEvent.RELEASE_BUTTON_SELECT]
+                        WindowEvent.RELEASE_BUTTON_SELECT, WindowEvent.PASS]
+        
+        
+        self.buttons_names = "UDLRABS!udlrabs. "
+        
         
                 # Get the current date and time
         current_datetime = datetime.datetime.now()
@@ -138,12 +161,15 @@ class PyBoyEnv(gym.Env):
 
 
         # Define actioqn_space and observation_space
-        self.action_space = gym.spaces.Discrete(16)
+        self.action_space = gym.spaces.Discrete(17)
         self.observation_space = gym.spaces.Box(low=0, high=255, shape=(698,),
                                                  dtype=np.uint8)
 
     def generate_image(self):
         return Image.fromarray(self.pyboy.botsupport_manager().screen().screen_ndarray())
+    
+    def generate_screen_ndarray(self):
+        return self.pyboy.botsupport_manager().screen().screen_ndarray().tobytes()
 
     def render(self):
         terminal_size = os.get_terminal_size()
@@ -160,11 +186,12 @@ class PyBoyEnv(gym.Env):
 
     def step(self, action):
         self.frames = self.pyboy.frame_count
-        ticks = 24
+        ticks = 1
         self.pyboy.send_input(self.buttons[action])
-        self.actions.append(action)
+        self.actions.append(self.buttons_names[action])
         for _ in range(ticks):
             self.pyboy.tick()
+            self.screen_image_arrays.add(self.generate_screen_ndarray())
 
 
 
@@ -196,7 +223,7 @@ class PyBoyEnv(gym.Env):
         memory_values = memory_values[0xD5A6:0xD85F]
         observation = np.append(memory_values, (pokemon_caught + 1) * len(self.visited_xy))
 
-        reward = (pokemon_caught * 100) + len(self.visited_xy)
+        reward = (pokemon_caught * 100) + len(self.visited_xy) + len(self.screen_image_arrays)
 
         # if np.random.randint(777) == 0 or self.last_pokemon_count != pokemon_caught or self.last_score - reward > 100:
         #     self.render()
