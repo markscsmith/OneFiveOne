@@ -104,6 +104,7 @@ class ModelMergeCallback(BaseCallback):
                 except Exception as e:
                     print(e)
                     print("Failed to merge models")
+                    time.sleep(5)
                     retries -= 1
 
         return True
