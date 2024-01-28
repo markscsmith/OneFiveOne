@@ -86,28 +86,37 @@ class ModelMergeCallback(BaseCallback):
         self.model.save(f"/Volumes/Mag/ofo/{file_name}.zip")
         found_models = self.scan_models()
         retries = 0
-        num_retries = 15
-        while len(found_models) < self.num_hosts: # and retries < num_retries:
+        while len(found_models) < self.num_hosts and retries < 15:
             retries += 1
             time.sleep(1)
-            print(f"Waiting for other hosts to save models for {retries - num_retries} seconds: {len(found_models)}, {self.num_hosts}")
             found_models = self.scan_models()
 
         if len(found_models) == self.num_hosts:
-            time.sleep(5)
-            retries = 5
-            while retries > 0:
-                try:
-                    merged_model = self.merge_models(found_models)
-                    self.model.set_parameters(merged_model.get_parameters())
-                    retries = 0
-                except Exception as e:
-                    print(e)
-                    print("Failed to merge models")
-                    time.sleep(5)
-                    retries -= 1
-
+            merged_model = self.merge_models(found_models)
+            self.model.set_parameters(merged_model.get_parameters())
         return True
+
+    def scan_models(self):
+        model_files = glob.glob(f"/Volumes/Mag/ofo/*-*.zip")
+        found_models = []
+        for model_file in model_files:
+            if int(model_file.split("-")[-1].split(".")[0]) >= self.model.num_timesteps:
+                found_models.append(model_file)
+        return found_models
+
+    def merge_models(self, model_files):
+        models = [PPO.load(model_file, device='cpu') for model_file in model_files]
+        merged_weights = {}
+
+        for key in models[0].get_parameters().keys():
+            # Stack tensors corresponding to each key
+            tensor_stack = torch.stack([model.get_parameters()[key].detach() for model in models])
+            merged_weights[key] = torch.mean(tensor_stack, dim=0)
+        
+        merged_model = models[0].clone()
+        merged_model.set_parameters(merged_weights)
+        return merged_model
+
 
     def scan_models(self):
         model_files = glob.glob("/Volumes/Mag/ofo/*-*.zip")
