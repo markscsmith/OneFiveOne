@@ -140,7 +140,7 @@ class ModelMergeCallback(BaseCallback):
         model_files = glob.glob(f"/Volumes/Mag/ofo/*-*.zip")
         found_models = []
         for model_file in model_files:
-            if int(model_file.split("-")[-1].split(".")[0]) >= self.model.num_timesteps:
+            if int(model_file.split("-")[-1].split(".")[0]) >= (self.model.num_timesteps - 1000):
                 found_models.append(model_file)
         return found_models
 
