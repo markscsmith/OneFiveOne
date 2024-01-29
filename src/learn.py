@@ -470,7 +470,7 @@ if __name__ == "__main__":
     env = SubprocVecEnv([make_env(args.game_path,
                                   emunum) for emunum in range(num_cpu)])
 
-    steps = 10240 * num_cpu
+    steps = 2048
     file_name = "model"
     def train_model(env, num_steps):
         policy_kwargs = dict(
