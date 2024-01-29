@@ -154,7 +154,7 @@ class ModelMergeCallback(BaseCallback):
 
         found_models = []
         for model_file in model_files:
-            if int(model_file.split("-")[-1].split(".")[0]) >= (self.model.num_timesteps - 1000):
+            if int(model_file.split("-")[-1].split(".")[0]) >= (self.model.num_timesteps - self.model.num_timesteps * 0.34):
                 found_models.append(model_file)
         return found_models
 
@@ -461,16 +461,16 @@ if __name__ == "__main__":
     checkpoint_callback = EveryNTimesteps(n_steps=100000, callback=CheckpointCallback(save_freq=1000, save_path=f"/Volumes/Mag/{os.uname()[1]}-{time.time()}.zip", name_prefix="poke"))
 
 
-    current_stats = EveryNTimesteps(n_steps=1000, callback=PokeCaughtCallback())
+    current_stats = EveryNTimesteps(n_steps=10000, callback=PokeCaughtCallback())
 
-    model_merge_callback = EveryNTimesteps(n_steps=50000, callback=ModelMergeCallback(args.num_hosts))
+    model_merge_callback = EveryNTimesteps(n_steps=250000, callback=ModelMergeCallback(args.num_hosts))
 
 
     # num_cpu = 1
     env = SubprocVecEnv([make_env(args.game_path,
                                   emunum) for emunum in range(num_cpu)])
 
-    steps = 10240 * num_cpu
+    steps = 102400 * num_cpu
     file_name = "model"
     def train_model(env, num_steps):
         policy_kwargs = dict(
@@ -502,6 +502,6 @@ if __name__ == "__main__":
         callbacks = [checkpoint_callback, model_merge_callback, current_stats]
         model.learn(total_timesteps=num_steps, progress_bar=True, callback=callbacks)
         return model
-    runsteps = 3000000 * 2 # hrs
+    runsteps = 30000000 * 2 # hrs
     model = train_model(env, runsteps)
     model.save(f"{file_name}.zip")
