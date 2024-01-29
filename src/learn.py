@@ -122,6 +122,9 @@ class ModelMergeCallback(BaseCallback):
                       ❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌
                       ❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌
                     """)
+                time.sleep(10)
+                
+                
         
         self.generate_gif_and_actions()
          
@@ -145,7 +148,10 @@ class ModelMergeCallback(BaseCallback):
 
 
     def scan_models(self):
+        # Force LS of directory to refresh cacche:
+        os.system("ls /Volumes/Mag/ofo")
         model_files = glob.glob(f"/Volumes/Mag/ofo/*-*.zip")
+
         found_models = []
         for model_file in model_files:
             if int(model_file.split("-")[-1].split(".")[0]) >= (self.model.num_timesteps - 1000):
