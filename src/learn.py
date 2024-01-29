@@ -102,12 +102,19 @@ class ModelMergeCallback(BaseCallback):
     def generate_gif_and_actions(self):
         
         actions = self.training_env.get_attr('actions')
+        rewards = self.training_env.get_attr('last_score')
+        frames = self.training_env.get_attr('frames')
+        visiteds = self.training_env.get_attr('visited_xy')
+
         hostname = os.uname()[1]
-        for action in actions:
-            # save action lists as a CSV for that generation of models
-            with open(f"/Volumes/Mag/actions/{hostname}-{self.filename_datetime}-{self.model.num_timesteps}.csv", "a", encoding="utf-8") as f:
-                f.write(",".join(action) + "\n")
-        
+        file_name = f"{hostname}-{self.filename_datetime}-{self.model.num_timesteps}"
+        # Generate a CSV of data
+        for env_num, (visited, steps, reward, action)  in enumerate(zip(visiteds, frames, rewards, actions)):
+            with open(f"/Volumes/Mag/frames/{file_name}-{env_num}.csv", "w") as f:
+                f.write("x,y,x_block,y_block,action\n")
+                for x, y, x_block, y_block, action in zip(visited, steps, reward, action):
+                    f.write(f"{x},{y},{x_block},{y_block},{action}\n")
+
 
 
     def scan_models(self):
@@ -308,12 +315,12 @@ class PyBoyEnv(gym.Env):
 
     def step(self, action):
         self.frames = self.pyboy.frame_count
-        ticks = 1
+        ticks = 24
         self.pyboy.send_input(self.buttons[action])
         self.actions.append(self.buttons_names[action])
         for _ in range(ticks):
             self.pyboy.tick()
-            self.screen_image_arrays.add(self.generate_screen_ndarray().tobytes)
+        self.screen_image_arrays.add(self.generate_screen_ndarray().tobytes)
 
 
         # flo = io.BytesIO()
