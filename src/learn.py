@@ -318,7 +318,7 @@ class PyBoyEnv(gym.Env):
             self.pyboy.tick()
             ndarr = self.generate_screen_ndarray()
             self.screen_image_arrays.add(ndarr.tobytes())
-            self.screen_image_arrays_list.append(ndarr)
+            self.screen_images.append(ndarr)
 
 
         # flo = io.BytesIO()
