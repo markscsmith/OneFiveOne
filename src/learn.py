@@ -109,11 +109,10 @@ class ModelMergeCallback(BaseCallback):
         hostname = os.uname()[1]
         file_name = f"{hostname}-{self.filename_datetime}-{self.model.num_timesteps}"
         # Generate a CSV of data
-        for env_num, (visited, steps, reward, action)  in enumerate(zip(visiteds, frames, rewards, actions)):
-            with open(f"/Volumes/Mag/frames/{file_name}-{env_num}.csv", "w") as f:
-                f.write("x,y,x_block,y_block,action\n")
-                for x, y, x_block, y_block, action in zip(visited, steps, reward, action):
-                    f.write(f"{x},{y},{x_block},{y_block},{action}\n")
+        with open(f"/Volumes/Mag/ofo/{file_name}.csv", "w") as f:
+            f.write("env_num,actions,rewards,frames,visiteds\n")
+            for env_num, (action, reward, frame, visited) in enumerate(zip(actions, rewards, frames, visiteds)):
+                f.write(f"{env_num},{action},{reward},{frame},{visited}\n")
 
 
 
@@ -315,12 +314,14 @@ class PyBoyEnv(gym.Env):
 
     def step(self, action):
         self.frames = self.pyboy.frame_count
-        ticks = 24
+        ticks = 1
+        frame_checks = 24
         self.pyboy.send_input(self.buttons[action])
         self.actions.append(self.buttons_names[action])
         for _ in range(ticks):
             self.pyboy.tick()
-        self.screen_image_arrays.add(self.generate_screen_ndarray().tobytes)
+        if self.frames % frame_checks == 0:
+            self.screen_image_arrays.add(self.generate_screen_ndarray().tobytes)
 
 
         # flo = io.BytesIO()
