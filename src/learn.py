@@ -85,11 +85,13 @@ class ModelMergeCallback(BaseCallback):
         file_name = f"{hostname}-{self.filename_datetime}-{self.model.num_timesteps}"
         self.model.save(f"/Volumes/Mag/ofo/{file_name}.zip")
         found_models = self.scan_models()
+        time.sleep(1)
         retries = 0
-        while len(found_models) < self.num_hosts and retries < 15:
+        max_retries = 30
+        while len(found_models) < self.num_hosts and retries < max_retries:
             retries += 1
-            time.sleep(1)
             found_models = self.scan_models()
+            time.sleep(1)
 
         if len(found_models) == self.num_hosts:
             print("Merging models")
