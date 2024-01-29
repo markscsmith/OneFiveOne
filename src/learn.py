@@ -96,7 +96,7 @@ class ModelMergeCallback(BaseCallback):
         if len(found_models) == self.num_hosts:
             print("Merging models")
             self.merge_models(found_models)
-            print("Model Merge Complete!")
+            print(f"Model Merge Complete! Merged {len(found_models)} models. New model size: {self.model.num_timesteps}")
             # Flashy emoji to show model merge clearly on screen!
             print("""
                   🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉
@@ -105,6 +105,16 @@ class ModelMergeCallback(BaseCallback):
                   🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉
                   🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉
                 """)
+        else:
+            print(f"Model error! Only found {len(found_models)} models. Expected {self.num_hosts} models.")
+            print("""
+                  ❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌
+                  ❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌
+                  ❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌
+                  ❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌
+                  ❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌
+                """)
+        else:
         self.generate_gif_and_actions()
          
         return True
@@ -446,7 +456,7 @@ if __name__ == "__main__":
     env = SubprocVecEnv([make_env(args.game_path,
                                   emunum) for emunum in range(num_cpu)])
 
-    steps = 2000 * num_cpu
+    steps = 10240 * num_cpu
     file_name = "model"
     def train_model(env, num_steps):
         policy_kwargs = dict(
@@ -473,7 +483,7 @@ if __name__ == "__main__":
             model.rollout_buffer.reset()
 
         else:
-            model = PPO(policy=CustomNetwork, env=env, policy_kwargs=policy_kwargs, verbose=1, device=device)
+            model = PPO(policy=CustomNetwork, n_steps=steps,env=env, policy_kwargs=policy_kwargs, verbose=1, device=device)
         # TODO: Progress callback that collects data from each frame for stats
         callbacks = [checkpoint_callback, model_merge_callback, current_stats]
         model.learn(total_timesteps=num_steps, progress_bar=True, callback=callbacks)
