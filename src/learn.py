@@ -65,9 +65,9 @@ class CustomFeatureExtractor(BaseFeaturesExtractor):
         self.extractor = nn.Sequential(
             nn.Linear(np.prod(observation_space.shape), 256),
             nn.ReLU(),
-            nn.Linear(2048, 256),
+            nn.Linear(256, 128),
             nn.ReLU(),
-            nn.Linear(256, features_dim),
+            nn.Linear(128, features_dim),
             nn.ReLU(),
         )
 
