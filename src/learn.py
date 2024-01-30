@@ -518,6 +518,6 @@ if __name__ == "__main__":
         callbacks = [checkpoint_callback, model_merge_callback, current_stats]
         model.learn(total_timesteps=num_steps, progress_bar=True, callback=callbacks)
         return model
-    runsteps = 10000000 * 4 # hrs
+    runsteps = 10000000 * 8 # hrs
     model = train_model(env, runsteps, steps=10240)
     model.save(f"{file_name}.zip")
