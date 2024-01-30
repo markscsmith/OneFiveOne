@@ -63,11 +63,11 @@ class CustomFeatureExtractor(BaseFeaturesExtractor):
 
         # Define your custom layers here
         self.extractor = nn.Sequential(
-            nn.Linear(np.prod(observation_space.shape), 256),
+            nn.Linear(np.prod(observation_space.shape), 2048),
             nn.ReLU(),
-            nn.Linear(256, 128),
+            nn.Linear(2048, 128),
             nn.ReLU(),
-            nn.Linear(2048, features_dim),
+            nn.Linear(128, features_dim),
             nn.ReLU(),
         )
 
