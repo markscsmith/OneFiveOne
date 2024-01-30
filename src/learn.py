@@ -63,9 +63,9 @@ class CustomFeatureExtractor(BaseFeaturesExtractor):
 
         # Define your custom layers here
         self.extractor = nn.Sequential(
-            nn.Linear(np.prod(observation_space.shape), 256),
+            nn.Linear(np.prod(observation_space.shape), 2048),
             nn.ReLU(),
-            nn.Linear(256, 256),
+            nn.Linear(2048, 256),
             nn.ReLU(),
             nn.Linear(256, features_dim),
             nn.ReLU(),
@@ -495,13 +495,13 @@ if __name__ == "__main__":
             model = PPO.load(file_name, env=env, device=device)
             model.n_steps = steps
             model.n_envs = num_cpu
-            model.rollout_buffer.buffer_size = steps
+            
             model.rollout_buffer.n_envs = num_cpu
             model.rollout_buffer.reset()
 
         else:
             model = PPO(policy=CustomNetwork, n_steps=steps * num_cpu, env=env, policy_kwargs=policy_kwargs, verbose=1, device=device)
-            model.rollout_buffer.buffer_size = steps
+            
         # TODO: Progress callback that collects data from each frame for stats
         callbacks = [checkpoint_callback, model_merge_callback, current_stats]
         model.learn(total_timesteps=num_steps, progress_bar=True, callback=callbacks)
