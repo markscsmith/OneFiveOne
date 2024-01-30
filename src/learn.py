@@ -505,7 +505,7 @@ if __name__ == "__main__":
         if exists(file_name + '.zip'):
             print('\nloading checkpoint')
             model = PPO.load(file_name, env=env, device=device)
-            model.n_steps = steps
+            model.n_steps = steps * num_cpu
             model.n_envs = num_cpu
             
             model.rollout_buffer.n_envs = num_cpu
@@ -519,5 +519,5 @@ if __name__ == "__main__":
         model.learn(total_timesteps=num_steps, progress_bar=True, callback=callbacks)
         return model
     runsteps = 10000000 * 8 # hrs
-    model = train_model(env, runsteps, steps=10240)
+    model = train_model(env, runsteps, steps=4096)
     model.save(f"{file_name}.zip")
