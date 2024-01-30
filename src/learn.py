@@ -65,9 +65,9 @@ class CustomFeatureExtractor(BaseFeaturesExtractor):
         self.extractor = nn.Sequential(
             nn.Linear(np.prod(observation_space.shape), 256),
             nn.ReLU(),
-            nn.Linear(256, 128),
+            nn.Linear(2048, 1024),
             nn.ReLU(),
-            nn.Linear(128, features_dim),
+            nn.Linear(2048, features_dim),
             nn.ReLU(),
         )
 
@@ -173,7 +173,7 @@ class ModelMergeCallback(BaseCallback):
 class CustomNetwork(ActorCriticPolicy):
     def __init__(self, *args, **kwargs):
         super(CustomNetwork, self).__init__(*args, **kwargs)
-        self.lr_schedule=0.025
+        self.lr_schedule = 0.025
 
 class PokeCaughtCallback(BaseCallback):
     def __init__(self, verbose=0):
@@ -386,7 +386,10 @@ class PyBoyEnv(gym.Env):
         memory_values = memory_values[0xD5A6:0xD85F]
         observation = np.append(memory_values, (pokemon_caught + 1) * len(self.visited_xy))
 
-        reward = (pokemon_caught * 100) + len(self.visited_xy) + len(self.screen_image_arrays)
+        # Don't count the frames where the player is still in the starting menus.
+        reward = (pokemon_caught * 100) + len(self.visited_xy) + (len(self.screen_image_arrays) - (self.stationary_frames))
+        
+        
 
         # if np.random.randint(777) == 0 or self.last_pokemon_count != pokemon_caught or self.last_score - reward > 100:
         #     self.render()
@@ -470,13 +473,13 @@ if __name__ == "__main__":
     env = SubprocVecEnv([make_env(args.game_path,
                                   emunum) for emunum in range(num_cpu)])
 
-    steps = 2048
+    
     file_name = "model"
-    def train_model(env, num_steps):
+    def train_model(env, num_steps, steps):
         policy_kwargs = dict(
             features_extractor_class=CustomFeatureExtractor,
             features_extractor_kwargs={},
-            net_arch=[dict(pi=[128, 64, 32], vf=[128, 64, 32])],
+            net_arch=[dict(pi=[256, 128, 64], vf=[256, 128, 64])],
             activation_fn=nn.ReLU,
         )
         device = "cpu"
@@ -490,18 +493,19 @@ if __name__ == "__main__":
         if exists(file_name + '.zip'):
             print('\nloading checkpoint')
             model = PPO.load(file_name, env=env, device=device)
-            # model.n_steps = steps
+            model.n_steps = steps
             model.n_envs = num_cpu
-            # model.rollout_buffer.buffer_size = steps
+            model.rollout_buffer.buffer_size = steps
             model.rollout_buffer.n_envs = num_cpu
             model.rollout_buffer.reset()
 
         else:
-            model = PPO(policy=CustomNetwork, n_steps=steps,env=env, policy_kwargs=policy_kwargs, verbose=1, device=device)
+            model = PPO(policy=CustomNetwork, n_steps=steps * num_cpu, env=env, policy_kwargs=policy_kwargs, verbose=1, device=device)
+            model.rollout_buffer.buffer_size = steps
         # TODO: Progress callback that collects data from each frame for stats
         callbacks = [checkpoint_callback, model_merge_callback, current_stats]
         model.learn(total_timesteps=num_steps, progress_bar=True, callback=callbacks)
         return model
-    runsteps = 30000000 * 2 # hrs
-    model = train_model(env, runsteps)
+    runsteps = 10000000 * 4 # hrs
+    model = train_model(env, runsteps, steps=10240)
     model.save(f"{file_name}.zip")
