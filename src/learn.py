@@ -507,17 +507,17 @@ if __name__ == "__main__":
             model = PPO.load(file_name, env=env, device=device)
             model.n_steps = steps * num_cpu
             model.n_envs = num_cpu
-            
+            model.device = device
             model.rollout_buffer.n_envs = num_cpu
             model.rollout_buffer.reset()
 
         else:
-            model = PPO(policy=CustomNetwork, n_steps=steps * num_cpu, env=env, policy_kwargs=policy_kwargs, verbose=1, device=device)
+            model = PPO(policy=CustomNetwork, n_steps=steps * num_cpu, learning_rate=0.025, env=env, policy_kwargs=policy_kwargs, verbose=1, device=device)
             
         # TODO: Progress callback that collects data from each frame for stats
         callbacks = [checkpoint_callback, model_merge_callback, current_stats]
-        model.learn(total_timesteps=num_steps, progress_bar=True, callback=callbacks)
+        model.learn(total_timesteps=runsteps, progress_bar=True, callback=callbacks)
         return model
     runsteps = 10000000 * 8 # hrs
-    model = train_model(env, runsteps, steps=4096)
+    model = train_model(env, runsteps, steps=10240)
     model.save(f"{file_name}.zip")
