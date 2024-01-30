@@ -415,7 +415,19 @@ class PyBoyEnv(gym.Env):
             [base64.b64encode(bytes(chunk)).decode("utf-8")
              for chunk in unique_events]
         )
-
+        self.actions = []
+        self.screen_image_arrays = set()
+        self.screen_image_arrays_list = []
+        self.visited_xy = set()
+        self.stationary_frames = 0
+        self.last_score = 0
+        self.last_pokemon_count = 0
+        self.frames = 0
+        self.last_player_x = 0
+        self.last_player_y = 0
+        self.last_player_x_block = 0
+        self.last_player_y_block = 0
+        
         if hashable_strings not in self.seen_events:
             self.seen_events.add(hashable_strings)
             # print("OS:EVENTS:", hashable_strings)
