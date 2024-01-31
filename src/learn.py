@@ -144,7 +144,7 @@ class ModelMergeCallback(BaseCallback):
         with open(f"/Volumes/Mag/ofo/{file_name}.csv", "w") as f:
             f.write("env_num,caught,actions,rewards,frames,visiteds\n")
             for env_num, (action, caught, reward, frame, visited) in enumerate(zip(actions, pokemon_caughts, rewards, frames, visiteds)):
-                f.write(f"{env_num},{caught},{action.join('')},{reward},{frame},{visited}\n")
+                f.write(f"{env_num},{caught},{''.join(action)},{reward},{frame},{visited}\n")
 
 
 
