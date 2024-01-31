@@ -136,14 +136,15 @@ class ModelMergeCallback(BaseCallback):
         rewards = self.training_env.get_attr('last_score')
         frames = self.training_env.get_attr('frames')
         visiteds = self.training_env.get_attr('visited_xy')
+        pokemon_caughts = self.training_env.get_attr('last_pokemon_count')
 
         hostname = os.uname()[1]
         file_name = f"{hostname}-{self.filename_datetime}-{self.model.num_timesteps}"
         # Generate a CSV of data
         with open(f"/Volumes/Mag/ofo/{file_name}.csv", "w") as f:
-            f.write("env_num,actions,rewards,frames,visiteds\n")
-            for env_num, (action, reward, frame, visited) in enumerate(zip(actions, rewards, frames, visiteds)):
-                f.write(f"{env_num},{action},{reward},{frame},{visited}\n")
+            f.write("env_num,caught,actions,rewards,frames,visiteds\n")
+            for env_num, (action, caught, reward, frame, visited) in enumerate(zip(actions, pokemon_caughts, rewards, frames, visiteds)):
+                f.write(f"{env_num},{caught},{action.join('')},{reward},{frame},{visited}\n")
 
 
 
@@ -386,8 +387,8 @@ class PyBoyEnv(gym.Env):
         memory_values = memory_values[0xD5A6:0xD85F]
         observation = np.append(memory_values, (pokemon_caught + 1) * len(self.visited_xy))
 
-        # Don't count the frames where the player is still in the starting menus.
-        reward = (pokemon_caught * 100) + len(self.visited_xy) + (len(self.screen_image_arrays) - (self.stationary_frames))
+        # Don't count the frames where the player is still in the starting menus. Pokemon caught gives more leeway on standing still
+        reward = (pokemon_caught + 1) + len(self.visited_xy) + len(self.screen_image_arrays) // 24 - (self.stationary_frames / (pokemon_caught + 1))
         
         
 
