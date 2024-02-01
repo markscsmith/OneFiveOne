@@ -63,9 +63,9 @@ class CustomFeatureExtractor(BaseFeaturesExtractor):
 
         # Define your custom layers here
         self.extractor = nn.Sequential(
-            nn.Linear(np.prod(observation_space.shape), 512),
+            nn.Linear(np.prod(observation_space.shape), 256),
             nn.ReLU(),
-            nn.Linear(512, 256),
+            nn.Linear(256, 256),
             nn.ReLU(),
             nn.Linear(256, features_dim),
             nn.ReLU(),
@@ -144,7 +144,7 @@ class ModelMergeCallback(BaseCallback):
         with open(f"/Volumes/Mag/ofo/{file_name}.csv", "w") as f:
             f.write("env_num,caught,actions,rewards,frames,visiteds\n")
             for env_num, (action, caught, reward, frame, visited) in enumerate(zip(actions, pokemon_caughts, rewards, frames, visiteds)):
-                f.write(f"{env_num},{caught},{''.join(action)},{reward},{frame},{visited}\n")
+                f.write(f"{env_num},{caught},{''.join(action)},{reward},{frame},\"{visited}\"\n")
 
 
 
@@ -492,7 +492,7 @@ if __name__ == "__main__":
         policy_kwargs = dict(
             features_extractor_class=CustomFeatureExtractor,
             features_extractor_kwargs={},
-            net_arch=[dict(pi=[256, 128, 64], vf=[256, 128, 64])],
+            net_arch=[dict(pi=[128, 128, 32], vf=[128, 128, 32])],
             activation_fn=nn.ReLU,
         )
         device = "cpu"
@@ -519,6 +519,6 @@ if __name__ == "__main__":
         callbacks = [checkpoint_callback, model_merge_callback, current_stats]
         model.learn(total_timesteps=runsteps, progress_bar=True, callback=callbacks)
         return model
-    runsteps = 10000000 * 8 # hrs
+    runsteps = 100000 * 8 # hrs
     model = train_model(env, runsteps, steps=1024)
     model.save(f"{file_name}.zip")
