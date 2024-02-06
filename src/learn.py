@@ -538,5 +538,5 @@ if __name__ == "__main__":
         run_model.learn(total_timesteps=runsteps, progress_bar=True, callback=callbacks)
         return run_model
     runsteps = 10000000 * 8 # hrs
-    model = train_model(env, runsteps, steps=64)
+    model = train_model(env, runsteps, steps=512)
     model.save(f"{file_name}.zip")
