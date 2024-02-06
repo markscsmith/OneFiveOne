@@ -24,7 +24,7 @@ class PokeCart():
         # calculate checksum of cart_data
         self.cart_data = cart_data
         self.checksum = hashlib.md5(cart_data).hexdigest()
-    
+
 
 
     def identify_cart(self):
@@ -123,15 +123,14 @@ class ModelMergeCallback(BaseCallback):
                       ❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌
                     """)
                 time.sleep(10)
-                
-                
-        
+
+
+
         self.generate_gif_and_actions()
-         
+
         return True
 
     def generate_gif_and_actions(self):
-        
         actions = self.training_env.get_attr('actions')
         rewards = self.training_env.get_attr('last_score')
         frames = self.training_env.get_attr('frames')
@@ -328,11 +327,14 @@ class PyBoyEnv(gym.Env):
         self.observation_space = gym.spaces.Box(low=0, high=255, shape=(698,),
                                                  dtype=np.uint8)
 
+
     def generate_image(self):
         return self.pyboy.botsupport_manager().screen().screen_image()
 
+
     def generate_screen_ndarray(self):
         return self.pyboy.botsupport_manager().screen().screen_ndarray()
+
 
     def render(self):
         terminal_size = os.get_terminal_size()
@@ -388,10 +390,7 @@ class PyBoyEnv(gym.Env):
         observation = np.append(memory_values, (pokemon_caught + 1) * len(self.visited_xy))
 
         # Don't count the frames where the player is still in the starting menus. Pokemon caught gives more leeway on standing still
-        reward = (pokemon_caught + 1) + len(self.visited_xy) + len(self.screen_image_arrays) // 24 - (self.stationary_frames / (pokemon_caught + 1))
-        
-        
-
+        reward = (pokemon_caught + 1) + len(self.visited_xy) + (self.stationary_frames / (pokemon_caught + 1))
         # if np.random.randint(777) == 0 or self.last_pokemon_count != pokemon_caught or self.last_score - reward > 100:
         #     self.render()
         #
@@ -453,8 +452,6 @@ class PyBoyEnv(gym.Env):
         return observation, {"seed": seed}
 
 
-
-
 def make_env(game_path, emunum):
     def _init():
         new_env = PyBoyEnv(game_path, emunum=emunum)
@@ -474,7 +471,7 @@ if __name__ == "__main__":
     args = parser.parse_args()
     num_cpu = multiprocessing.cpu_count()
     # Hostname and timestamp
-    checkpoint_callback = EveryNTimesteps(n_steps=100000, callback=CheckpointCallback(save_freq=1000, save_path=f"/Volumes/Mag/{os.uname()[1]}-{time.time()}.zip", name_prefix="poke"))
+    checkpoint_callback = CheckpointCallback(save_freq=1000, save_path=f"/Volumes/Mag/{os.uname()[1]}-{time.time()}.zip", name_prefix="poke")
 
 
     current_stats = EveryNTimesteps(n_steps=10000, callback=PokeCaughtCallback())
@@ -486,7 +483,7 @@ if __name__ == "__main__":
     env = SubprocVecEnv([make_env(args.game_path,
                                   emunum) for emunum in range(num_cpu)])
 
-    
+
     file_name = "model"
     def train_model(env, num_steps, steps):
         policy_kwargs = dict(
@@ -505,20 +502,21 @@ if __name__ == "__main__":
 
         if exists(file_name + '.zip'):
             print('\nloading checkpoint')
-            model = PPO.load(file_name, env=env, device=device)
-            model.n_steps = steps * num_cpu
-            model.n_envs = num_cpu
-            model.device = device
-            model.rollout_buffer.n_envs = num_cpu
-            model.rollout_buffer.reset()
+            run_model = PPO.load(file_name, env=env, device=device)
+            run_model.n_steps = steps * num_cpu
+            run_model.n_envs = num_cpu
+            run_model.device = device
+            run_model.rollout_buffer.n_envs = num_cpu
+            run_model.rollout_buffer.reset()
 
         else:
-            model = PPO(policy=CustomNetwork, n_steps=steps * num_cpu, learning_rate=0.025, env=env, policy_kwargs=policy_kwargs, verbose=1, device=device)
-            
+            run_model = PPO(policy=CustomNetwork, n_steps=steps * num_cpu, learning_rate=0.025,
+                        env=env, policy_kwargs=policy_kwargs, verbose=1, device=device)
+
         # TODO: Progress callback that collects data from each frame for stats
         callbacks = [checkpoint_callback, model_merge_callback, current_stats]
-        model.learn(total_timesteps=runsteps, progress_bar=True, callback=callbacks)
-        return model
-    runsteps = 100000 * 8 # hrs
-    model = train_model(env, runsteps, steps=1024)
+        run_model.learn(total_timesteps=runsteps, progress_bar=True, callback=callbacks)
+        return run_model
+    runsteps = 200000 * 8 # hrs
+    model = train_model(env, runsteps, steps=64)
     model.save(f"{file_name}.zip")
