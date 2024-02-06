@@ -194,6 +194,7 @@ class PokeCaughtCallback(BaseCallback):
         xbs = self.training_env.get_attr('last_player_x_block')
         ybs = self.training_env.get_attr('last_player_y_block')
         actions = self.training_env.get_attr('actions')
+        
         filename_datetimes = self.training_env.get_attr('filename_datetime')
 
         all_frames = self.training_env.get_attr('screen_images')
@@ -218,15 +219,15 @@ class PokeCaughtCallback(BaseCallback):
 
         best_image = renders[best_env_idx]
 
-        terminal_size = os.get_terminal_size()
-        # convert best image to grayscale
-        self.timg_render.load_image(best_image)
+        
+        
+        self.training_env.env_method('render')
+        
 
-        if terminal_size.columns < 160 or terminal_size.lines < 144 / 2:
-            self.timg_render.resize(terminal_size.columns,
-                                    terminal_size.lines * 2)
+        # if terminal_size.columns < 160 or terminal_size.lines < 144 / 2:
+        
 
-        self.timg_render.render(Ansi24HblockMethod)
+        
         print(f"Best: {best_env_idx} 🟢 {all_pokemon_caught[best_env_idx]} 🎬 {frames[best_env_idx]} 🌎 {len(visiteds[best_env_idx])} 🏆 {rewards[best_env_idx]} 🦶 {stationary_frames[best_env_idx]} X: {xs[best_env_idx]} Y: {ys[best_env_idx]} XB: {xbs[best_env_idx]} YB: {ybs[best_env_idx]}, Actinos {actions[best_env_idx][-3:]}")
 
         return True
@@ -342,7 +343,7 @@ class PyBoyEnv(gym.Env):
              Image.fromarray(
                  self.pyboy.botsupport_manager().screen().screen_ndarray())
         )
-        if terminal_size.columns < 160 or terminal_size.lines < 144 / 2:
+        if terminal_size.columns != 160 or terminal_size.lines < 144 / 2:
             self.renderer.resize(terminal_size.columns,
                                  terminal_size.lines * 2 * 160 // 144)
         self.renderer.render(Ansi24HblockMethod)
@@ -401,8 +402,8 @@ class PyBoyEnv(gym.Env):
         self.last_pokemon_count = pokemon_caught
         return observation, reward, terminated, truncated, info
 
-    def reset(self, seed=None, **kwargs):
-        super().reset(**kwargs)
+    def reset(self, seed=0, **kwargs):
+        super().reset(seed=seed, **kwargs)
         print("OS:SHAPE:", self.observation_space.shape)
         # memory_values = self.pyboy.mb.ram.internal_ram0.append(self.pyboy.mb.ram.internal_ram1)
         # memory_values = np.array([self.pyboy.get_memory_value(address) for address in range(0x10000)])
