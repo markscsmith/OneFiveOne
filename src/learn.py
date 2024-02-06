@@ -221,7 +221,8 @@ class PokeCaughtCallback(BaseCallback):
 
         
         
-        self.training_env.env_method('render')
+        renderers = self.training_env.env_method('render', best_env_idx)
+        
         
 
         # if terminal_size.columns < 160 or terminal_size.lines < 144 / 2:
@@ -337,17 +338,35 @@ class PyBoyEnv(gym.Env):
         return self.pyboy.botsupport_manager().screen().screen_ndarray()
 
 
-    def render(self):
-        terminal_size = os.get_terminal_size()
-        self.renderer.load_image(
-             Image.fromarray(
-                 self.pyboy.botsupport_manager().screen().screen_ndarray())
-        )
-        if terminal_size.columns != 160 or terminal_size.lines < 144 / 2:
-            self.renderer.resize(terminal_size.columns,
-                                 terminal_size.lines * 2 * 160 // 144)
-        self.renderer.render(Ansi24HblockMethod)
+    def render(self, target_index = None):
+        if target_index is not None and target_index == self.emunum:
+            terminal_size = os.get_terminal_size()
+            image = Image.fromarray(self.pyboy.botsupport_manager().screen().screen_ndarray())
+            w = 160
+            h = 144
+            if terminal_size.columns != w or terminal_size.lines < h / 2:
+                image_aspect_ratio = w / h
+                terminal_aspect_ratio = terminal_size.columns / (terminal_size.lines - 2)
 
+                if image_aspect_ratio > terminal_aspect_ratio:
+                    new_width = int(w / image_aspect_ratio)
+                    
+                elif image_aspect_ratio < terminal_aspect_ratio:
+                    
+                    new_width = int(w * image_aspect_ratio)
+                else:
+                    new_width = w
+                
+                new_height = h
+
+                replacer = Image.new("RGB", (new_width, new_height), (0, 0, 0))
+                # in center of image
+                replacer.paste(image, ((new_width - image.width) // 2, 0))
+                image = replacer
+
+            self.renderer.load_image(image)
+            self.renderer.resize(terminal_size.columns, terminal_size.lines * 2)
+            self.renderer.render(Ansi24HblockMethod)
 
 
     def step(self, action):
