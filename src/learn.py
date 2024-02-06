@@ -410,7 +410,7 @@ class PyBoyEnv(gym.Env):
         observation = np.append(memory_values, (pokemon_caught + 1) * len(self.visited_xy))
 
         # Don't count the frames where the player is still in the starting menus. Pokemon caught gives more leeway on standing still
-        reward = (pokemon_caught + 1) + len(self.visited_xy) - (self.stationary_frames / (pokemon_caught + 1))
+        reward = (pokemon_caught + 1) + len(self.visited_xy) - (self.stationary_frames / (pokemon_caught + 1)) + len(self.screen_image_arrays) / 1000
         # if np.random.randint(777) == 0 or self.last_pokemon_count != pokemon_caught or self.last_score - reward > 100:
         #     self.render()
         #
