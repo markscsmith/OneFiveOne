@@ -536,12 +536,13 @@ if __name__ == "__main__":
 
         else:
             run_model = PPO(policy='CnnPolicy', n_steps=steps * num_cpu, learning_rate=learning_rate_schedule,
-                        env=env, policy_kwargs=policy_kwargs, verbose=1, device=device)
+                            env=env, policy_kwargs=policy_kwargs, verbose=1, device=device)
 
         # TODO: Progress callback that collects data from each frame for stats
-        callbacks = [checkpoint_callback, model_merge_callback, current_stats]
+        callbacks = [checkpoint_callback, current_stats]
         run_model.learn(total_timesteps=runsteps, progress_bar=True, callback=callbacks)
         return run_model
-    runsteps = 1000000 * 8 # hrs
+    hrs = 7 # number of hours to run for.
+    runsteps = 4000000 * (hrs)
     model = train_model(env, runsteps, steps=512)
     model.save(f"{file_name}.zip")
