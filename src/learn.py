@@ -169,11 +169,14 @@ class ModelMergeCallback(BaseCallback):
 
 
 
+def learning_rate_schedule(progress):
+    return 0.025 * (1.5 - progress)
+
 
 class CustomNetwork(ActorCriticPolicy):
     def __init__(self, *args, **kwargs):
         super(CustomNetwork, self).__init__(*args, **kwargs)
-        self.lr_schedule = 0.025
+        self.lr_schedule = learning_rate_schedule
 
 class PokeCaughtCallback(BaseCallback):
     def __init__(self, verbose=0):
@@ -410,8 +413,8 @@ class PyBoyEnv(gym.Env):
         observation = np.append(memory_values, (pokemon_caught + 1) * len(self.visited_xy))
 
         # Don't count the frames where the player is still in the starting menus. Pokemon caught gives more leeway on standing still
-        reward = (pokemon_caught + 1) + len(self.visited_xy) - (self.stationary_frames / (pokemon_caught + 1)) + len(self.screen_image_arrays) / 1000
-        if reward < -5000:
+        reward = (pokemon_caught + 1) + len(self.visited_xy) + len(self.screen_image_arrays) // 1000 - (self.stationary_frames // 1000) 
+        if reward < -50:
             self.reset()
         # if np.random.randint(777) == 0 or self.last_pokemon_count != pokemon_caught or self.last_score - reward > 100:
         #     self.render()
@@ -532,7 +535,7 @@ if __name__ == "__main__":
             run_model.rollout_buffer.reset()
 
         else:
-            run_model = PPO(policy='CnnPolicy', n_steps=steps * num_cpu, learning_rate=0.025,
+            run_model = PPO(policy='CnnPolicy', n_steps=steps * num_cpu, learning_rate=learning_rate_schedule,
                         env=env, policy_kwargs=policy_kwargs, verbose=1, device=device)
 
         # TODO: Progress callback that collects data from each frame for stats
