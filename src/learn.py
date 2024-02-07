@@ -411,6 +411,8 @@ class PyBoyEnv(gym.Env):
 
         # Don't count the frames where the player is still in the starting menus. Pokemon caught gives more leeway on standing still
         reward = (pokemon_caught + 1) + len(self.visited_xy) - (self.stationary_frames / (pokemon_caught + 1)) + len(self.screen_image_arrays) / 1000
+        if reward < -5000:
+            self.reset()
         # if np.random.randint(777) == 0 or self.last_pokemon_count != pokemon_caught or self.last_score - reward > 100:
         #     self.render()
         #
@@ -530,13 +532,13 @@ if __name__ == "__main__":
             run_model.rollout_buffer.reset()
 
         else:
-            run_model = PPO(policy=CustomNetwork, n_steps=steps * num_cpu, learning_rate=0.025,
+            run_model = PPO(policy='CnnPolicy', n_steps=steps * num_cpu, learning_rate=0.025,
                         env=env, policy_kwargs=policy_kwargs, verbose=1, device=device)
 
         # TODO: Progress callback that collects data from each frame for stats
         callbacks = [checkpoint_callback, model_merge_callback, current_stats]
         run_model.learn(total_timesteps=runsteps, progress_bar=True, callback=callbacks)
         return run_model
-    runsteps = 10000000 * 8 # hrs
+    runsteps = 1000000 * 8 # hrs
     model = train_model(env, runsteps, steps=512)
     model.save(f"{file_name}.zip")
