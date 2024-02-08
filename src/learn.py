@@ -249,7 +249,7 @@ class PokeCaughtCallback(BaseCallback):
         
 
         
-        print(f"Best: {best_env_idx} 🟢 {all_pokemon_caught[best_env_idx]} 🎬 {frames[best_env_idx]} 🌎 {len(visiteds[best_env_idx])} 🏆 {rewards[best_env_idx]} 🦶 {stationary_frames[best_env_idx]} X: {xs[best_env_idx]} Y: {ys[best_env_idx]} XB: {xbs[best_env_idx]} YB: {ybs[best_env_idx]}, Actinos {actions[best_env_idx][-3:]}")
+        print(f"Best: {best_env_idx} 🟢 {all_pokemon_caught[best_env_idx]} 🎬 {frames[best_env_idx]} 🌎 {len(visiteds[best_env_idx])} 🏆 {rewards[best_env_idx]} 🦶 {stationary_frames[best_env_idx]} X: {xs[best_env_idx]} Y: {ys[best_env_idx]} XB: {xbs[best_env_idx]} YB: {ybs[best_env_idx]}, Actinos {actions[best_env_idx][-16:]}")
 
         return True
 
@@ -325,12 +325,19 @@ class PyBoyEnv(gym.Env):
         self.screen_image_arrays = set()
         self.screen_image_arrays_list = []
         
+        # self.buttons = [WindowEvent.PRESS_ARROW_UP, WindowEvent.PRESS_ARROW_DOWN, WindowEvent.PRESS_ARROW_LEFT,
+        #                 WindowEvent.PRESS_ARROW_RIGHT,WindowEvent.PRESS_BUTTON_A, WindowEvent.PRESS_BUTTON_B,
+        #                 WindowEvent.PRESS_BUTTON_START, WindowEvent.PRESS_BUTTON_SELECT, WindowEvent.RELEASE_ARROW_UP,
+        #                 WindowEvent.RELEASE_ARROW_DOWN, WindowEvent.RELEASE_ARROW_LEFT, WindowEvent.RELEASE_ARROW_RIGHT,
+        #                 WindowEvent.RELEASE_BUTTON_A, WindowEvent.RELEASE_BUTTON_B, WindowEvent.RELEASE_BUTTON_START,
+        #                 WindowEvent.RELEASE_BUTTON_SELECT]
+        
         self.buttons = [WindowEvent.PRESS_ARROW_UP, WindowEvent.PRESS_ARROW_DOWN, WindowEvent.PRESS_ARROW_LEFT,
                         WindowEvent.PRESS_ARROW_RIGHT,WindowEvent.PRESS_BUTTON_A, WindowEvent.PRESS_BUTTON_B,
-                        WindowEvent.PRESS_BUTTON_START, WindowEvent.PRESS_BUTTON_SELECT, WindowEvent.RELEASE_ARROW_UP,
+                        WindowEvent.PRESS_BUTTON_START, WindowEvent.PASS, WindowEvent.RELEASE_ARROW_UP,
                         WindowEvent.RELEASE_ARROW_DOWN, WindowEvent.RELEASE_ARROW_LEFT, WindowEvent.RELEASE_ARROW_RIGHT,
                         WindowEvent.RELEASE_BUTTON_A, WindowEvent.RELEASE_BUTTON_B, WindowEvent.RELEASE_BUTTON_START,
-                        WindowEvent.RELEASE_BUTTON_SELECT]
+                        WindowEvent.PASS]
 
 
         self.buttons_names = "UDLRABS!udlrabs."
@@ -404,11 +411,13 @@ class PyBoyEnv(gym.Env):
         for i, _ in enumerate(button_states):
             if action & (1 << i):
                 button_states[i] = 1
-        button_states_raw = str(action)
+        button_states_raw = "".join(str(i) for i in button_states)
         
         for i, state in enumerate(button_states_raw):
             if int(state) > 0:
                 button_states[i] = 1
+        # Fixed select button to 0 to prevent hard resets
+        button_states[-1] = 0
         
 
         # self.pyboy.send_input(self.buttons[action])
@@ -416,7 +425,9 @@ class PyBoyEnv(gym.Env):
         for i, state in enumerate(button_states):
             if state:
                 self.pyboy.send_input(self.buttons[i])
-                self.actions.append(self.buttons_names[i])
+            else:
+                self.pyboy.send_input(self.buttons[i + 8])
+        self.actions.append(button_states_raw)
         for _ in range(ticks):
             self.pyboy.tick()
         if self.frames % frame_checks == 0:
@@ -466,7 +477,14 @@ class PyBoyEnv(gym.Env):
         return observation, reward, terminated, truncated, info
 
     def reset(self, seed=0, **kwargs):
+        print("OS:RESET:", self.emunum, seed)
         super().reset(seed=seed, **kwargs)
+        if self.save_state_path is not None:
+            print(f"Loading state {self.save_state_path}")
+            self.pyboy.load_state(open(self.save_state_path, "rb"))
+        else:
+            print(f"Error: No state file found for {self.save_state_path}")
+            exit(1)
         print("OS:SHAPE:", self.observation_space.shape)
         # memory_values = self.pyboy.mb.ram.internal_ram0.append(self.pyboy.mb.ram.internal_ram1)
         # memory_values = np.array([self.pyboy.get_memory_value(address) for address in range(0x10000)])
@@ -518,10 +536,15 @@ class PyBoyEnv(gym.Env):
 
 def make_env(game_path, emunum):
     def _init():
-        new_env = PyBoyEnv(game_path, emunum=emunum)
-
         if os.path.exists(game_path + ".state"):
+            print(f"Loading state {game_path}.state")
+            new_env = PyBoyEnv(game_path, emunum=emunum, save_state_path=game_path + ".state")
             new_env.pyboy.load_state(open(game_path + ".state", "rb"))
+        else:
+            print(f"Error: No state file found for {game_path}.state")
+            exit(1)
+            new_env = PyBoyEnv(game_path, emunum=emunum, save_state_path=None)
+            
         new_env.pyboy.set_emulation_speed(0)
         return new_env
     return _init
@@ -540,7 +563,7 @@ if __name__ == "__main__":
 
     current_stats = EveryNTimesteps(n_steps=10000, callback=PokeCaughtCallback())
 
-    model_merge_callback = EveryNTimesteps(n_steps=250000, callback=ModelMergeCallback(args.num_hosts))
+    
 
 
     # num_cpu = 1
@@ -576,12 +599,12 @@ if __name__ == "__main__":
         else:
             run_model = PPO(policy='MultiInputPolicy', n_steps=steps * num_cpu, learning_rate=learning_rate_schedule,
                             env=env, policy_kwargs=policy_kwargs, verbose=0, device=device)
-
+        model_merge_callback = EveryNTimesteps(n_steps=steps * num_cpu * 1024, callback=ModelMergeCallback(args.num_hosts))
         # TODO: Progress callback that collects data from each frame for stats
-        callbacks = [checkpoint_callback, current_stats]
+        callbacks = [checkpoint_callback, current_stats, model_merge_callback]
         run_model.learn(total_timesteps=num_steps, progress_bar=True, callback=callbacks)
         return run_model
     hrs = 0.5 # number of hours to run for.
     runsteps = int(4000000 * (hrs))
-    model = train_model(env, runsteps, steps=runsteps // 1000)
+    model = train_model(env, runsteps, steps=64)
     model.save(f"{file_name}.zip")
