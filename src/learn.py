@@ -604,7 +604,7 @@ if __name__ == "__main__":
         callbacks = [checkpoint_callback, current_stats, model_merge_callback]
         run_model.learn(total_timesteps=num_steps, progress_bar=True, callback=callbacks)
         return run_model
-    hrs = 0.5 # number of hours to run for.
+    hrs = 18 # number of hours to run for.
     runsteps = int(4000000 * (hrs))
     model = train_model(env, runsteps, steps=64)
     model.save(f"{file_name}.zip")
