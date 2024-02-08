@@ -158,6 +158,7 @@ class ModelMergeCallback(BaseCallback):
                 found_models.append(model_file)
         return found_models
 
+
     def merge_models(self, model_files):
         models = [PPO.load(model_file, device='cpu') for model_file in model_files]
 
@@ -182,9 +183,25 @@ class PokeCaughtCallback(BaseCallback):
     def __init__(self, verbose=0):
         super(PokeCaughtCallback, self).__init__(verbose)
         self.timg_render = Renderer()
-        
+        self.filename_datetime = datetime.datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
+
+    def generate_gif_and_actions(self):
+        actions = self.training_env.get_attr('actions')
+        rewards = self.training_env.get_attr('last_score')
+        frames = self.training_env.get_attr('frames')
+        visiteds = self.training_env.get_attr('visited_xy')
+        pokemon_caughts = self.training_env.get_attr('last_pokemon_count')
+
+        hostname = os.uname()[1]
+        file_name = f"{hostname}-{self.filename_datetime}-{self.model.num_timesteps}"
+        # Generate a CSV of data
+        with open(f"/Volumes/Mag/ofo/{file_name}.csv", "w") as f:
+            f.write("env_num,caught,actions,rewards,frames,visiteds\n")
+            for env_num, (action, caught, reward, frame, visited) in enumerate(zip(actions, pokemon_caughts, rewards, frames, visiteds)):
+                f.write(f"{env_num},{caught},{''.join(action)},{reward},{frame},\"{visited}\"\n")
 
     def _on_step(self) -> bool:
+        self.generate_gif_and_actions()
         # Retrieve pokemon_caught from each environment
         all_pokemon_caught = self.training_env.get_attr('last_pokemon_count')
         visiteds = self.training_env.get_attr('visited_xy')
@@ -198,9 +215,9 @@ class PokeCaughtCallback(BaseCallback):
         ybs = self.training_env.get_attr('last_player_y_block')
         actions = self.training_env.get_attr('actions')
         
-        filename_datetimes = self.training_env.get_attr('filename_datetime')
+        # filename_datetimes = self.training_env.get_attr('filename_datetime')
 
-        all_frames = self.training_env.get_attr('screen_images')
+        # all_frames = self.training_env.get_attr('screen_images')
 
 
         # for env_num, (rendered_frames, visited, steps, reward, filename_datetime)  in enumerate(zip(all_frames, visiteds, frames, rewards, filename_datetimes)):
@@ -313,10 +330,14 @@ class PyBoyEnv(gym.Env):
                         WindowEvent.PRESS_BUTTON_START, WindowEvent.PRESS_BUTTON_SELECT, WindowEvent.RELEASE_ARROW_UP,
                         WindowEvent.RELEASE_ARROW_DOWN, WindowEvent.RELEASE_ARROW_LEFT, WindowEvent.RELEASE_ARROW_RIGHT,
                         WindowEvent.RELEASE_BUTTON_A, WindowEvent.RELEASE_BUTTON_B, WindowEvent.RELEASE_BUTTON_START,
-                        WindowEvent.RELEASE_BUTTON_SELECT, WindowEvent.PASS]
+                        WindowEvent.RELEASE_BUTTON_SELECT]
 
 
-        self.buttons_names = "UDLRABS!udlrabs. "
+        self.buttons_names = "UDLRABS!udlrabs."
+
+
+
+        
 
 
         # Get the current date and time
@@ -328,7 +349,7 @@ class PyBoyEnv(gym.Env):
 
 
         # Define actioqn_space and observation_space
-        self.action_space = gym.spaces.Discrete(17)
+        self.action_space = gym.spaces.Discrete(256)
         self.observation_space = gym.spaces.Box(low=0, high=255, shape=(698,),
                                                  dtype=np.uint8)
 
@@ -376,8 +397,26 @@ class PyBoyEnv(gym.Env):
         self.frames = self.pyboy.frame_count
         ticks = 1
         frame_checks = 24
-        self.pyboy.send_input(self.buttons[action])
-        self.actions.append(self.buttons_names[action])
+        # rethink the action space as the binary state of all 8 buttons:
+        # U = UP, D = DOWN, L = LEFT, R = RIGHT, A = A, B = B, * = "STAR"T, > = SELECT
+        #           """  U  D  L  R  A  B  *  > """
+        button_states = [0, 0, 0, 0, 0, 0, 0, 0]
+        for i, _ in enumerate(button_states):
+            if action & (1 << i):
+                button_states[i] = 1
+        button_states_raw = str(action)
+        
+        for i, state in enumerate(button_states_raw):
+            if int(state) > 0:
+                button_states[i] = 1
+        
+
+        # self.pyboy.send_input(self.buttons[action])
+        # self.actions.append(self.buttons_names[action])
+        for i, state in enumerate(button_states):
+            if state:
+                self.pyboy.send_input(self.buttons[i])
+                self.actions.append(self.buttons_names[i])
         for _ in range(ticks):
             self.pyboy.tick()
         if self.frames % frame_checks == 0:
@@ -452,7 +491,7 @@ class PyBoyEnv(gym.Env):
         self.last_player_y = 0
         self.last_player_x_block = 0
         self.last_player_y_block = 0
-        
+
         if hashable_strings not in self.seen_events:
             self.seen_events.add(hashable_strings)
             # print("OS:EVENTS:", hashable_strings)
@@ -496,7 +535,7 @@ if __name__ == "__main__":
     args = parser.parse_args()
     num_cpu = multiprocessing.cpu_count()
     # Hostname and timestamp
-    checkpoint_callback = CheckpointCallback(save_freq=1000, save_path=f"/Volumes/Mag/{os.uname()[1]}-{time.time()}.zip", name_prefix="poke")
+    checkpoint_callback = CheckpointCallback(save_freq=10000, save_path=f"/Volumes/Mag/{os.uname()[1]}-{time.time()}.zip", name_prefix="poke")
 
 
     current_stats = EveryNTimesteps(n_steps=10000, callback=PokeCaughtCallback())
@@ -514,7 +553,7 @@ if __name__ == "__main__":
         policy_kwargs = dict(
             features_extractor_class=CustomFeatureExtractor,
             features_extractor_kwargs={},
-            net_arch=[dict(pi=[128, 128, 32], vf=[128, 128, 32])],
+            net_arch=[dict(pi=[256, 128, 32], vf=[256, 128, 32])],
             activation_fn=nn.ReLU,
         )
         device = "cpu"
@@ -535,14 +574,14 @@ if __name__ == "__main__":
             run_model.rollout_buffer.reset()
 
         else:
-            run_model = PPO(policy='CnnPolicy', n_steps=steps * num_cpu, learning_rate=learning_rate_schedule,
-                            env=env, policy_kwargs=policy_kwargs, verbose=1, device=device)
+            run_model = PPO(policy='MultiInputPolicy', n_steps=steps * num_cpu, learning_rate=learning_rate_schedule,
+                            env=env, policy_kwargs=policy_kwargs, verbose=0, device=device)
 
         # TODO: Progress callback that collects data from each frame for stats
         callbacks = [checkpoint_callback, current_stats]
-        run_model.learn(total_timesteps=runsteps, progress_bar=True, callback=callbacks)
+        run_model.learn(total_timesteps=num_steps, progress_bar=True, callback=callbacks)
         return run_model
-    hrs = 7 # number of hours to run for.
-    runsteps = 4000000 * (hrs)
-    model = train_model(env, runsteps, steps=512)
+    hrs = 0.5 # number of hours to run for.
+    runsteps = int(4000000 * (hrs))
+    model = train_model(env, runsteps, steps=runsteps // 1000)
     model.save(f"{file_name}.zip")
