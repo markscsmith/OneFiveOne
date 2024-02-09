@@ -46,7 +46,7 @@ class PokeCart():
         # TODO: Pokemon Gold Silver and Crystal
         carts ={ "POKEMONG.GBC": 0x00000000,
                  "PMCRYSTA.GBC": 0x00000000,
-                 "POKEMONY.GBC": 0x00000000 - 1,
+                 "POKEMONY.GBC": 0x00000000,
                  "POKEMONB.GBC": 0x00000000,
                  "POKEMONS.GBC": 0x00000000,
                  "POKEMONR.GBC": 0x00000000,}
@@ -213,6 +213,7 @@ class PokeCaughtCallback(BaseCallback):
         ys = self.training_env.get_attr('last_player_y')
         xbs = self.training_env.get_attr('last_player_x_block')
         ybs = self.training_env.get_attr('last_player_y_block')
+        map_ids = self.training_env.get_attr('last_player_map')
         actions = self.training_env.get_attr('actions')
         
         # filename_datetimes = self.training_env.get_attr('filename_datetime')
@@ -249,7 +250,7 @@ class PokeCaughtCallback(BaseCallback):
         
 
         
-        print(f"Best: {best_env_idx} 🟢 {all_pokemon_caught[best_env_idx]} 🎬 {frames[best_env_idx]} 🌎 {len(visiteds[best_env_idx])} 🏆 {rewards[best_env_idx]} 🦶 {stationary_frames[best_env_idx]} X: {xs[best_env_idx]} Y: {ys[best_env_idx]} XB: {xbs[best_env_idx]} YB: {ybs[best_env_idx]}, Actinos {actions[best_env_idx][-16:]}")
+        print(f"Best: {best_env_idx} 🟢 {all_pokemon_caught[best_env_idx]} 🎬 {frames[best_env_idx]} 🌎 {len(visiteds[best_env_idx])} 🏆 {rewards[best_env_idx]} 🦶 {stationary_frames[best_env_idx]} X: {xs[best_env_idx]} Y: {ys[best_env_idx]} XB: {xbs[best_env_idx]} YB: {ybs[best_env_idx]}, Map: {map_ids[best_env_idx]} Actinos {actions[best_env_idx][-8:]}")
 
         return True
 
@@ -310,6 +311,7 @@ class PyBoyEnv(gym.Env):
         self.player_y_mem = 0xD362 - self.cart.cart_offset()
         self.player_x_block_mem = 0xD363 - self.cart.cart_offset()
         self.player_y_block_mem = 0xD364 - self.cart.cart_offset()
+        self.player_map_mem = 0xD35E - self.cart.cart_offset()
         self.seen_events = set()
         self.emunum = emunum
         self.save_state_path = save_state_path
@@ -318,10 +320,11 @@ class PyBoyEnv(gym.Env):
         self.last_pokemon_count = 0
         self.frames = 0
         self.stationary_frames = 0
-        self.last_player_x = 0
-        self.last_player_y = 0
-        self.last_player_x_block = 0
-        self.last_player_y_block = 0
+        self.last_player_x = None
+        self.last_player_y = None
+        self.last_player_x_block = None
+        self.last_player_y_block = None
+        self.last_player_map = None
         self.screen_image_arrays = set()
         self.screen_image_arrays_list = []
         
@@ -448,7 +451,8 @@ class PyBoyEnv(gym.Env):
         py = memory_values[self.player_y_mem]
         pbx = memory_values[self.player_x_block_mem]
         pby = memory_values[self.player_y_block_mem]
-        if self.last_player_x == px and self.last_player_y == py and self.last_player_x_block == pbx and self.last_player_y_block == pby:
+        map_id = memory_values[self.player_map_mem]
+        if self.last_player_x == px and self.last_player_y == py and self.last_player_x_block == pbx and self.last_player_y_block == pby and self.last_player_map == map_id:
             self.stationary_frames += 1
         else:
             self.stationary_frames = 0
@@ -456,8 +460,9 @@ class PyBoyEnv(gym.Env):
             self.last_player_y = py
             self.last_player_x_block = pbx
             self.last_player_y_block = pby
+            self.last_player_map = map_id
 
-        self.visited_xy.add((px, py, pbx, pby))
+        self.visited_xy.add((px, py, pbx, pby, map_id))
 
         memory_values = memory_values[0xD5A6:0xD85F]
         observation = np.append(memory_values, (pokemon_caught + 1) * len(self.visited_xy))
@@ -604,7 +609,7 @@ if __name__ == "__main__":
         callbacks = [checkpoint_callback, current_stats]
         run_model.learn(total_timesteps=num_steps, progress_bar=True, callback=callbacks)
         return run_model
-    hrs = 1 # number of hours to run for.
+    hrs = 6 # number of hours to run for.
     runsteps = int(4000000 * (hrs))
-    model = train_model(env, runsteps, steps=64)
+    model = train_model(env, runsteps, steps=128)
     model.save(f"{file_name}.zip")
