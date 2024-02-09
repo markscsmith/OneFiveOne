@@ -171,7 +171,7 @@ class ModelMergeCallback(BaseCallback):
 
 
 def learning_rate_schedule(progress):
-    return 0.025 * (1.5 - progress)
+    return 0.055 * (1.5 - progress)
 
 
 class CustomNetwork(ActorCriticPolicy):
@@ -601,10 +601,10 @@ if __name__ == "__main__":
                             env=env, policy_kwargs=policy_kwargs, verbose=0, device=device)
         model_merge_callback = EveryNTimesteps(n_steps=steps * num_cpu * 1024, callback=ModelMergeCallback(args.num_hosts))
         # TODO: Progress callback that collects data from each frame for stats
-        callbacks = [checkpoint_callback, current_stats, model_merge_callback]
+        callbacks = [checkpoint_callback, current_stats]
         run_model.learn(total_timesteps=num_steps, progress_bar=True, callback=callbacks)
         return run_model
-    hrs = 18 # number of hours to run for.
+    hrs = 1 # number of hours to run for.
     runsteps = int(4000000 * (hrs))
     model = train_model(env, runsteps, steps=64)
     model.save(f"{file_name}.zip")
