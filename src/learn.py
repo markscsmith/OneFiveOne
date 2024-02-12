@@ -171,7 +171,8 @@ class ModelMergeCallback(BaseCallback):
 
 
 def learning_rate_schedule(progress):
-    return 0.055 * (1.5 - progress)
+    # return 0.055 * (1.5 - progress)
+    return  0.0003
 
 
 class CustomNetwork(ActorCriticPolicy):
@@ -604,7 +605,7 @@ if __name__ == "__main__":
 
         else:
             run_model = PPO(policy='MultiInputPolicy', n_steps=steps * num_cpu, learning_rate=learning_rate_schedule,
-                            env=env, policy_kwargs=policy_kwargs, verbose=0, device=device)
+                            env=env, gamma=0.99,  policy_kwargs=policy_kwargs, verbose=0, device=device)
         model_merge_callback = EveryNTimesteps(n_steps=steps * num_cpu * 1024, callback=ModelMergeCallback(args.num_hosts))
         # TODO: Progress callback that collects data from each frame for stats
         callbacks = [checkpoint_callback, current_stats]
