@@ -44,12 +44,12 @@ class PokeCart():
     def cart_offset(self):
         # Pokemon Yellow has offset -1 vs blue and green
         # TODO: Pokemon Gold Silver and Crystal
-        carts ={ "POKEMONG.GBC": 0x00000000,
-                 "PMCRYSTA.GBC": 0x00000000,
-                 "POKEMONY.GBC": 0x00000000,
-                 "POKEMONB.GBC": 0x00000000,
-                 "POKEMONS.GBC": 0x00000000,
-                 "POKEMONR.GBC": 0x00000000,}
+        carts ={ "POKEMONG.GBC": 0xA000,
+                 "PMCRYSTA.GBC": 0xA000,
+                 "POKEMONY.GBC": 0xA000,
+                 "POKEMONB.GBC": 0xA000,
+                 "POKEMONS.GBC": 0xA000,
+                 "POKEMONR.GBC": 0xA000,}
         if self.identify_cart() in carts:
             return carts[self.identify_cart()]
         else:
@@ -241,16 +241,10 @@ class PokeCaughtCallback(BaseCallback):
 
         best_image = renders[best_env_idx]
 
-        
-        
         renderers = self.training_env.env_method('render', best_env_idx)
-        
-        
 
         # if terminal_size.columns < 160 or terminal_size.lines < 144 / 2:
-        
 
-        
         print(f"Best: {best_env_idx} 🟢 {all_pokemon_caught[best_env_idx]} 🎬 {frames[best_env_idx]} 🌎 {len(visiteds[best_env_idx])} 🏆 {rewards[best_env_idx]} 🦶 {stationary_frames[best_env_idx]} X: {xs[best_env_idx]} Y: {ys[best_env_idx]} XB: {xbs[best_env_idx]} YB: {ybs[best_env_idx]}, Map: {map_ids[best_env_idx]} Actinos {actions[best_env_idx][-6:]}")
 
         return True
@@ -348,9 +342,6 @@ class PyBoyEnv(gym.Env):
 
 
 
-        
-
-
         # Get the current date and time
         current_datetime = datetime.datetime.now()
 
@@ -361,7 +352,7 @@ class PyBoyEnv(gym.Env):
 
         # Define actioqn_space and observation_space
         self.action_space = gym.spaces.Discrete(256)
-        self.observation_space = gym.spaces.Box(low=0, high=255, shape=(698,),
+        self.observation_space = gym.spaces.Box(low=0, high=255, shape=(24576,),
                                                  dtype=np.uint8)
 
 
@@ -385,13 +376,13 @@ class PyBoyEnv(gym.Env):
 
                 if image_aspect_ratio > terminal_aspect_ratio:
                     new_width = int(w / image_aspect_ratio)
-                    
+
                 elif image_aspect_ratio < terminal_aspect_ratio:
-                    
+
                     new_width = int(w * image_aspect_ratio)
                 else:
                     new_width = w
-                
+
                 new_height = h
 
                 replacer = Image.new("RGB", (new_width, new_height), (0, 0, 0))
@@ -416,13 +407,13 @@ class PyBoyEnv(gym.Env):
             if action & (1 << i):
                 button_states[i] = 1
         button_states_raw = "".join(str(i) for i in button_states)
-        
+
         for i, state in enumerate(button_states_raw):
             if int(state) > 0:
                 button_states[i] = 1
         # Fixed select button to 0 to prevent hard resets
         button_states[-1] = 0
-        
+
 
         # self.pyboy.send_input(self.buttons[action])
         # self.actions.append(self.buttons_names[action])
@@ -434,7 +425,8 @@ class PyBoyEnv(gym.Env):
         self.actions.append(button_states_raw)
         for _ in range(ticks):
             self.pyboy.tick()
-        if self.frames % frame_checks == 0:
+        # Grab less frames to append if we're standing still.
+        if (self.stationary_frames < 100 and self.frames % frame_checks == 0) or self.frames % (frame_checks * 5):
             self.screen_image_arrays.add(self.generate_screen_ndarray().tobytes)
 
 
@@ -442,7 +434,7 @@ class PyBoyEnv(gym.Env):
         # self.pyboy.save_state(flo)
         # flo.seek(0)
         # memory_values = np.frombuffer(flo.read(), dtype=np.uint8)
-        memory_values = [self.pyboy.get_memory_value(i) for i in range(0x10000)]
+        memory_values = self.get_memory_range()
         pokemon_caught = sum(
             memory_values[self.caught_pokemon_start: self.caught_pokemon_end]
         )
@@ -465,7 +457,6 @@ class PyBoyEnv(gym.Env):
 
         self.visited_xy.add((px, py, pbx, pby, map_id))
 
-        memory_values = memory_values[0xD5A6:0xD85F]
         observation = np.append(memory_values, (pokemon_caught + 1) * len(self.visited_xy))
 
         # Don't count the frames where the player is still in the starting menus. Pokemon caught gives more leeway on standing still
@@ -483,6 +474,10 @@ class PyBoyEnv(gym.Env):
         self.last_pokemon_count = pokemon_caught
         return observation, reward, terminated, truncated, info
 
+    def get_memory_range(self):
+        memory_values = [self.pyboy.get_memory_value(i) for i in range(self.cart.cart_offset(), self.cart.cart_offset() +  (0xFFFF - self.cart.cart_offset()))]
+        return memory_values
+
     def reset(self, seed=0, **kwargs):
         print("OS:RESET:", self.emunum, seed)
         super().reset(seed=seed, **kwargs)
@@ -495,7 +490,7 @@ class PyBoyEnv(gym.Env):
         print("OS:SHAPE:", self.observation_space.shape)
         # memory_values = self.pyboy.mb.ram.internal_ram0.append(self.pyboy.mb.ram.internal_ram1)
         # memory_values = np.array([self.pyboy.get_memory_value(address) for address in range(0x10000)])
-        memory_values = [self.pyboy.get_memory_value(i) for i in range(0x10000)]
+        memory_values = self.get_memory_range()
         pokemon_caught = sum(
             memory_values[self.caught_pokemon_start: self.caught_pokemon_end]
         )
@@ -521,7 +516,7 @@ class PyBoyEnv(gym.Env):
             self.seen_events.add(hashable_strings)
             # print("OS:EVENTS:", hashable_strings)
 
-        memory_values = memory_values[0xD5A6:0xD85F]
+        
         observation = np.append(
             memory_values, pokemon_caught + len(self.seen_events))
         # use timg to output the current screen
@@ -551,7 +546,7 @@ def make_env(game_path, emunum):
             print(f"Error: No state file found for {game_path}.state")
             exit(1)
             new_env = PyBoyEnv(game_path, emunum=emunum, save_state_path=None)
-            
+
         new_env.pyboy.set_emulation_speed(0)
         return new_env
     return _init
@@ -569,9 +564,6 @@ if __name__ == "__main__":
 
 
     current_stats = EveryNTimesteps(n_steps=10000, callback=PokeCaughtCallback())
-
-    
-
 
     # num_cpu = 1
     env = SubprocVecEnv([make_env(args.game_path,
@@ -611,7 +603,7 @@ if __name__ == "__main__":
         callbacks = [checkpoint_callback, current_stats]
         run_model.learn(total_timesteps=num_steps, progress_bar=True, callback=callbacks)
         return run_model
-    hrs = 6 # number of hours to run for.
+    hrs = 12 # number of hours to run for.
     runsteps = int(4000000 * (hrs))
     model = train_model(env, runsteps, steps=128)
     model.save(f"{file_name}.zip")
