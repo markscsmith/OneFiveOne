@@ -1,11 +1,10 @@
 import multiprocessing
 from pyboy import PyBoy, WindowEvent
 from stable_baselines3 import PPO
-from stable_baselines3.common.env_util import SubprocVecEnv
+from stable_baselines3.common.env_util import SubprocVecEnv, DummyVecEnv
 from stable_baselines3.common.callbacks import BaseCallback, EveryNTimesteps, CheckpointCallback
 from stable_baselines3.common.torch_layers import BaseFeaturesExtractor
 from stable_baselines3.common.policies import ActorCriticPolicy
-
 from timg import Renderer, Ansi24HblockMethod
 from PIL import Image, ImageDraw, ImageFont
 from os.path import exists
@@ -19,6 +18,13 @@ import os
 import datetime
 import hashlib
 import glob
+
+
+MEM_START = 0xCC3C
+MEM_END = 0xDEE1
+        
+        
+
 class PokeCart():
     def __init__(self, cart_data) -> None:
         # calculate checksum of cart_data
@@ -44,12 +50,17 @@ class PokeCart():
     def cart_offset(self):
         # Pokemon Yellow has offset -1 vs blue and green
         # TODO: Pokemon Gold Silver and Crystal
-        carts ={ "POKEMONG.GBC": 0xA000,
-                 "PMCRYSTA.GBC": 0xA000,
-                 "POKEMONY.GBC": 0xA000,
-                 "POKEMONB.GBC": 0xA000,
+        carts ={ 
+                "POKEMONR.GBC": MEM_START,
+                "POKEMONB.GBC": MEM_START,
+                "POKEMONY.GBC": MEM_START,
+                
+                "POKEMONG.GBC": 0xA000,
+                "PMCRYSTA.GBC": 0xA000,
+                 
+                 
                  "POKEMONS.GBC": 0xA000,
-                 "POKEMONR.GBC": 0xA000,}
+                 }
         if self.identify_cart() in carts:
             return carts[self.identify_cart()]
         else:
@@ -295,6 +306,7 @@ class PyBoyEnv(gym.Env):
     def __init__(self, game_path, emunum, save_state_path=None):
         super(PyBoyEnv, self).__init__()
         self.pyboy = PyBoy(game_path, window_type="headless", cgb=True)
+
         self.renderer = Renderer()
         self.actions = []
         self.screen_images = []
@@ -352,7 +364,8 @@ class PyBoyEnv(gym.Env):
 
         # Define actioqn_space and observation_space
         self.action_space = gym.spaces.Discrete(256)
-        self.observation_space = gym.spaces.Box(low=0, high=255, shape=(24576,),
+        size = MEM_END - MEM_START + 1
+        self.observation_space = gym.spaces.Box(low=0, high=255, shape=(size,),
                                                  dtype=np.uint8)
 
 
@@ -475,7 +488,7 @@ class PyBoyEnv(gym.Env):
         return observation, reward, terminated, truncated, info
 
     def get_memory_range(self):
-        memory_values = [self.pyboy.get_memory_value(i) for i in range(self.cart.cart_offset(), self.cart.cart_offset() +  (0xFFFF - self.cart.cart_offset()))]
+        memory_values = [self.pyboy.get_memory_value(i) for i in range(MEM_START, MEM_END)]
         return memory_values
 
     def reset(self, seed=0, **kwargs):
@@ -555,18 +568,23 @@ def make_env(game_path, emunum):
 if __name__ == "__main__":
     import argparse
     parser = argparse.ArgumentParser()
-    parser.add_argument("game_path", type=str)
+    parser.add_argument("--game_path", type=str, default="/home/mscs/PokemonYellow.gb")
     parser.add_argument("--num_hosts", type=int, default=1)
     args = parser.parse_args()
     num_cpu = multiprocessing.cpu_count()
+    # num_cpu = 1
     # Hostname and timestamp
     checkpoint_callback = CheckpointCallback(save_freq=10000, save_path=f"/Volumes/Mag/{os.uname()[1]}-{time.time()}.zip", name_prefix="poke")
 
 
     current_stats = EveryNTimesteps(n_steps=10000, callback=PokeCaughtCallback())
 
+    
     # num_cpu = 1
-    env = SubprocVecEnv([make_env(args.game_path,
+    if num_cpu == 1:
+        env =  DummyVecEnv([make_env(args.game_path, 0)])
+    else:
+        env = SubprocVecEnv([make_env(args.game_path,
                                   emunum) for emunum in range(num_cpu)])
 
 
@@ -575,7 +593,7 @@ if __name__ == "__main__":
         policy_kwargs = dict(
             features_extractor_class=CustomFeatureExtractor,
             features_extractor_kwargs={},
-            net_arch=[dict(pi=[256, 128, 32], vf=[256, 128, 32])],
+            net_arch=dict(pi=[256, 128, 32], vf=[256, 128, 32]),
             activation_fn=nn.ReLU,
         )
         device = "cpu"
@@ -596,14 +614,16 @@ if __name__ == "__main__":
             run_model.rollout_buffer.reset()
 
         else:
-            run_model = PPO(policy='MultiInputPolicy', n_steps=steps * num_cpu, n_epochs=3, gamma=0.998, learning_rate=learning_rate_schedule,
+            n_steps = steps * num_cpu
+            batch_size = n_steps * num_cpu
+            run_model = PPO(policy='MultiInputPolicy', n_steps=n_steps, batch_size=batch_size,  n_epochs=3, gamma=0.998, learning_rate=learning_rate_schedule,
                             env=env,  policy_kwargs=policy_kwargs, verbose=0, device=device)
         model_merge_callback = EveryNTimesteps(n_steps=steps * num_cpu * 1024, callback=ModelMergeCallback(args.num_hosts))
         # TODO: Progress callback that collects data from each frame for stats
         callbacks = [checkpoint_callback, current_stats]
         run_model.learn(total_timesteps=num_steps, progress_bar=True, callback=callbacks)
         return run_model
-    hrs = 12 # number of hours to run for.
-    runsteps = int(4000000 * (hrs))
+    hrs = 8 # number of hours to run for.
+    runsteps = int(1000000 * (hrs) * num_cpu)
     model = train_model(env, runsteps, steps=128)
     model.save(f"{file_name}.zip")
