@@ -596,7 +596,7 @@ if __name__ == "__main__":
             run_model.rollout_buffer.reset()
 
         else:
-            run_model = PPO(policy='MultiInputPolicy', n_steps=steps * num_cpu, learning_rate=learning_rate_schedule,
+            run_model = PPO(policy='MultiInputPolicy', n_steps=steps * num_cpu, n_epochs=3, gamma=0.998, learning_rate=learning_rate_schedule,
                             env=env, gamma=0.99,  policy_kwargs=policy_kwargs, verbose=0, device=device)
         model_merge_callback = EveryNTimesteps(n_steps=steps * num_cpu * 1024, callback=ModelMergeCallback(args.num_hosts))
         # TODO: Progress callback that collects data from each frame for stats
