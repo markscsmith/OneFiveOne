@@ -74,72 +74,72 @@ class CustomFeatureExtractor(BaseFeaturesExtractor):
 
         # Define your custom layers here
         self.extractor = nn.Sequential(
-            nn.Linear(np.prod(observation_space.shape), 256),
+            nn.Linear(np.prod(observation_space.shape), 512),
             nn.ReLU(),
-            nn.Linear(256, 256),
+            nn.Linear(512, 512),
             nn.ReLU(),
-            nn.Linear(256, features_dim),
+            nn.Linear(512, features_dim),
             nn.ReLU(),
         )
 
     def forward(self, observations: torch.Tensor) -> torch.Tensor:
         return self.extractor(observations)
 
-class ModelMergeCallback(BaseCallback):
-    def __init__(self, num_hosts, verbose=0):
-        super(ModelMergeCallback, self).__init__(verbose)
-        self.filename_datetime = datetime.datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
-        self.num_hosts = num_hosts
+# class ModelMergeCallback(BaseCallback):
+#     def __init__(self, num_hosts, verbose=0):
+#         super(ModelMergeCallback, self).__init__(verbose)
+#         self.filename_datetime = datetime.datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
+#         self.num_hosts = num_hosts
 
-    def _on_step(self) -> bool:
-        hostname = os.uname()[1]
-        file_name = f"{hostname}-{self.filename_datetime}-{self.model.num_timesteps}"
-        self.model.save(f"/Volumes/Mag/ofo/{file_name}.zip")
-        found_models = self.scan_models()
-        time.sleep(1)
-        retries = 0
-        max_retries = 30
-        while len(found_models) < self.num_hosts and retries < max_retries:
-            retries += 1
-            found_models = self.scan_models()
-            time.sleep(1)
+#     def _on_step(self) -> bool:
+#         hostname = os.uname()[1]
+#         file_name = f"{hostname}-{self.filename_datetime}-{self.model.num_timesteps}"
+#         self.model.save(f"/Volumes/Mag/ofo/{file_name}.zip")
+#         found_models = self.scan_models()
+#         time.sleep(1)
+#         retries = 0
+#         max_retries = 30
+#         while len(found_models) < self.num_hosts and retries < max_retries:
+#             retries += 1
+#             found_models = self.scan_models()
+#             time.sleep(1)
 
-            if len(found_models) == self.num_hosts:
-                print("Merging models")
-                try:
-                    self.merge_models(found_models)
+#             if len(found_models) == self.num_hosts:
+#                 print("Merging models")
+#                 try:
+#                     self.merge_models(found_models)
                 
-                    print(f"Model Merge Complete! Merged {len(found_models)} models. New model size: {self.model.num_timesteps}")
-                    # Flashy emoji to show model merge clearly on screen!
-                    print("""
-                      🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉
-                      🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉
-                      🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉
-                      🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉
-                      🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉
-                    """)
-                    retries = max_retries
-                except Exception as e:
-                    print(f"Model merge failed: {e}")
-                    retries += 1
-                    time.sleep(1)
+#                     print(f"Model Merge Complete! Merged {len(found_models)} models. New model size: {self.model.num_timesteps}")
+#                     # Flashy emoji to show model merge clearly on screen!
+#                     print("""
+#                       🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉
+#                       🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉
+#                       🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉
+#                       🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉
+#                       🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉
+#                     """)
+#                     retries = max_retries
+#                 except Exception as e:
+#                     print(f"Model merge failed: {e}")
+#                     retries += 1
+#                     time.sleep(1)
 
-            else:
-                print(f"Model error! Only found {len(found_models)} models. Expected {self.num_hosts} models.")
-                print("""
-                      ❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌
-                      ❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌
-                      ❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌
-                      ❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌
-                      ❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌
-                    """)
-                time.sleep(10)
+#             else:
+#                 print(f"Model error! Only found {len(found_models)} models. Expected {self.num_hosts} models.")
+#                 print("""
+#                       ❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌
+#                       ❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌
+#                       ❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌
+#                       ❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌
+#                       ❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌
+#                     """)
+#                 time.sleep(10)
 
 
 
-        self.generate_gif_and_actions()
+#         self.generate_gif_and_actions()
 
-        return True
+#         return True
 
     def generate_gif_and_actions(self):
         actions = self.training_env.get_attr('actions')
@@ -149,6 +149,7 @@ class ModelMergeCallback(BaseCallback):
         pokemon_caughts = self.training_env.get_attr('last_pokemon_count')
 
         hostname = os.uname()[1]
+
         file_name = f"{hostname}-{self.filename_datetime}-{self.model.num_timesteps}"
         # Generate a CSV of data
         with open(f"/Volumes/Mag/ofo/{file_name}.csv", "w") as f:
@@ -204,13 +205,15 @@ class PokeCaughtCallback(BaseCallback):
         visiteds = self.training_env.get_attr('visited_xy')
         pokemon_caughts = self.training_env.get_attr('last_pokemon_count')
 
-        hostname = os.uname()[1]
-        file_name = f"{hostname}-{self.filename_datetime}-{self.model.num_timesteps}"
-        # Generate a CSV of data
-        with open(f"/Volumes/Mag/ofo/{file_name}.csv", "w") as f:
-            f.write("env_num,caught,actions,rewards,frames,visiteds\n")
-            for env_num, (action, caught, reward, frame, visited) in enumerate(zip(actions, pokemon_caughts, rewards, frames, visiteds)):
-                f.write(f"{env_num},{caught},{''.join(action)},{reward},{frame},\"{visited}\"\n")
+
+        if self.model.num_timesteps % 100000 == 0:
+            hostname = os.uname()[1]
+            file_name = f"{hostname}"
+            # Generate a CSV of data
+            with open(f"/Volumes/Mag/ofo/{file_name}.csv", "w") as f:
+                f.write("env_num,caught,actions,rewards,frames,visiteds\n")
+                for env_num, (action, caught, reward, frame, visited) in enumerate(zip(actions, pokemon_caughts, rewards, frames, visiteds)):
+                    f.write(f"{env_num},{caught},{''.join(action)},{reward},{frame},\"{visited}\"\n")
 
     def _on_step(self) -> bool:
         self.generate_gif_and_actions()
@@ -448,10 +451,17 @@ class PyBoyEnv(gym.Env):
         # flo.seek(0)
         # memory_values = np.frombuffer(flo.read(), dtype=np.uint8)
         memory_values = self.get_memory_range()
+        self.menu_value =  0xED in memory_values[0xC3A0 - self.cart.cart_offset():0xC507 - self.cart.cart_offset()]
         pokemon_caught = sum(
             memory_values[self.caught_pokemon_start: self.caught_pokemon_end]
         )
+        
 
+        if self.menu_value == False:
+            pass
+        else:
+            print(f"Menu value: {self.menu_value}")
+            self.render()
 
         px = memory_values[self.player_x_mem]
         py = memory_values[self.player_y_mem]
@@ -468,13 +478,17 @@ class PyBoyEnv(gym.Env):
             self.last_player_y_block = pby
             self.last_player_map = map_id
 
-        self.visited_xy.add((px, py, pbx, pby, map_id))
+        # convert binary chunks into a single string
+        chunk_id = f"{px}:{py}:{pbx}:{pby}:{map_id}"
+
+
+        self.visited_xy.add(chunk_id)
 
         observation = np.append(memory_values, (pokemon_caught + 1) * len(self.visited_xy))
 
         # Don't count the frames where the player is still in the starting menus. Pokemon caught gives more leeway on standing still
                                                                                                                                # Minutes standing still * 10
-        reward = (pokemon_caught) * 10000 + round(len(self.visited_xy) * (100 * len(self.screen_image_arrays) / (self.frames + 1)))  -  round((self.stationary_frames // 24 // 60)) * 10
+        reward = (pokemon_caught) * 10000 + len(self.visited_xy) * 10  -  round((self.stationary_frames // 24 // 60)) * 10
         if self.stationary_frames > 14400:
             self.reset()
         # if np.random.randint(777) == 0 or self.last_pokemon_count != pokemon_caught or self.last_score - reward > 100:
@@ -486,8 +500,11 @@ class PyBoyEnv(gym.Env):
         info = {}
         self.last_pokemon_count = pokemon_caught
         return observation, reward, terminated, truncated, info
+    
+    import numba
 
-    def get_memory_range(self):
+    @numba.jit(forceobj=True)
+    def get_memory_range(self):    
         memory_values = [self.pyboy.get_memory_value(i) for i in range(MEM_START, MEM_END)]
         return memory_values
 
@@ -524,6 +541,8 @@ class PyBoyEnv(gym.Env):
         self.last_player_y = 0
         self.last_player_x_block = 0
         self.last_player_y_block = 0
+        self.menu_value = 0xED in memory_values[0xC3A0 - self.cart.cart_offset():0xC507 - self.cart.cart_offset()]
+
 
         if hashable_strings not in self.seen_events:
             self.seen_events.add(hashable_strings)
@@ -571,6 +590,7 @@ if __name__ == "__main__":
     parser.add_argument("--game_path", type=str, default="/home/mscs/PokemonYellow.gb")
     parser.add_argument("--num_hosts", type=int, default=1)
     args = parser.parse_args()
+    
     num_cpu = multiprocessing.cpu_count()
     # num_cpu = 1
     # Hostname and timestamp
@@ -595,6 +615,7 @@ if __name__ == "__main__":
             features_extractor_kwargs={},
             net_arch=dict(pi=[256, 128, 32], vf=[256, 128, 32]),
             activation_fn=nn.ReLU,
+            
         )
         device = "cpu"
         device = (
@@ -616,9 +637,9 @@ if __name__ == "__main__":
         else:
             n_steps = steps * num_cpu
             batch_size = n_steps * num_cpu
-            run_model = PPO(policy='MultiInputPolicy', n_steps=n_steps, batch_size=batch_size,  n_epochs=3, gamma=0.998, learning_rate=learning_rate_schedule,
-                            env=env,  policy_kwargs=policy_kwargs, verbose=0, device=device)
-        model_merge_callback = EveryNTimesteps(n_steps=steps * num_cpu * 1024, callback=ModelMergeCallback(args.num_hosts))
+            run_model = PPO(policy='MultiInputPolicy', n_steps=n_steps, batch_size=num_cpu,  n_epochs=3, gamma=0.998, learning_rate=learning_rate_schedule,
+                            env=env,  policy_kwargs=policy_kwargs, verbose=1, device=device)
+        # model_merge_callback = EveryNTimesteps(n_steps=steps * num_cpu * 1024, callback=ModelMergeCallback(args.num_hosts))
         # TODO: Progress callback that collects data from each frame for stats
         callbacks = [checkpoint_callback, current_stats]
         run_model.learn(total_timesteps=num_steps, progress_bar=True, callback=callbacks)
