@@ -90,7 +90,7 @@ class CustomFeatureExtractor(BaseFeaturesExtractor):
 #     def _on_step(self) -> bool:
 #         hostname = os.uname()[1]
 #         file_name = f"{hostname}-{self.filename_datetime}-{self.model.num_timesteps}"
-#         self.model.save(f"/Volumes/Mag/ofo/{file_name}.zip")
+#         self.model.save(f"/Volumes/Scratch/ofo/{file_name}.zip")
 #         found_models = self.scan_models()
 #         time.sleep(1)
 #         retries = 0
@@ -148,7 +148,7 @@ class CustomFeatureExtractor(BaseFeaturesExtractor):
 
         base_file_name = f"{hostname}-{self.filename_datetime}-{self.model.num_timesteps}"
         # Generate a CSV of data
-        with open(f"/Volumes/Mag/ofo/{base_file_name}.csv", "w", encoding="utf-8") as f:
+        with open(f"/Volumes/Scratch/ofo/{base_file_name}.csv", "w", encoding="utf-8") as f:
             f.write("env_num,caught,actions,rewards,frames,visiteds\n")
             for env_num, (action, caught, reward, frame, visited) in enumerate(zip(actions, pokemon_caughts, rewards, frames, visiteds)):
                 f.write(f"{env_num},{caught},{''.join(action)},{reward},{frame},\"{visited}\"\n")
@@ -157,8 +157,8 @@ class CustomFeatureExtractor(BaseFeaturesExtractor):
 
     def scan_models(self):
         # Force LS of directory to refresh cacche:
-        os.system("ls /Volumes/Mag/ofo")
-        model_files = glob.glob("/Volumes/Mag/ofo/*-*.zip")
+        os.system("ls /Volumes/Scratch/ofo")
+        model_files = glob.glob("/Volumes/Scratch/ofo/*-*.zip")
 
         found_models = []
         for model_file in model_files:
@@ -209,7 +209,7 @@ class PokeCaughtCallback(BaseCallback):
             hostname = os.uname()[1]
             file_name = f"{hostname}"
             # Generate a CSV of data
-            with open(f"/Volumes/Mag/ofo/{file_name}.csv", "w", encoding="utf-8") as f:
+            with open(f"/Volumes/Scratch/ofo/{file_name}.csv", "w", encoding="utf-8") as f:
                 f.write("env_num,caught,actions,rewards,frames,visiteds\n")
                 for env_num, (action, caught, reward, frame, visited) in enumerate(zip(actions, pokemon_caughts, rewards, frames, visiteds)):
                     f.write(f"{env_num},{caught},{''.join(action)},{reward},{frame},\"{visited}\"\n")
@@ -236,9 +236,9 @@ class PokeCaughtCallback(BaseCallback):
         # for env_num, (rendered_frames, visited, steps, reward, filename_datetime)  in enumerate(zip(all_frames, visiteds, frames, rewards, filename_datetimes)):
         #     print(f"{str(env_num).zfill(3)} 🟣 {all_pokemon_caught[env_num]} 🎬 {steps} 🌎 {len(visited)} 🏆 {reward}")
         #     # Combine frames into gif
-        #     rendered_frames[0].save(f"/Volumes/Mag/frames/{env_num}-{filename_datetime}.gif", save_all=True, append_images=rendered_frames[1:], optimize=False, duration=100, loop=0)
+        #     rendered_frames[0].save(f"/Volumes/Scratch/frames/{env_num}-{filename_datetime}.gif", save_all=True, append_images=rendered_frames[1:], optimize=False, duration=100, loop=0)
             # for frame_num, frame in enumerate(rendered_frames):
-            #     frame.save(f"/Volumes/Mag/frames/{env_num}-{frame_num}-{filename_datetime}.png")
+            #     frame.save(f"/Volumes/Scratch/frames/{env_num}-{frame_num}-{filename_datetime}.png")
         # Example: print or process the retrieved values
 
         # Find the best performing environment
@@ -658,7 +658,7 @@ if __name__ == "__main__":
     runsteps = int(1000000 / 7 * (hrs) * num_cpu)
     # num_cpu = 1
     # Hostname and timestamp
-    checkpoint_callback = CheckpointCallback(save_freq=10000, save_path=f"/Volumes/Mag/{os.uname()[1]}-{time.time()}.zip", name_prefix="poke")
+    checkpoint_callback = CheckpointCallback(save_freq=10000, save_path=f"/Volumes/Scratch/ofo_chkpt/{os.uname()[1]}-{time.time()}.zip", name_prefix="poke")
 
 
     current_stats = EveryNTimesteps(n_steps=3000, callback=PokeCaughtCallback(runsteps))
