@@ -7,8 +7,11 @@ from stable_baselines3.common.torch_layers import BaseFeaturesExtractor
 from stable_baselines3.common.policies import ActorCriticPolicy
 from timg import Renderer, Ansi24HblockMethod
 from PIL import Image, ImageDraw, ImageFont
+
 from os.path import exists
 import gymnasium as gym
+
+from gym.spaces import Box, Dict, Discrete
 import numpy as np
 import base64
 import torch
@@ -81,61 +84,6 @@ class CustomFeatureExtractor(BaseFeaturesExtractor):
     def forward(self, observations: torch.Tensor) -> torch.Tensor:
         return self.extractor(observations)
 
-# class ModelMergeCallback(BaseCallback):
-#     def __init__(self, num_hosts, verbose=0):
-#         super(ModelMergeCallback, self).__init__(verbose)
-#         self.filename_datetime = datetime.datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
-#         self.num_hosts = num_hosts
-
-#     def _on_step(self) -> bool:
-#         hostname = os.uname()[1]
-#         file_name = f"{hostname}-{self.filename_datetime}-{self.model.num_timesteps}"
-#         self.model.save(f"/Volumes/Scratch/ofo/{file_name}.zip")
-#         found_models = self.scan_models()
-#         time.sleep(1)
-#         retries = 0
-#         max_retries = 30
-#         while len(found_models) < self.num_hosts and retries < max_retries:
-#             retries += 1
-#             found_models = self.scan_models()
-#             time.sleep(1)
-
-#             if len(found_models) == self.num_hosts:
-#                 print("Merging models")
-#                 try:
-#                     self.merge_models(found_models)
-                
-#                     print(f"Model Merge Complete! Merged {len(found_models)} models. New model size: {self.model.num_timesteps}")
-#                     # Flashy emoji to show model merge clearly on screen!
-#                     print("""
-#                       🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉
-#                       🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉
-#                       🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉
-#                       🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉
-#                       🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉
-#                     """)
-#                     retries = max_retries
-#                 except Exception as e:
-#                     print(f"Model merge failed: {e}")
-#                     retries += 1
-#                     time.sleep(1)
-
-#             else:
-#                 print(f"Model error! Only found {len(found_models)} models. Expected {self.num_hosts} models.")
-#                 print("""
-#                       ❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌
-#                       ❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌
-#                       ❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌
-#                       ❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌
-#                       ❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌
-#                     """)
-#                 time.sleep(10)
-
-
-
-#         self.generate_gif_and_actions()
-
-#         return True
 
     def generate_gif_and_actions(self):
         actions = self.training_env.get_attr('actions')
@@ -179,8 +127,8 @@ class CustomFeatureExtractor(BaseFeaturesExtractor):
 
 
 def learning_rate_schedule(progress):
-    # return 0.055 * (1.5 - progress)
-    return  0.025
+    return 0.055 * (1.5 - progress)
+    #return  0.0
 
 
 class CustomNetwork(ActorCriticPolicy):
@@ -310,7 +258,7 @@ class PyBoyEnv(gym.Env):
         self.pyboy = PyBoy(game_path, window_type="headless", cgb=True)
         self.game_path = game_path
         self.menu_value =  None
-        self.n = 96
+        self.n = 21600
         self.last_n_frames = [None] * self.n
         self.renderer = Renderer()
         self.actions = []
@@ -341,6 +289,7 @@ class PyBoyEnv(gym.Env):
         self.screen_image_arrays_list = []
         self.unchanged_frames = 0
         self.reset_penalty = 0
+        self.player_maps = set()
 
         # self.buttons = [WindowEvent.PRESS_ARROW_UP, WindowEvent.PRESS_ARROW_DOWN, WindowEvent.PRESS_ARROW_LEFT,
         #                 WindowEvent.PRESS_ARROW_RIGHT,WindowEvent.PRESS_BUTTON_A, WindowEvent.PRESS_BUTTON_B,
@@ -372,9 +321,8 @@ class PyBoyEnv(gym.Env):
         # Define actioqn_space and observation_space
         # self.action_space = gym.spaces.Discrete(256)
         self.action_space = gym.spaces.MultiBinary(12)
-        size = MEM_END - MEM_START + 1
-        self.observation_space = gym.spaces.Box(low=0, high=255, shape=(size,),
-                                                 dtype=np.uint8)
+        size = MEM_END - MEM_START + 2
+        self.observation_space = gym.spaces.Box(low=0, high=65535, shape=(size,), dtype=np.uint16)
 
 
     def generate_image(self):
@@ -383,6 +331,43 @@ class PyBoyEnv(gym.Env):
 
     def generate_screen_ndarray(self):
         return self.pyboy.botsupport_manager().screen().screen_ndarray()
+
+    def calculate_reward(self, memory_values):
+        
+        pokemon_caught = sum(
+            memory_values[self.caught_pokemon_start: self.caught_pokemon_end]
+        )
+
+
+
+        px = memory_values[self.player_x_mem]
+        py = memory_values[self.player_y_mem]
+        pbx = memory_values[self.player_x_block_mem]
+        pby = memory_values[self.player_y_block_mem]
+        map_id = memory_values[self.player_map_mem]
+        self.player_maps.add(map_id)
+        if self.last_player_x == px and self.last_player_y == py and self.last_player_x_block == pbx and self.last_player_y_block == pby and self.last_player_map == map_id:
+            self.stationary_frames += 1
+        else:
+            self.stationary_frames = 0
+            self.last_player_x = px
+            self.last_player_y = py
+            self.last_player_x_block = pbx
+            self.last_player_y_block = pby
+            self.last_player_map = map_id
+
+        # convert binary chunks into a single string
+        chunk_id = f"{px}:{py}:{pbx}:{pby}:{map_id}"
+
+
+        self.visited_xy.add(chunk_id)
+
+        
+        self.last_pokemon_count = pokemon_caught
+        # reward = pokemon_caught * 1000 + len(self.visited_xy) * 10 - self.stationary_frames * 10 - self.unchanged_frames * 10 - self.reset_penalty
+        # More caught pokemon = more leeway for standing still
+        reward = int(pokemon_caught * 32000 // 152) + ((len(self.player_maps)) * (32000 // 255) * (2000  * (pokemon_caught + 1) - self.stationary_frames) / 2000 * (pokemon_caught + 1))
+        return reward
 
 
     def render(self, target_index = None, reset = False):
@@ -418,9 +403,9 @@ class PyBoyEnv(gym.Env):
             self.renderer.resize(terminal_size.columns, terminal_size.lines * 2 - terminal_offset)
             self.renderer.render(Ansi24HblockMethod)
             if target_index is not None:
-                print(f"Best:  {target_index} 🟢 {self.last_pokemon_count} 🌨️  {len(self.screen_image_arrays)} / 🎬 {self.frames} 🌎 {len(self.visited_xy)} 🏆 {self.last_score} 🦶 {self.stationary_frames} 🥱 {self.unchanged_frames} ♻️  {self.reset_penalty} X: {self.last_player_x} Y: {self.last_player_y} XB: {self.last_player_x_block} YB: {self.last_player_y_block}, Map: {self.last_player_map} Actinos {self.actions[-6:]}")
+                print(f"Best:  {target_index} 🟢 {self.last_pokemon_count} 🌨️  {len(self.screen_image_arrays)} / 🎬 {self.frames} 🌎 {len(self.visited_xy)} 🏆 {self.last_score} 🦶 {self.stationary_frames} 🥱 {self.unchanged_frames} ♻️  {self.reset_penalty} X: {self.last_player_x} Y: {self.last_player_y} XB: {self.last_player_x_block} YB: {self.last_player_y_block}, Map: {self.last_player_map} Actinos {self.actions[-6:]} {len(self.actions)}")
             if reset:
-                print(f"Reset: {self.emunum} 🟢 {self.last_pokemon_count} 🌨️  {len(self.screen_image_arrays)} / 🎬 {self.frames} 🌎 {len(self.visited_xy)} 🏆 {self.last_score} 🦶 {self.stationary_frames} 🥱 {self.unchanged_frames} ♻️  {self.reset_penalty} X: {self.last_player_x} Y: {self.last_player_y} XB: {self.last_player_x_block} YB: {self.last_player_y_block}, Map: {self.last_player_map} Actinos {self.actions[-6:]}")
+                print(f"Reset: {self.emunum} 🟢 {self.last_pokemon_count} 🌨️  {len(self.screen_image_arrays)} / 🎬 {self.frames} 🌎 {len(self.visited_xy)} 🏆 {self.last_score} 🦶 {self.stationary_frames} 🥱 {self.unchanged_frames} ♻️  {self.reset_penalty} X: {self.last_player_x} Y: {self.last_player_y} XB: {self.last_player_x_block} YB: {self.last_player_y_block}, Map: {self.last_player_map} Actinos {self.actions[-6:]} {len(self.actions)}")
             
 
     def step(self, action):
@@ -491,40 +476,14 @@ class PyBoyEnv(gym.Env):
         # self.pyboy.save_state(flo)
         # flo.seek(0)
         # memory_values = np.frombuffer(flo.read(), dtype=np.uint8)
+
         memory_values = self.get_memory_range()
-        self.menu_value =  0xED in memory_values[0xC3A0 - self.cart.cart_offset():0xC507 - self.cart.cart_offset()]
-        pokemon_caught = sum(
-            memory_values[self.caught_pokemon_start: self.caught_pokemon_end]
-        )
-
-
-
-        px = memory_values[self.player_x_mem]
-        py = memory_values[self.player_y_mem]
-        pbx = memory_values[self.player_x_block_mem]
-        pby = memory_values[self.player_y_block_mem]
-        map_id = memory_values[self.player_map_mem]
-        if self.last_player_x == px and self.last_player_y == py and self.last_player_x_block == pbx and self.last_player_y_block == pby and self.last_player_map == map_id:
-            self.stationary_frames += 1
-        else:
-            self.stationary_frames = 0
-            self.last_player_x = px
-            self.last_player_y = py
-            self.last_player_x_block = pbx
-            self.last_player_y_block = pby
-            self.last_player_map = map_id
-
-        # convert binary chunks into a single string
-        chunk_id = f"{px}:{py}:{pbx}:{pby}:{map_id}"
-
-
-        self.visited_xy.add(chunk_id)
-
-        observation = np.append(memory_values, (pokemon_caught + 1) * len(self.visited_xy))
+        reward = self.calculate_reward(memory_values=memory_values)
+        observation = np.append(memory_values, reward)
 
         # Don't count the frames where the player is still in the starting menus. Pokemon caught gives more leeway on standing still
                                                                                                        # Minutes standing still * 10
-        reward = (pokemon_caught) * 10000 + len(self.visited_xy) * 10   + len(self.screen_image_arrays) // 24 -  round((self.stationary_frames // 24 // 60)) * 10 - self.unchanged_frames - temp_reset_penalty - self.reset_penalty
+         
         self.last_score = reward
         if reward < -5000:
             self.reset_penalty -= 50000
@@ -536,14 +495,14 @@ class PyBoyEnv(gym.Env):
         terminated = False
         truncated = False
         info = {}
-        self.last_pokemon_count = pokemon_caught
+        
         return observation, reward, terminated, truncated, info
     
     import numba
 
     @numba.jit(forceobj=True)
     def get_memory_range(self):    
-        memory_values = [self.pyboy.get_memory_value(i) for i in range(MEM_START, MEM_END)]
+        memory_values = [self.pyboy.get_memory_value(i) for i in range(MEM_START, MEM_END + 1)]
         return memory_values
 
     def reset(self, seed=0, **kwargs):
@@ -561,6 +520,7 @@ class PyBoyEnv(gym.Env):
         super().reset(seed=seed, **kwargs)
         
         self.visited_xy = set()
+        self.player_maps = set()
         self.reset_penalty = 0
         self.screen_image_arrays = set()
         self.screen_image_arrays_list = []
@@ -609,9 +569,9 @@ class PyBoyEnv(gym.Env):
             self.seen_events.add(hashable_strings)
             # print("OS:EVENTS:", hashable_strings)
 
-
+        reward = self.calculate_reward(memory_values=memory_values)
         observation = np.append(
-            memory_values, pokemon_caught + len(self.seen_events))
+            memory_values, reward)
         # use timg to output the current screen
 
         # obj = Renderer()
@@ -654,7 +614,7 @@ if __name__ == "__main__":
 
     num_cpu = multiprocessing.cpu_count()
     
-    hrs = 10 # number of hours to run for.
+    hrs = 13 # number of hours to run for.
     runsteps = int(1000000 / 7 * (hrs) * num_cpu)
     # num_cpu = 1
     # Hostname and timestamp
@@ -710,5 +670,5 @@ if __name__ == "__main__":
         run_model.learn(total_timesteps=num_steps, progress_bar=False, callback=callbacks)
         return run_model
 
-    model = train_model(env, runsteps, steps=32)
+    model = train_model(env, runsteps, steps=64)
     model.save(f"{file_name}.zip")
