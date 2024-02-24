@@ -492,9 +492,7 @@ class PyBoyEnv(gym.Env):
                                                                                                        # Minutes standing still * 10
          
         self.last_score = reward
-        if reward < -5000:
-            self.reset_penalty -= 50000
-            self.reset()
+        
         # if np.random.randint(777) == 0 or self.last_pokemon_count != pokemon_caught or self.last_score - reward > 100:
         #     self.render()
         #
@@ -677,5 +675,5 @@ if __name__ == "__main__":
         run_model.learn(total_timesteps=num_steps, progress_bar=False, callback=callbacks)
         return run_model
 
-    model = train_model(env, runsteps, steps=8)
+    model = train_model(env, runsteps, steps=32)
     model.save(f"{file_name}.zip")
