@@ -372,7 +372,7 @@ class PyBoyEnv(gym.Env):
         # elif reward < 0:
         #     reward = 0
 
-        if 0 > reward > -5000:
+        if reward > -5000 and reward < 0:
             reward = 0
         return reward
 
