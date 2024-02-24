@@ -410,9 +410,9 @@ class PyBoyEnv(gym.Env):
             self.renderer.resize(terminal_size.columns, terminal_size.lines * 2 - terminal_offset)
             self.renderer.render(Ansi24HblockMethod)
             if target_index is not None:
-                print(f"Best:  {target_index} 🟢 {self.last_pokemon_count} 🌨️  {len(self.screen_image_arrays)} / 🎬 {self.frames} 🌎 {len(self.visited_xy)} 🏆 {self.last_score} 🦶 {self.stationary_frames} 🥱 {self.unchanged_frames} ♻️  {self.reset_penalty} X: {self.last_player_x} Y: {self.last_player_y} XB: {self.last_player_x_block} YB: {self.last_player_y_block}, Map: {self.last_player_map} Actinos {self.actions[-6:]} {len(self.actions)}")
+                print(f"Best:  {target_index} 🟢 {self.last_pokemon_count} 🎬 {self.frames} 🌎 {len(self.visited_xy)} 🏆 {self.last_score} 🦶 {self.stationary_frames} X: {self.last_player_x} Y: {self.last_player_y} XB: {self.last_player_x_block} YB: {self.last_player_y_block}, Map: {self.last_player_map} Actinos {self.actions[-6:]} {len(self.actions)}")
             if reset:
-                print(f"Reset: {self.emunum} 🟢 {self.last_pokemon_count} 🌨️  {len(self.screen_image_arrays)} / 🎬 {self.frames} 🌎 {len(self.visited_xy)} 🏆 {self.last_score} 🦶 {self.stationary_frames} 🥱 {self.unchanged_frames} ♻️  {self.reset_penalty} X: {self.last_player_x} Y: {self.last_player_y} XB: {self.last_player_x_block} YB: {self.last_player_y_block}, Map: {self.last_player_map} Actinos {self.actions[-6:]} {len(self.actions)}")
+                print(f"Reset: {self.emunum} 🟢 {self.last_pokemon_count} 🎬 {self.frames} 🌎 {len(self.visited_xy)} 🏆 {self.last_score} 🦶 {self.stationary_frames} X: {self.last_player_x} Y: {self.last_player_y} XB: {self.last_player_x_block} YB: {self.last_player_y_block}, Map: {self.last_player_map} Actinos {self.actions[-6:]} {len(self.actions)}")
             
 
     def step(self, action):
@@ -677,5 +677,5 @@ if __name__ == "__main__":
         run_model.learn(total_timesteps=num_steps, progress_bar=False, callback=callbacks)
         return run_model
 
-    model = train_model(env, runsteps, steps=128)
+    model = train_model(env, runsteps, steps=8)
     model.save(f"{file_name}.zip")
