@@ -369,7 +369,7 @@ class PyBoyEnv(gym.Env):
         reward = int(pokemon_caught * 32000 // 152) + ((len(self.player_maps)) * (32000 // 255) * (2000  * (pokemon_caught + 1) - self.stationary_frames) / 2000 * (pokemon_caught + 1))
         if reward < -500:
             self.reset()
-        if reward < 0:
+        elif reward < 0:
             reward = 0
         return reward
 
@@ -619,7 +619,7 @@ if __name__ == "__main__":
     num_cpu = multiprocessing.cpu_count()
     
     hrs = 13 # number of hours to run for.
-    runsteps = int(1000000 / 7 * (hrs) * num_cpu)
+    runsteps = int(1000000 / 13 * (hrs) * num_cpu)
     # num_cpu = 1
     # Hostname and timestamp
     checkpoint_callback = CheckpointCallback(save_freq=10000, save_path=f"/Volumes/Scratch/ofo_chkpt/{os.uname()[1]}-{time.time()}.zip", name_prefix="poke")
@@ -674,5 +674,5 @@ if __name__ == "__main__":
         run_model.learn(total_timesteps=num_steps, progress_bar=False, callback=callbacks)
         return run_model
 
-    model = train_model(env, runsteps, steps=64)
+    model = train_model(env, runsteps, steps=128)
     model.save(f"{file_name}.zip")
