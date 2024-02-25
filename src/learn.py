@@ -127,7 +127,7 @@ class CustomFeatureExtractor(BaseFeaturesExtractor):
 
 
 def learning_rate_schedule(progress):
-    return 0.055 * (1.5 - progress)
+    return 0.055 * (1 + progress)
     #return  0.0
 
 
@@ -253,7 +253,7 @@ def add_string_overlay(
     return image
 
 class PyBoyEnv(gym.Env):
-    def __init__(self, game_path, emunum, save_state_path=None):
+    def __init__(self, game_path, emunum, save_state_path=None, max_frames=500_000, **kwargs):
         super(PyBoyEnv, self).__init__()
         self.pyboy = PyBoy(game_path, window_type="headless", cgb=True)
         self.game_path = game_path
@@ -290,7 +290,7 @@ class PyBoyEnv(gym.Env):
         self.unchanged_frames = 0
         self.reset_penalty = 0
         self.player_maps = set()
-
+        self.max_frames = max_frames
         # self.buttons = [WindowEvent.PRESS_ARROW_UP, WindowEvent.PRESS_ARROW_DOWN, WindowEvent.PRESS_ARROW_LEFT,
         #                 WindowEvent.PRESS_ARROW_RIGHT,WindowEvent.PRESS_BUTTON_A, WindowEvent.PRESS_BUTTON_B,
         #                 WindowEvent.PRESS_BUTTON_START, WindowEvent.PRESS_BUTTON_SELECT, WindowEvent.RELEASE_ARROW_UP,
@@ -446,14 +446,14 @@ class PyBoyEnv(gym.Env):
             if duration > 10:
                 temp_reset_penalty = -1000
                 self.reset_penalty -= temp_reset_penalty
-                
+
             else:
                 temp_reset_penalty -= -100
                 button_states[7] = 0
-            
 
-                
-        
+
+
+
         ticks += duration
         # self.pyboy.send_input(self.buttons[action])
         # self.actions.append(self.buttons_names[action])
@@ -466,7 +466,7 @@ class PyBoyEnv(gym.Env):
         for _ in range(ticks):
             self.pyboy.tick()
         # Grab less frames to append if we're standing still.
-        
+
         screen_bytes = self.generate_screen_ndarray().tobytes()
         if screen_bytes not in self.last_n_frames:
             self.last_n_frames.append(screen_bytes)
@@ -489,13 +489,13 @@ class PyBoyEnv(gym.Env):
 
         # Don't count the frames where the player is still in the starting menus. Pokemon caught gives more leeway on standing still
                                                                                                        # Minutes standing still * 10
-         
+
         self.last_score = reward
-        
+
         # if np.random.randint(777) == 0 or self.last_pokemon_count != pokemon_caught or self.last_score - reward > 100:
         #     self.render()
         #
-        if self.frames >= 2000000:
+        if self.frames >= self.max_frames:
             terminated = True
         else:
             terminated = False
@@ -505,11 +505,11 @@ class PyBoyEnv(gym.Env):
             self.pyboy.load_state(open(self.save_state_path, "rb"))
         else:
             truncated = False
-        
+
         info = {}
-        
+
         return observation, reward, terminated, truncated, info
-    
+
     import numba
 
     @numba.jit(forceobj=True)
@@ -530,7 +530,7 @@ class PyBoyEnv(gym.Env):
 
         # print("OS:RESET:", self.emunum, seed)
         super().reset(seed=seed, **kwargs)
-        
+
         self.visited_xy = set()
         self.player_maps = set()
         self.reset_penalty = 0
@@ -586,17 +586,6 @@ class PyBoyEnv(gym.Env):
             memory_values, reward)
         # use timg to output the current screen
 
-        # obj = Renderer()
-
-        # obj.load_image(
-        #     Image.fromarray(
-        #         self.pyboy.botsupport_manager().screen().screen_ndarray())
-        # )
-        # terminal_size = os.get_terminal_size()
-        # if terminal_size.columns < 160 or terminal_size.lines < 144 / 2:
-        #     obj.resize(terminal_size.columns,
-        #                terminal_size.lines * 2 * 160 // 144)
-        # obj.render(Ansi24HblockMethod)
         print("OS:SHAPE:", observation.shape, seed)
         return observation, {"seed": seed}
 
@@ -674,7 +663,7 @@ if __name__ == "__main__":
             n_steps = steps * num_cpu
 
             run_model = PPO(policy="CnnPolicy", n_steps=n_steps, batch_size=num_cpu * 4,  n_epochs=3,
-                            gamma=0.998, learning_rate=learning_rate_schedule, env=env,
+                            gamma=0.9998, learning_rate=learning_rate_schedule, env=env,
                             policy_kwargs=policy_kwargs, verbose=1, device=device)
         # model_merge_callback = EveryNTimesteps(n_steps=steps * num_cpu * 1024, callback=ModelMergeCallback(args.num_hosts))
         # TODO: Progress callback that collects data from each frame for stats
