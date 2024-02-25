@@ -495,9 +495,16 @@ class PyBoyEnv(gym.Env):
         # if np.random.randint(777) == 0 or self.last_pokemon_count != pokemon_caught or self.last_score - reward > 100:
         #     self.render()
         #
+        if self.frames >= 2000000:
+            terminated = True
+        else:
+            terminated = False
+        if reward < -20000:
+            truncated = True
+            terminated = True
+        else:
+            truncated = False
         
-        terminated = False
-        truncated = False
         info = {}
         
         return observation, reward, terminated, truncated, info
@@ -665,7 +672,7 @@ if __name__ == "__main__":
         else:
             n_steps = steps * num_cpu
 
-            run_model = PPO(policy="CnnPolicy", n_steps=n_steps, batch_size=num_cpu * 16,  n_epochs=3,
+            run_model = PPO(policy="CnnPolicy", n_steps=n_steps, batch_size=num_cpu * 8,  n_epochs=3,
                             gamma=0.998, learning_rate=learning_rate_schedule, env=env,
                             policy_kwargs=policy_kwargs, verbose=1, device=device)
         # model_merge_callback = EveryNTimesteps(n_steps=steps * num_cpu * 1024, callback=ModelMergeCallback(args.num_hosts))
