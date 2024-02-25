@@ -320,7 +320,7 @@ class PyBoyEnv(gym.Env):
 
         # Define actioqn_space and observation_space
         # self.action_space = gym.spaces.Discrete(256)
-        self.action_space = gym.spaces.MultiBinary(12)
+        self.action_space = gym.spaces.Box(low=0, high=1, shape=(12,), dtype=np.float32)
         size = MEM_END - MEM_START + 2
         self.observation_space = gym.spaces.Box(low=0, high=65535, shape=(size,), dtype=np.uint16)
 
@@ -366,7 +366,8 @@ class PyBoyEnv(gym.Env):
         self.last_pokemon_count = pokemon_caught
         # reward = pokemon_caught * 1000 + len(self.visited_xy) * 10 - self.stationary_frames * 10 - self.unchanged_frames * 10 - self.reset_penalty
         # More caught pokemon = more leeway for standing still
-        reward = int(pokemon_caught * 32000 // 152) + ((len(self.player_maps)) * (32000 // 255) * (2000  * (pokemon_caught + 1) - self.stationary_frames) / 2000 * (pokemon_caught + 1))
+        # reward = int(pokemon_caught * 32000 // 152) + ((len(self.player_maps)) * (32000 // 255) * (2000  * (pokemon_caught + 1) - self.stationary_frames) / 2000 * (pokemon_caught + 1))
+        reward = int(pokemon_caught * 32000 // 152) + (len(self.player_maps)) * (32000 // 255)
         # if reward < -50000:
         #     self.reset()
         # elif reward < 0:
