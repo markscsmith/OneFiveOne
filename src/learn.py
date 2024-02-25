@@ -53,8 +53,8 @@ class PokeCart():
         # Pokemon Yellow has offset -1 vs blue and green
         # TODO: Pokemon Gold Silver and Crystal
         carts ={
-                "POKEMONR.GBC": MEM_START + 1,
-                "POKEMONB.GBC": MEM_START + 1,
+                "POKEMONR.GBC": MEM_START,
+                "POKEMONB.GBC": MEM_START,
                 "POKEMONY.GBC": MEM_START,
                 "POKEMONG.GBC": MEM_START,
                 "PMCRYSTA.GBC": MEM_START,                 
@@ -333,11 +333,11 @@ class PyBoyEnv(gym.Env):
         return self.pyboy.botsupport_manager().screen().screen_ndarray()
 
     def calculate_reward(self, memory_values):
-        
+        # calculate total bits from the memory values
         pokemon_caught = sum(
-            memory_values[self.caught_pokemon_start: self.caught_pokemon_end]
+             [bin(values).count('1') for values in memory_values[self.caught_pokemon_start: self.caught_pokemon_end]]
         )
-
+        
 
 
         px = memory_values[self.player_x_mem]
