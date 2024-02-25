@@ -127,7 +127,7 @@ class CustomFeatureExtractor(BaseFeaturesExtractor):
 
 
 def learning_rate_schedule(progress):
-    return 0.055 * (1 + progress)
+    return 0.025
     #return  0.0
 
 
@@ -323,7 +323,8 @@ class PyBoyEnv(gym.Env):
 
         # Define actioqn_space and observation_space
         # self.action_space = gym.spaces.Discrete(256)
-        self.action_space = gym.spaces.Box(low=0, high=1, shape=(12,), dtype=np.float32)
+        # self.action_space = gym.spaces.Box(low=0, high=1, shape=(12,), dtype=np.float32)
+        self.action_space = gym.spaces.MultiBinary(12)
         size = MEM_END - MEM_START + 2
         self.observation_space = gym.spaces.Box(low=0, high=255, shape=(size,), dtype=np.uint16)
 
@@ -335,7 +336,7 @@ class PyBoyEnv(gym.Env):
     def generate_screen_ndarray(self):
         return self.pyboy.botsupport_manager().screen().screen_ndarray()
 
-    def calculate_reward(self, memory_values):
+    def calculate_reward(self, memory_values, button_mash = 0):
         # calculate total bits from the memory values
         pokemon_caught = sum(
              [bin(values).count('1') for values in memory_values[self.caught_pokemon_start: self.caught_pokemon_end]]
@@ -375,7 +376,7 @@ class PyBoyEnv(gym.Env):
         # reward = int(pokemon_caught * 32000 // 152) + ((len(self.player_maps)) * (32000 // 255) * (2000  * (pokemon_caught + 1) - self.stationary_frames) / 2000 * (pokemon_caught + 1))
         reward = pokemon_caught * 10000  + pokemon_seen * 5000 + len(self.player_maps) * 1000 + len(self.visited_xy) 
         # reduce the reward by the % of frames the player has been stationary, allowing for longer events later in the game
-        reward = reward - int(reward * (self.stationary_frames / (reward + 1)))
+        reward = reward - int(reward * (self.stationary_frames / (reward + 1)))  * 10 - button_mash * 10000
         # if reward < -50000:
         #     self.reset()
         # elif reward < 0:
@@ -434,6 +435,17 @@ class PyBoyEnv(gym.Env):
             if action[i] > 0.5:
                 button_states[i] = 1
         button_states_raw = "".join(str(i) for i in button_states)
+        button_mash = 0
+        # count how many arrow buttons are pushed by checking the first 4 bits
+        if sum(button_states[0:1]) > 1:
+            button_states[0:1] = [0, 0]
+            button_mash += 1 
+        if sum(button_states[2:3]) > 1:
+            button_states[2:3] = [0, 0]
+            button_mash += 1
+        
+        
+        
 
         for i, state in enumerate(button_states_raw):
             if int(state) > 0:
@@ -492,7 +504,7 @@ class PyBoyEnv(gym.Env):
         # memory_values = np.frombuffer(flo.read(), dtype=np.uint8)
 
         memory_values = self.get_memory_range()
-        reward = self.calculate_reward(memory_values=memory_values)
+        reward = self.calculate_reward(memory_values=memory_values, button_mash = button_mash)
         observation = np.append(memory_values, reward)
 
         # Don't count the frames where the player is still in the starting menus. Pokemon caught gives more leeway on standing still
@@ -507,7 +519,7 @@ class PyBoyEnv(gym.Env):
             terminated = True
         else:
             terminated = False
-        if reward < -10000:
+        if reward < -10000 or (self.stationary_frames > 10000 > self.frames / 5):
             truncated = True
             terminated = True
             self.pyboy.load_state(open(self.save_state_path, "rb"))
@@ -623,7 +635,7 @@ if __name__ == "__main__":
 
     num_cpu = multiprocessing.cpu_count()
     
-    hrs = 13 # number of hours to run for.
+    hrs = 2 # number of hours to run for.
     runsteps = int(1000000 / 13 * (hrs) * num_cpu)
     # num_cpu = 1
     # Hostname and timestamp
@@ -670,8 +682,8 @@ if __name__ == "__main__":
         else:
             n_steps = steps * num_cpu
 
-            run_model = PPO(policy="CnnPolicy", n_steps=n_steps, batch_size=num_cpu * 4,  n_epochs=3,
-                            gamma=0.9998, learning_rate=learning_rate_schedule, env=env,
+            run_model = PPO(policy="CnnPolicy", n_steps=n_steps, batch_size=n_steps * num_cpu,  n_epochs=13,
+                            gamma=0.98, learning_rate=learning_rate_schedule, env=env,
                             policy_kwargs=policy_kwargs, verbose=1, device=device)
         # model_merge_callback = EveryNTimesteps(n_steps=steps * num_cpu * 1024, callback=ModelMergeCallback(args.num_hosts))
         # TODO: Progress callback that collects data from each frame for stats
@@ -679,5 +691,5 @@ if __name__ == "__main__":
         run_model.learn(total_timesteps=num_steps, progress_bar=False, callback=callbacks)
         return run_model
 
-    model = train_model(env, runsteps, steps=512)
+    model = train_model(env, runsteps, steps=128)
     model.save(f"{file_name}.zip")
