@@ -53,8 +53,8 @@ class PokeCart():
         # Pokemon Yellow has offset -1 vs blue and green
         # TODO: Pokemon Gold Silver and Crystal
         carts ={
-                "POKEMONR.GBC": MEM_START,
-                "POKEMONB.GBC": MEM_START,
+                "POKEMONR.GBC": MEM_START + 1,
+                "POKEMONB.GBC": MEM_START + 1,
                 "POKEMONY.GBC": MEM_START,
                 "POKEMONG.GBC": MEM_START,
                 "PMCRYSTA.GBC": MEM_START,                 
