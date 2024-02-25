@@ -367,7 +367,7 @@ class PyBoyEnv(gym.Env):
         # reward = pokemon_caught * 1000 + len(self.visited_xy) * 10 - self.stationary_frames * 10 - self.unchanged_frames * 10 - self.reset_penalty
         # More caught pokemon = more leeway for standing still
         # reward = int(pokemon_caught * 32000 // 152) + ((len(self.player_maps)) * (32000 // 255) * (2000  * (pokemon_caught + 1) - self.stationary_frames) / 2000 * (pokemon_caught + 1))
-        reward = pokemon_caught * 1000  + len(self.player_maps) * 100 + len(self.visited_xy) - (self.stationary_frames * 10 // (pokemon_caught + len(self.player_maps)))
+        reward = pokemon_caught * 1000  + len(self.player_maps) * 100 + len(self.visited_xy)
         # if reward < -50000:
         #     self.reset()
         # elif reward < 0:
@@ -499,9 +499,10 @@ class PyBoyEnv(gym.Env):
             terminated = True
         else:
             terminated = False
-        if reward < -20000:
+        if reward < -10000:
             truncated = True
             terminated = True
+            self.pyboy.load_state(open(self.save_state_path, "rb"))
         else:
             truncated = False
         
@@ -672,7 +673,7 @@ if __name__ == "__main__":
         else:
             n_steps = steps * num_cpu
 
-            run_model = PPO(policy="CnnPolicy", n_steps=n_steps, batch_size=num_cpu * 8,  n_epochs=3,
+            run_model = PPO(policy="CnnPolicy", n_steps=n_steps, batch_size=num_cpu * 4,  n_epochs=3,
                             gamma=0.998, learning_rate=learning_rate_schedule, env=env,
                             policy_kwargs=policy_kwargs, verbose=1, device=device)
         # model_merge_callback = EveryNTimesteps(n_steps=steps * num_cpu * 1024, callback=ModelMergeCallback(args.num_hosts))
