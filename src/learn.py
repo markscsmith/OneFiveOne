@@ -322,7 +322,7 @@ class PyBoyEnv(gym.Env):
         # self.action_space = gym.spaces.Discrete(256)
         self.action_space = gym.spaces.Box(low=0, high=1, shape=(12,), dtype=np.float32)
         size = MEM_END - MEM_START + 2
-        self.observation_space = gym.spaces.Box(low=0, high=65535, shape=(size,), dtype=np.uint16)
+        self.observation_space = gym.spaces.Box(low=0, high=255, shape=(size,), dtype=np.uint16)
 
 
     def generate_image(self):
@@ -367,14 +367,12 @@ class PyBoyEnv(gym.Env):
         # reward = pokemon_caught * 1000 + len(self.visited_xy) * 10 - self.stationary_frames * 10 - self.unchanged_frames * 10 - self.reset_penalty
         # More caught pokemon = more leeway for standing still
         # reward = int(pokemon_caught * 32000 // 152) + ((len(self.player_maps)) * (32000 // 255) * (2000  * (pokemon_caught + 1) - self.stationary_frames) / 2000 * (pokemon_caught + 1))
-        reward = int(pokemon_caught * 32000 // 152) + (len(self.player_maps)) * (32000 // 255) + len(self.visited_xy) * (32000 // 512)
+        reward = pokemon_caught * 1000  + len(self.player_maps) * 100 + len(self.visited_xy) - (self.stationary_frames * 10 // (pokemon_caught + len(self.player_maps)))
         # if reward < -50000:
         #     self.reset()
         # elif reward < 0:
         #     reward = 0
 
-        if reward > -5000 and reward < 0:
-            reward = 0
         return reward
 
 
@@ -643,7 +641,7 @@ if __name__ == "__main__":
         policy_kwargs = dict(
             features_extractor_class=CustomFeatureExtractor,
             features_extractor_kwargs={},
-            net_arch=dict(pi=[256, 128, 32], vf=[256, 128, 32]),
+            net_arch=dict(pi=[256, 256, 32], vf=[256, 256, 32]),
             activation_fn=nn.ReLU,
         )
 
@@ -667,8 +665,8 @@ if __name__ == "__main__":
         else:
             n_steps = steps * num_cpu
 
-            run_model = PPO(policy="CnnPolicy", n_steps=n_steps, batch_size=num_cpu * 2,  n_epochs=7,
-                            gamma=0.9998, learning_rate=learning_rate_schedule, env=env,
+            run_model = PPO(policy="CnnPolicy", n_steps=n_steps, batch_size=num_cpu * 16,  n_epochs=3,
+                            gamma=0.998, learning_rate=learning_rate_schedule, env=env,
                             policy_kwargs=policy_kwargs, verbose=1, device=device)
         # model_merge_callback = EveryNTimesteps(n_steps=steps * num_cpu * 1024, callback=ModelMergeCallback(args.num_hosts))
         # TODO: Progress callback that collects data from each frame for stats
@@ -676,5 +674,5 @@ if __name__ == "__main__":
         run_model.learn(total_timesteps=num_steps, progress_bar=False, callback=callbacks)
         return run_model
 
-    model = train_model(env, runsteps, steps=32)
+    model = train_model(env, runsteps, steps=512)
     model.save(f"{file_name}.zip")
