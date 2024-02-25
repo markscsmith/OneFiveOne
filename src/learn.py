@@ -267,6 +267,8 @@ class PyBoyEnv(gym.Env):
         self.cart = PokeCart(open(game_path, "rb").read())
         self.caught_pokemon_start = 0xD2F7 - self.cart.cart_offset()
         self.caught_pokemon_end = 0xD309 - self.cart.cart_offset()
+        self.seen_pokemmon_start = 0xD30A - self.cart.cart_offset()
+        self.seen_pokemmon_end = 0xD31C - self.cart.cart_offset()
         self.player_x_mem = 0xD361 - self.cart.cart_offset()
         self.player_y_mem = 0xD362 - self.cart.cart_offset()
         self.player_x_block_mem = 0xD363 - self.cart.cart_offset()
@@ -278,6 +280,7 @@ class PyBoyEnv(gym.Env):
         self.visited_xy = set()
         self.last_score = 0
         self.last_pokemon_count = 0
+        self.last_seen_pokemon_count = 0
         self.frames = 0
         self.stationary_frames = 0
         self.last_player_x = None
@@ -337,8 +340,11 @@ class PyBoyEnv(gym.Env):
         pokemon_caught = sum(
              [bin(values).count('1') for values in memory_values[self.caught_pokemon_start: self.caught_pokemon_end]]
         )
+        pokemon_seen = sum(
+             [bin(values).count('1') for values in memory_values[self.seen_pokemmon_start: self.seen_pokemmon_end]]
+        )
         
-
+        self.last_seen_pokemon_count = pokemon_seen
 
         px = memory_values[self.player_x_mem]
         py = memory_values[self.player_y_mem]
@@ -367,7 +373,9 @@ class PyBoyEnv(gym.Env):
         # reward = pokemon_caught * 1000 + len(self.visited_xy) * 10 - self.stationary_frames * 10 - self.unchanged_frames * 10 - self.reset_penalty
         # More caught pokemon = more leeway for standing still
         # reward = int(pokemon_caught * 32000 // 152) + ((len(self.player_maps)) * (32000 // 255) * (2000  * (pokemon_caught + 1) - self.stationary_frames) / 2000 * (pokemon_caught + 1))
-        reward = pokemon_caught * 1000  + len(self.player_maps) * 100 + len(self.visited_xy)
+        reward = pokemon_caught * 10000  + pokemon_seen * 5000 + len(self.player_maps) * 1000 + len(self.visited_xy) 
+        # reduce the reward by the % of frames the player has been stationary, allowing for longer events later in the game
+        reward = reward - int(reward * (self.stationary_frames / (reward + 1)))
         # if reward < -50000:
         #     self.reset()
         # elif reward < 0:
@@ -409,9 +417,9 @@ class PyBoyEnv(gym.Env):
             self.renderer.resize(terminal_size.columns, terminal_size.lines * 2 - terminal_offset)
             self.renderer.render(Ansi24HblockMethod)
             if target_index is not None:
-                print(f"Best:  {target_index} 🟢 {self.last_pokemon_count} 🎬 {self.frames} 🌎 {len(self.visited_xy)} 🏆 {self.last_score} 🦶 {self.stationary_frames} X: {self.last_player_x} Y: {self.last_player_y} XB: {self.last_player_x_block} YB: {self.last_player_y_block}, Map: {self.last_player_map} Actinos {self.actions[-6:]} {len(self.actions)}")
+                print("Best:  {} 🟢 {} 👀 {} 🎬 {} 🌎 {} 🏆 {} 🦶 {} X: {} Y: {} XB: {} YB: {}, Map: {} Actinos {} {}".format(target_index, self.last_pokemon_count, self.last_seen_pokemon_count, self.frames, len(self.visited_xy), self.last_score, self.stationary_frames, self.last_player_x, self.last_player_y, self.last_player_x_block, self.last_player_y_block, self.last_player_map, ":".join(self.actions[-6:]), len(self.actions)))
             if reset:
-                print(f"Reset: {self.emunum} 🟢 {self.last_pokemon_count} 🎬 {self.frames} 🌎 {len(self.visited_xy)} 🏆 {self.last_score} 🦶 {self.stationary_frames} X: {self.last_player_x} Y: {self.last_player_y} XB: {self.last_player_x_block} YB: {self.last_player_y_block}, Map: {self.last_player_map} Actinos {self.actions[-6:]} {len(self.actions)}")
+                print("Reset: {} 🟢 {} 👀 {} 🎬 {} 🌎 {} 🏆 {} 🦶 {} X: {} Y: {} XB: {} YB: {}, Map: {} Actinos {} {}".format(self.emunum, self.last_pokemon_count, self.last_seen_pokemon_count, self.frames, len(self.visited_xy), self.last_score, self.stationary_frames, self.last_player_x, self.last_player_y, self.last_player_x_block, self.last_player_y_block, self.last_player_map, ":".join(self.actions[-6:]), len(self.actions)))
             
 
     def step(self, action):
@@ -574,7 +582,7 @@ class PyBoyEnv(gym.Env):
         self.last_player_y = 0
         self.last_player_x_block = 0
         self.last_player_y_block = 0
-        self.menu_value = 0xED in memory_values[0xC3A0 - self.cart.cart_offset():0xC507 - self.cart.cart_offset()]
+        
 
 
         if hashable_strings not in self.seen_events:
