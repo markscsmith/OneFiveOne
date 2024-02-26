@@ -692,5 +692,5 @@ if __name__ == "__main__":
         run_model.learn(total_timesteps=num_steps, progress_bar=False, callback=callbacks)
         return run_model
 
-    model = train_model(env, runsteps, steps=256)
+    model = train_model(env, runsteps, steps=512)
     model.save(f"{file_name}.zip")
