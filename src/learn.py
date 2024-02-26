@@ -520,10 +520,10 @@ class PyBoyEnv(gym.Env):
             terminated = True
         else:
             terminated = False
-        if reward < -10000 or (self.stationary_frames > 10000 > self.frames / 5):
+        if reward < -10000 or (self.stationary_frames > 10000 > self.frames / 5) and self.frames > 10000:
             truncated = True
             terminated = True
-            self.pyboy.load_state(open(self.save_state_path, "rb"))
+            # self.pyboy.load_state(open(self.save_state_path, "rb"))
         else:
             truncated = False
 
@@ -636,8 +636,8 @@ if __name__ == "__main__":
 
     num_cpu = multiprocessing.cpu_count()
     
-    hrs = 2 # number of hours to run for.
-    runsteps = int(1000000 / 13 * (hrs) * num_cpu)
+    hrs = 10 # number of hours to run for.
+    runsteps = int(500000  * (hrs) * num_cpu)
     # num_cpu = 1
     # Hostname and timestamp
     checkpoint_callback = CheckpointCallback(save_freq=10000, save_path=f"/Volumes/Scratch/ofo_chkpt/{os.uname()[1]}-{time.time()}.zip", name_prefix="poke")
@@ -659,7 +659,7 @@ if __name__ == "__main__":
         policy_kwargs = dict(
             features_extractor_class=CustomFeatureExtractor,
             features_extractor_kwargs={},
-            net_arch=dict(pi=[256, 256, 32], vf=[256, 256, 32]),
+            net_arch=dict(pi=[256, 128, 32], vf=[256, 128, 32]),
             activation_fn=nn.ReLU,
         )
 
