@@ -128,7 +128,7 @@ class CustomFeatureExtractor(BaseFeaturesExtractor):
 
 
 def learning_rate_schedule(progress):
-    return 0.025
+    return 0.075 - (0.075 - (0.070 * progress))
     #return  0.0
 
 
@@ -427,7 +427,7 @@ class PyBoyEnv(gym.Env):
 
     def step(self, action):
         self.frames = self.pyboy.frame_count
-        ticks = 1
+        ticks = 24
         frame_checks = 24
         # rethink the action space as the binary state of all 8 buttons:
         # U = UP, D = DOWN, L = LEFT, R = RIGHT, A = A, B = B, * = "STAR"T, > = SELECT
@@ -684,9 +684,9 @@ if __name__ == "__main__":
         else:
             n_steps = steps * num_cpu
 
-            run_model = PPO(policy="CnnPolicy", n_steps=n_steps, batch_size=n_steps * num_cpu,  n_epochs=13,
-                            gamma=0.99, gae_lambda=0.95, learning_rate=learning_rate_schedule, env=env,
-                            policy_kwargs=policy_kwargs, verbose=1, device=device, ent_coef=0.01)
+            run_model = PPO(policy="MlpPolicy", n_steps=n_steps, batch_size=n_steps * num_cpu,  n_epochs=13,
+                            gamma=0.90, gae_lambda=0.95, learning_rate=learning_rate_schedule, env=env,
+                            policy_kwargs=policy_kwargs, verbose=1, device=device, ent_coef=0.5, vf_coef=0.25,)
         # model_merge_callback = EveryNTimesteps(n_steps=steps * num_cpu * 1024, callback=ModelMergeCallback(args.num_hosts))
         # TODO: Progress callback that collects data from each frame for stats
         callbacks = [checkpoint_callback, current_stats]
