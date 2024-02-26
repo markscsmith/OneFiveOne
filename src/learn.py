@@ -475,7 +475,7 @@ class PyBoyEnv(gym.Env):
 
 
 
-        ticks += duration
+        # ticks += duration
         # self.pyboy.send_input(self.buttons[action])
         # self.actions.append(self.buttons_names[action])
         for i, state in enumerate(button_states):
