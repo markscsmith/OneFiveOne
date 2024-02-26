@@ -264,6 +264,7 @@ class PyBoyEnv(gym.Env):
         self.renderer = Renderer()
         self.actions = []
         self.screen_images = []
+        self.reset_unlocked = False
         # Define the memory range for 'number of Pokémon caught'
         self.cart = PokeCart(open(game_path, "rb").read())
         self.caught_pokemon_start = 0xD2F7 - self.cart.cart_offset()
@@ -463,14 +464,10 @@ class PyBoyEnv(gym.Env):
         # if duration_bits[3] > 0.5:
         #     duration += 1
         temp_reset_penalty = 0
-        if button_states[4:8] == [1, 1, 1, 1] and button_states[0:4] == [0, 0, 0, 0]:
-            if duration > 10:
-                temp_reset_penalty = -1000
-                self.reset_penalty -= temp_reset_penalty
-
-            else:
-                temp_reset_penalty -= -100
-                button_states[7] = 0
+        if self.reset_unlocked:
+            pass
+        else:
+            button_states[7] = 0
 
 
 
@@ -506,7 +503,7 @@ class PyBoyEnv(gym.Env):
 
         memory_values = self.get_memory_range()
         reward = self.calculate_reward(memory_values=memory_values, button_mash = button_mash)
-        observation = np.append(memory_values, reward)
+        
 
         # Don't count the frames where the player is still in the starting menus. Pokemon caught gives more leeway on standing still
                                                                                                        # Minutes standing still * 10
@@ -523,13 +520,16 @@ class PyBoyEnv(gym.Env):
         if reward < -10000 or (self.stationary_frames > 10000 > self.frames / 5) and self.frames > 10000:
             truncated = True
             terminated = True
-            self.reset()
+            self.reset_unlocked = True
             # self.pyboy.load_state(open(self.save_state_path, "rb"))
         else:
             truncated = False
+            self.reset_unlocked = False
+        if reward < 0:
+            reward = 0
 
         info = {}
-
+        observation = np.append(memory_values, reward)
         return observation, reward, terminated, truncated, info
 
     import numba
