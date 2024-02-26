@@ -8,6 +8,7 @@ from stable_baselines3.common.policies import ActorCriticPolicy
 from timg import Renderer, Ansi24HblockMethod
 from PIL import Image, ImageDraw, ImageFont
 
+
 from os.path import exists
 import gymnasium as gym
 
@@ -73,9 +74,9 @@ class CustomFeatureExtractor(BaseFeaturesExtractor):
 
         # Define your custom layers here
         self.extractor = nn.Sequential(
-            nn.Linear(np.prod(observation_space.shape), 2048),
+            nn.Linear(np.prod(observation_space.shape), 512),
             nn.ReLU(),
-            nn.Linear(2048, 512),
+            nn.Linear(512, 512),
             nn.ReLU(),
             nn.Linear(512, features_dim),
             nn.ReLU(),
@@ -127,7 +128,7 @@ class CustomFeatureExtractor(BaseFeaturesExtractor):
 
 
 def learning_rate_schedule(progress):
-    return 0.025
+    return 0.00025
     #return  0.0
 
 
@@ -374,7 +375,7 @@ class PyBoyEnv(gym.Env):
         # reward = pokemon_caught * 1000 + len(self.visited_xy) * 10 - self.stationary_frames * 10 - self.unchanged_frames * 10 - self.reset_penalty
         # More caught pokemon = more leeway for standing still
         # reward = int(pokemon_caught * 32000 // 152) + ((len(self.player_maps)) * (32000 // 255) * (2000  * (pokemon_caught + 1) - self.stationary_frames) / 2000 * (pokemon_caught + 1))
-        reward = pokemon_caught * 10000  + pokemon_seen * 5000 + len(self.player_maps) * 1000 + len(self.visited_xy) 
+        reward = pokemon_caught * 10000  + pokemon_seen * 5000 + len(self.player_maps) * 1000 + len(self.visited_xy) // 100
         # reduce the reward by the % of frames the player has been stationary, allowing for longer events later in the game
         reward = reward - int(reward * (self.stationary_frames / (reward + 1)))  * 10 - button_mash * 10000
         # if reward < -50000:
@@ -487,14 +488,14 @@ class PyBoyEnv(gym.Env):
             self.pyboy.tick()
         # Grab less frames to append if we're standing still.
 
-        screen_bytes = self.generate_screen_ndarray().tobytes()
-        if screen_bytes not in self.last_n_frames:
-            self.last_n_frames.append(screen_bytes)
-            self.last_n_frames.pop(0)
-            self.screen_image_arrays.add(screen_bytes)
-            self.unchanged_frames -= 1
-        else:
-            self.unchanged_frames += 1
+        # screen_bytes = self.generate_screen_ndarray().tobytes()
+        # if screen_bytes not in self.last_n_frames:
+        #     self.last_n_frames.append(screen_bytes)
+        #     self.last_n_frames.pop(0)
+        #     self.screen_image_arrays.add(screen_bytes)
+        #     self.unchanged_frames -= 1
+        # else:
+        #     self.unchanged_frames += 1
 
 
 
@@ -574,14 +575,14 @@ class PyBoyEnv(gym.Env):
         # memory_values = self.pyboy.mb.ram.internal_ram0.append(self.pyboy.mb.ram.internal_ram1)
         # memory_values = np.array([self.pyboy.get_memory_value(address) for address in range(0x10000)])
         memory_values = self.get_memory_range()
-        pokemon_caught = sum(
-            memory_values[self.caught_pokemon_start: self.caught_pokemon_end]
-        )
-        unique_events = memory_values[0xD5A6:0xD85F]
-        hashable_strings = "".join(
-            [base64.b64encode(bytes(chunk)).decode("utf-8")
-             for chunk in unique_events]
-        )
+        # pokemon_caught = sum(
+        #     memory_values[self.caught_pokemon_start: self.caught_pokemon_end]
+        # )
+        # unique_events = memory_values[0xD5A6:0xD85F]
+        # hashable_strings = "".join(
+        #     [base64.b64encode(bytes(chunk)).decode("utf-8")
+        #      for chunk in unique_events]
+        # )
         self.actions = []
         self.screen_image_arrays = set()
         self.screen_image_arrays_list = []
@@ -597,9 +598,9 @@ class PyBoyEnv(gym.Env):
         
 
 
-        if hashable_strings not in self.seen_events:
-            self.seen_events.add(hashable_strings)
-            # print("OS:EVENTS:", hashable_strings)
+        # if hashable_strings not in self.seen_events:
+        #     self.seen_events.add(hashable_strings)
+        #     # print("OS:EVENTS:", hashable_strings)
 
         reward = self.calculate_reward(memory_values=memory_values)
         observation = np.append(
@@ -633,7 +634,7 @@ if __name__ == "__main__":
     parser.add_argument("--num_hosts", type=int, default=1)
     args = parser.parse_args()
 
-    num_cpu = multiprocessing.cpu_count()
+    num_cpu = multiprocessing.cpu_count() + 8
     
     hrs = 2 # number of hours to run for.
     runsteps = int(1000000 / 13 * (hrs) * num_cpu)
@@ -682,14 +683,14 @@ if __name__ == "__main__":
         else:
             n_steps = steps * num_cpu
 
-            run_model = PPO(policy="CnnPolicy", n_steps=n_steps, batch_size=n_steps * num_cpu,  n_epochs=13,
-                            gamma=0.98, learning_rate=learning_rate_schedule, env=env,
-                            policy_kwargs=policy_kwargs, verbose=1, device=device)
+            run_model = PPO(policy="CnnPolicy", n_steps=n_steps, batch_size=n_steps * num_cpu,  n_epochs=3,
+                            gamma=0.99, gae_lambda=0.95, learning_rate=learning_rate_schedule, env=env,
+                            policy_kwargs=policy_kwargs, verbose=1, device=device, ent_coef=0.01)
         # model_merge_callback = EveryNTimesteps(n_steps=steps * num_cpu * 1024, callback=ModelMergeCallback(args.num_hosts))
         # TODO: Progress callback that collects data from each frame for stats
         callbacks = [checkpoint_callback, current_stats]
         run_model.learn(total_timesteps=num_steps, progress_bar=False, callback=callbacks)
         return run_model
 
-    model = train_model(env, runsteps, steps=128)
+    model = train_model(env, runsteps, steps=256)
     model.save(f"{file_name}.zip")
