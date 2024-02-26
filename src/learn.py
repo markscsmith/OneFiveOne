@@ -128,7 +128,7 @@ class CustomFeatureExtractor(BaseFeaturesExtractor):
 
 
 def learning_rate_schedule(progress):
-    return 0.00025
+    return 0.025
     #return  0.0
 
 
@@ -325,7 +325,7 @@ class PyBoyEnv(gym.Env):
         # Define actioqn_space and observation_space
         # self.action_space = gym.spaces.Discrete(256)
         # self.action_space = gym.spaces.Box(low=0, high=1, shape=(12,), dtype=np.float32)
-        self.action_space = gym.spaces.MultiBinary(12)
+        self.action_space = gym.spaces.MultiBinary(8)
         size = MEM_END - MEM_START + 2
         self.observation_space = gym.spaces.Box(low=0, high=255, shape=(size,), dtype=np.uint16)
 
@@ -375,7 +375,7 @@ class PyBoyEnv(gym.Env):
         # reward = pokemon_caught * 1000 + len(self.visited_xy) * 10 - self.stationary_frames * 10 - self.unchanged_frames * 10 - self.reset_penalty
         # More caught pokemon = more leeway for standing still
         # reward = int(pokemon_caught * 32000 // 152) + ((len(self.player_maps)) * (32000 // 255) * (2000  * (pokemon_caught + 1) - self.stationary_frames) / 2000 * (pokemon_caught + 1))
-        reward = pokemon_caught * 10000  + pokemon_seen * 5000 + len(self.player_maps) * 1000 + len(self.visited_xy) // 100
+        reward = pokemon_caught * 10000  + pokemon_seen * 5000 + len(self.player_maps) * 1000 + len(self.visited_xy) // 10
         # reduce the reward by the % of frames the player has been stationary, allowing for longer events later in the game
         reward = reward - int(reward * (self.stationary_frames / (reward + 1)))  * 10 - button_mash * 10000
         # if reward < -50000:
@@ -453,15 +453,15 @@ class PyBoyEnv(gym.Env):
                 button_states[i] = 1
         # Fixed select button to 0 to prevent hard resets
         duration = 0
-        duration_bits = action[8:]
-        if duration_bits[0] > 0.5:
-            duration += 8
-        if duration_bits[1] > 0.5:
-            duration += 4
-        if duration_bits[2] > 0.5:
-            duration += 2
-        if duration_bits[3] > 0.5:
-            duration += 1
+        # duration_bits = action[8:]
+        # if duration_bits[0] > 0.5:
+        #     duration += 8
+        # if duration_bits[1] > 0.5:
+        #     duration += 4
+        # if duration_bits[2] > 0.5:
+        #     duration += 2
+        # if duration_bits[3] > 0.5:
+        #     duration += 1
         temp_reset_penalty = 0
         if button_states[4:8] == [1, 1, 1, 1] and button_states[0:4] == [0, 0, 0, 0]:
             if duration > 10:
@@ -634,7 +634,7 @@ if __name__ == "__main__":
     parser.add_argument("--num_hosts", type=int, default=1)
     args = parser.parse_args()
 
-    num_cpu = multiprocessing.cpu_count() + 8
+    num_cpu = multiprocessing.cpu_count()
     
     hrs = 2 # number of hours to run for.
     runsteps = int(1000000 / 13 * (hrs) * num_cpu)
@@ -683,7 +683,7 @@ if __name__ == "__main__":
         else:
             n_steps = steps * num_cpu
 
-            run_model = PPO(policy="CnnPolicy", n_steps=n_steps, batch_size=n_steps * num_cpu,  n_epochs=7,
+            run_model = PPO(policy="CnnPolicy", n_steps=n_steps * 4, batch_size=n_steps * num_cpu * 4,  n_epochs=7,
                             gamma=0.99, gae_lambda=0.95, learning_rate=learning_rate_schedule, env=env,
                             policy_kwargs=policy_kwargs, verbose=1, device=device, ent_coef=0.01)
         # model_merge_callback = EveryNTimesteps(n_steps=steps * num_cpu * 1024, callback=ModelMergeCallback(args.num_hosts))
@@ -692,5 +692,5 @@ if __name__ == "__main__":
         run_model.learn(total_timesteps=num_steps, progress_bar=False, callback=callbacks)
         return run_model
 
-    model = train_model(env, runsteps, steps=256)
+    model = train_model(env, runsteps, steps=512)
     model.save(f"{file_name}.zip")
