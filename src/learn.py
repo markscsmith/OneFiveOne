@@ -683,7 +683,7 @@ if __name__ == "__main__":
         else:
             n_steps = steps * num_cpu
 
-            run_model = PPO(policy="CnnPolicy", n_steps=n_steps * 4, batch_size=n_steps * num_cpu * 4,  n_epochs=7,
+            run_model = PPO(policy="CnnPolicy", n_steps=n_steps, batch_size=n_steps * num_cpu,  n_epochs=13,
                             gamma=0.99, gae_lambda=0.95, learning_rate=learning_rate_schedule, env=env,
                             policy_kwargs=policy_kwargs, verbose=1, device=device, ent_coef=0.01)
         # model_merge_callback = EveryNTimesteps(n_steps=steps * num_cpu * 1024, callback=ModelMergeCallback(args.num_hosts))
