@@ -326,7 +326,7 @@ class PyBoyEnv(gym.Env):
         # Define actioqn_space and observation_space
         # self.action_space = gym.spaces.Discrete(256)
         # self.action_space = gym.spaces.Box(low=0, high=1, shape=(12,), dtype=np.float32)
-        self.action_space = gym.spaces.MultiBinary(8)
+        self.action_space = gym.spaces.Box(low=0, high=1, shape=(8,), dtype=np.float32)
         size = MEM_END - MEM_START + 2
         self.observation_space = gym.spaces.Box(low=0, high=255, shape=(size,), dtype=np.uint16)
 
