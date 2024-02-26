@@ -523,6 +523,7 @@ class PyBoyEnv(gym.Env):
         if reward < -10000 or (self.stationary_frames > 10000 > self.frames / 5) and self.frames > 10000:
             truncated = True
             terminated = True
+            self.reset()
             # self.pyboy.load_state(open(self.save_state_path, "rb"))
         else:
             truncated = False
