@@ -376,7 +376,11 @@ class PyBoyEnv(gym.Env):
         # reward = pokemon_caught * 1000 + len(self.visited_xy) * 10 - self.stationary_frames * 10 - self.unchanged_frames * 10 - self.reset_penalty
         # More caught pokemon = more leeway for standing still
         # reward = int(pokemon_caught * 32000 // 152) + ((len(self.player_maps)) * (32000 // 255) * (2000  * (pokemon_caught + 1) - self.stationary_frames) / 2000 * (pokemon_caught + 1))
-        reward = pokemon_caught * 10000  + pokemon_seen * 5000 + len(self.player_maps) * 1000 + len(self.visited_xy) // 10
+        if pokemon_seen == 0:
+            reward = len(self.player_maps) * 1000 + len(self.visited_xy) // 10
+        else:
+            reward = pokemon_caught * 10000  + pokemon_seen * 5000 + len(self.player_maps) * 1000 + len(self.visited_xy) // 10
+        
         # reduce the reward by the % of frames the player has been stationary, allowing for longer events later in the game
         reward = reward - int(reward * (self.stationary_frames / (reward + 1)))  * 10 - button_mash * 10000
         # if reward < -50000:
@@ -513,6 +517,7 @@ class PyBoyEnv(gym.Env):
         # if np.random.randint(777) == 0 or self.last_pokemon_count != pokemon_caught or self.last_score - reward > 100:
         #     self.render()
         #
+        truncated = False
         if self.frames >= self.max_frames:
             terminated = True
         else:
@@ -683,7 +688,7 @@ if __name__ == "__main__":
             n_steps = steps * num_cpu
 
             run_model = PPO(policy="MlpPolicy", n_steps=n_steps, batch_size=n_steps * num_cpu,  n_epochs=13,
-                            gamma=0.90, gae_lambda=0.95, learning_rate=learning_rate_schedule, env=env,
+                            gamma=0.998, gae_lambda=0.95, learning_rate=learning_rate_schedule, env=env,
                             policy_kwargs=policy_kwargs, verbose=1, device=device, ent_coef=0.5, vf_coef=0.25,)
         # model_merge_callback = EveryNTimesteps(n_steps=steps * num_cpu * 1024, callback=ModelMergeCallback(args.num_hosts))
         # TODO: Progress callback that collects data from each frame for stats
