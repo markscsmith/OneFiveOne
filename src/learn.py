@@ -641,7 +641,7 @@ if __name__ == "__main__":
     num_cpu = multiprocessing.cpu_count()
     
     hrs = 10 # number of hours to run for.
-    runsteps = int(500000  * (hrs) * num_cpu)
+    runsteps = int(5000  * (hrs) * num_cpu)
     # num_cpu = 1
     # Hostname and timestamp
     checkpoint_callback = CheckpointCallback(save_freq=10000, save_path=f"/Volumes/Scratch/ofo_chkpt/{os.uname()[1]}-{time.time()}.zip", name_prefix="poke")
@@ -659,7 +659,7 @@ if __name__ == "__main__":
 
 
     file_name = "model"
-    def train_model(env, num_steps, steps):
+    def train_model(env, num_steps, steps, episodes):
         policy_kwargs = dict(
             features_extractor_class=CustomFeatureExtractor,
             features_extractor_kwargs={},
@@ -687,14 +687,15 @@ if __name__ == "__main__":
         else:
             n_steps = steps * num_cpu
 
-            run_model = PPO(policy="MlpPolicy", n_steps=n_steps, batch_size=n_steps * num_cpu,  n_epochs=13,
+            run_model = PPO(policy="MlpPolicy", n_steps=n_steps, batch_size=n_steps * num_cpu,  n_epochs=3,
                             gamma=0.998, gae_lambda=0.95, learning_rate=learning_rate_schedule, env=env,
                             policy_kwargs=policy_kwargs, verbose=1, device=device, ent_coef=0.5, vf_coef=0.25,)
         # model_merge_callback = EveryNTimesteps(n_steps=steps * num_cpu * 1024, callback=ModelMergeCallback(args.num_hosts))
         # TODO: Progress callback that collects data from each frame for stats
         callbacks = [checkpoint_callback, current_stats]
-        run_model.learn(total_timesteps=num_steps, progress_bar=False, callback=callbacks)
+        for _ in range(0, episodes):
+            run_model.learn(total_timesteps=num_steps, progress_bar=False, callback=callbacks)
         return run_model
 
-    model = train_model(env, runsteps, steps=128)
+    model = train_model(env, runsteps, steps=13, episodes=1000)
     model.save(f"{file_name}.zip")
