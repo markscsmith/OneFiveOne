@@ -687,7 +687,7 @@ if __name__ == "__main__":
         else:
             n_steps = steps * num_cpu
 
-            run_model = PPO(policy="MlpPolicy", n_steps=n_steps, batch_size=n_steps * num_cpu,  n_epochs=3,
+            run_model = PPO(policy="MlpPolicy", n_steps=n_steps, batch_size=n_steps * num_cpu,  n_epochs=13,
                             gamma=0.998, gae_lambda=0.95, learning_rate=learning_rate_schedule, env=env,
                             policy_kwargs=policy_kwargs, verbose=1, device=device, ent_coef=0.5, vf_coef=0.25,)
         # model_merge_callback = EveryNTimesteps(n_steps=steps * num_cpu * 1024, callback=ModelMergeCallback(args.num_hosts))
@@ -697,5 +697,5 @@ if __name__ == "__main__":
             run_model.learn(total_timesteps=num_steps, progress_bar=False, callback=callbacks)
         return run_model
 
-    model = train_model(env, runsteps, steps=13, episodes=1000)
+    model = train_model(env, runsteps, steps=13, episodes=13)
     model.save(f"{file_name}.zip")
