@@ -128,7 +128,7 @@ class CustomFeatureExtractor(BaseFeaturesExtractor):
 
 
 def learning_rate_schedule(progress):
-    return 0.075 - (0.075 - (0.070 * progress))
+    return 0.00025
     #return  0.0
 
 
