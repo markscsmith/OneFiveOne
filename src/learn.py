@@ -128,7 +128,7 @@ class CustomFeatureExtractor(BaseFeaturesExtractor):
 
 
 def learning_rate_schedule(progress):
-    return 0.00025
+    return 0.025
     #return  0.0
 
 
@@ -382,7 +382,7 @@ class PyBoyEnv(gym.Env):
             reward = pokemon_caught * 10000  + pokemon_seen * 5000 + len(self.player_maps) * 1000 + len(self.visited_xy) // 10
         
         # reduce the reward by the % of frames the player has been stationary, allowing for longer events later in the game
-        reward = reward - int(reward * (self.stationary_frames / (reward + 1)))  * 10 - button_mash * 10000
+        reward = reward - int(reward * (self.stationary_frames / (self.frames + 1)))  * 10
         # if reward < -50000:
         #     self.reset()
         # elif reward < 0:
@@ -644,10 +644,7 @@ if __name__ == "__main__":
     runsteps = int(5000  * (hrs) * num_cpu)
     # num_cpu = 1
     # Hostname and timestamp
-    checkpoint_callback = CheckpointCallback(save_freq=10000, save_path=f"/Volumes/Scratch/ofo_chkpt/{os.uname()[1]}-{time.time()}.zip", name_prefix="poke")
 
-
-    current_stats = EveryNTimesteps(n_steps=3000, callback=PokeCaughtCallback(runsteps))
 
 
     # num_cpu = 1
@@ -692,10 +689,13 @@ if __name__ == "__main__":
                             policy_kwargs=policy_kwargs, verbose=1, device=device, ent_coef=0.5, vf_coef=0.25,)
         # model_merge_callback = EveryNTimesteps(n_steps=steps * num_cpu * 1024, callback=ModelMergeCallback(args.num_hosts))
         # TODO: Progress callback that collects data from each frame for stats
-        callbacks = [checkpoint_callback, current_stats]
+        
         for _ in range(0, episodes):
+            checkpoint_callback = CheckpointCallback(save_freq=10000, save_path=f"/Volumes/Scratch/ofo_chkpt/{os.uname()[1]}-{time.time()}.zip", name_prefix="poke")
+            current_stats = EveryNTimesteps(n_steps=3000, callback=PokeCaughtCallback(runsteps))
+            callbacks = [checkpoint_callback, current_stats]
             run_model.learn(total_timesteps=num_steps, progress_bar=False, callback=callbacks)
         return run_model
 
-    model = train_model(env, runsteps, steps=13, episodes=13)
+    model = train_model(env, runsteps, steps=128, episodes=13)
     model.save(f"{file_name}.zip")
