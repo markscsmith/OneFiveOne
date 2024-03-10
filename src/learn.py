@@ -678,7 +678,21 @@ if __name__ == "__main__":
         else:
             n_steps = steps * num_cpu
 
-            run_model = PPO(policy="CnnPolicy", n_steps=n_steps, batch_size=n_steps * num_cpu,  n_epochs=13, gamma=0.92, gae_lambda=0.92, learning_rate=0.0025, env=env, policy_kwargs=policy_kwargs, verbose=1, device=device, ent_coef=0.9, vf_coef=0.99,)
+            run_model = PPO(policy="CnnPolicy", 
+                n_steps=max(n_steps // 2, 2048),  # Reduce n_steps if too large; ensure not less than some minimum like 2048 for sufficient learning per update.
+                batch_size=max(n_steps * num_cpu // 4, 64),  # Reduce batch size if it's too large but ensure a minimum size for stability.
+                n_epochs=10,  # Adjusted for potentially more stable learning across batches.
+                gamma=0.99,  # Increased to give more importance to future rewards, can help escape repetitive actions.
+                gae_lambda=0.95,  # Adjusted for a better balance between bias and variance in advantage estimation.
+                learning_rate=3e-4,  # Standard starting point for PPO, adjust based on performance.
+                env=env, 
+                policy_kwargs=policy_kwargs,  # Ensure this aligns with the complexities of your environment.
+                verbose=1, 
+                device=device, 
+                ent_coef=0.01,  # Reduced for less aggressive exploration after initial learning, adjust based on needs.
+                vf_coef=0.5,  # Adjusted to balance value function loss importance.
+               )
+
         # model_merge_callback = EveryNTimesteps(n_steps=steps * num_cpu * 1024, callback=ModelMergeCallback(args.num_hosts))
         # TODO: Progress callback that collects data from each frame for stats
         
