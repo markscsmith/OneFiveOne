@@ -431,7 +431,7 @@ class PyBoyEnv(gym.Env):
 
     def step(self, action):
         self.frames = self.pyboy.frame_count
-        ticks = 24
+        ticks = 1
         frame_checks = 24
         # rethink the action space as the binary state of all 8 buttons:
         # U = UP, D = DOWN, L = LEFT, R = RIGHT, A = A, B = B, * = "STAR"T, > = SELECT
@@ -679,12 +679,12 @@ if __name__ == "__main__":
             n_steps = steps * num_cpu
 
             run_model = PPO(policy="CnnPolicy", 
-                n_steps=max(n_steps // 2, 2048),  # Reduce n_steps if too large; ensure not less than some minimum like 2048 for sufficient learning per update.
-                batch_size=max(n_steps * num_cpu // 4, 64),  # Reduce batch size if it's too large but ensure a minimum size for stability.
+                n_steps=max(n_steps // 2, 10240),  # Reduce n_steps if too large; ensure not less than some minimum like 2048 for sufficient learning per update.
+                batch_size=max(n_steps * num_cpu // 4, 256),  # Reduce batch size if it's too large but ensure a minimum size for stability.
                 n_epochs=10,  # Adjusted for potentially more stable learning across batches.
-                gamma=0.99,  # Increased to give more importance to future rewards, can help escape repetitive actions.
-                gae_lambda=0.95,  # Adjusted for a better balance between bias and variance in advantage estimation.
-                learning_rate=0.075,  # Standard starting point for PPO, adjust based on performance.
+                gamma=0.999,  # Increased to give more importance to future rewards, can help escape repetitive actions.
+                gae_lambda=0.998,  # Adjusted for a better balance between bias and variance in advantage estimation.
+                learning_rate=0.001,  # Standard starting point for PPO, adjust based on performance.
                 env=env, 
                 policy_kwargs=policy_kwargs,  # Ensure this aligns with the complexities of your environment.
                 verbose=1, 
