@@ -7,7 +7,7 @@ from stable_baselines3.common.torch_layers import BaseFeaturesExtractor
 from stable_baselines3.common.policies import ActorCriticPolicy
 from timg import Renderer, Ansi24HblockMethod
 from PIL import Image, ImageDraw, ImageFont
-
+import sys
 
 from os.path import exists
 import gymnasium as gym
@@ -129,7 +129,10 @@ class CustomFeatureExtractor(BaseFeaturesExtractor):
 
 def learning_rate_schedule(progress):
     # return 0.025
-    return 0.025 - (progress * (0.015))
+    # progress starts at 1 and decreases as remaining approaches 0.
+    rate = 0.025 * progress
+    print(f"LR: {rate}",file=sys.stderr)
+    return rate
     #return  0.0
 
 
@@ -296,6 +299,7 @@ class PyBoyEnv(gym.Env):
         self.unchanged_frames = 0
         self.reset_penalty = 0
         self.player_maps = set()
+        self.mash_count = 0 # number of "button mashes" where the d-pad would be pressed in more than one direction
         self.max_frames = max_frames
         # self.buttons = [WindowEvent.PRESS_ARROW_UP, WindowEvent.PRESS_ARROW_DOWN, WindowEvent.PRESS_ARROW_LEFT,
         #                 WindowEvent.PRESS_ARROW_RIGHT,WindowEvent.PRESS_BUTTON_A, WindowEvent.PRESS_BUTTON_B,
@@ -340,7 +344,7 @@ class PyBoyEnv(gym.Env):
     def generate_screen_ndarray(self):
         return self.pyboy.botsupport_manager().screen().screen_ndarray()
 
-    def calculate_reward(self, memory_values, button_mash = 0):
+    def calculate_reward(self, memory_values, button_mash = False):
         # calculate total bits from the memory values
         pokemon_caught = sum(
              [bin(values).count('1') for values in memory_values[self.caught_pokemon_start: self.caught_pokemon_end]]
@@ -388,6 +392,8 @@ class PyBoyEnv(gym.Env):
         #     self.reset()
         # elif reward < 0:
         #     reward = 0
+        if button_mash:
+            return reward // 10
 
         return reward
 
@@ -424,10 +430,11 @@ class PyBoyEnv(gym.Env):
             self.renderer.load_image(image)
             self.renderer.resize(terminal_size.columns, terminal_size.lines * 2 - terminal_offset)
             self.renderer.render(Ansi24HblockMethod)
+            mash_percent = f"{self.mash_count * 100 / (self.frames + 1):.3f}%"
             if target_index is not None:
-                print("Best:  {} 🟢 {} 👀 {} 🎬 {} 🌎 {} 🏆 {} 🦶 {} X: {} Y: {} XB: {} YB: {}, Map: {} Actinos {} {}".format(target_index, self.last_pokemon_count, self.last_seen_pokemon_count, self.frames, len(self.visited_xy), self.last_score, self.stationary_frames, self.last_player_x, self.last_player_y, self.last_player_x_block, self.last_player_y_block, self.last_player_map, ":".join(self.actions[-6:]), len(self.actions)))
+                print(f"Best:  {target_index} 🟢 {self.last_pokemon_count} 👀 {self.last_seen_pokemon_count} 🎬 {self.frames} 🌎 {len(self.visited_xy)} 🏆 {self.last_score} 💥: {mash_percent} 🦶 {self.stationary_frames} X: {self.last_player_x} Y: {self.last_player_y} XB: {self.last_player_x_block} YB: {self.last_player_y_block}, Map: {self.last_player_map} Actions {' '.join(self.actions[-6:])} {len(self.actions)}")
             if reset:
-                print("Reset: {} 🟢 {} 👀 {} 🎬 {} 🌎 {} 🏆 {} 🦶 {} X: {} Y: {} XB: {} YB: {}, Map: {} Actinos {} {}".format(self.emunum, self.last_pokemon_count, self.last_seen_pokemon_count, self.frames, len(self.visited_xy), self.last_score, self.stationary_frames, self.last_player_x, self.last_player_y, self.last_player_x_block, self.last_player_y_block, self.last_player_map, ":".join(self.actions[-6:]), len(self.actions)))
+                print(f"Reset: {self.emunum} 🟢 {self.last_pokemon_count} 👀 {self.last_seen_pokemon_count} 🎬 {self.frames} 🌎 {len(self.visited_xy)} 🏆 {self.last_score} 💥: {mash_percent} 🦶 {self.stationary_frames} X: {self.last_player_x} Y: {self.last_player_y} XB: {self.last_player_x_block} YB: {self.last_player_y_block}, Map: {self.last_player_map} Actions {' '.join(self.actions[-6:])} {len(self.actions)}")
             
 
     def step(self, action):
@@ -438,11 +445,26 @@ class PyBoyEnv(gym.Env):
         # U = UP, D = DOWN, L = LEFT, R = RIGHT, A = A, B = B, * = "STAR"T, > = SELECT
         #           """  U  D  L  R  A  B  *  > """
         button_states = [0, 0, 0, 0, 0, 0, 0, 0]
+        # convert first 4 bits of action to button states
+
+            
+
+
         for i, _ in enumerate(button_states):
             if action[i] > 0:
                 button_states[i] = 1
+        
+        d_button = sum(button_states[0:4])
+        if d_button >= 1:
+            button_states[0:4] = [0, 0, 0, 0]
+            button_states[d_button - 1] = 1
+
         button_states_raw = "".join(str(i) for i in button_states)
-        button_mash = 0
+        button_mash = False
+        if sum(button_states[0:4]) > 1:
+            button_mash = True
+            self.mash_count += 1
+        
         # count how many arrow buttons are pushed by checking the first 4 bits
 
 
@@ -479,7 +501,10 @@ class PyBoyEnv(gym.Env):
                 self.pyboy.send_input(self.buttons[i])
             else:
                 self.pyboy.send_input(self.buttons[i + 8])
-        self.actions.append(button_states_raw + ":" + str(duration))
+        if button_mash:
+            self.actions.append(button_states_raw + "💥>")
+        else:
+            self.actions.append(button_states_raw + "👍>")
         for _ in range(ticks):
             self.pyboy.tick()
         # Grab less frames to append if we're standing still.
@@ -635,8 +660,8 @@ if __name__ == "__main__":
 
     num_cpu = multiprocessing.cpu_count()
     
-    hrs = 25 # number of hours to run for.
-    runsteps = int(5000  * (hrs) * num_cpu)
+    hrs = 1 # number of hours to run for.
+    runsteps = int(100000  * (hrs) * num_cpu)
     # num_cpu = 1
     # Hostname and timestamp
 
@@ -699,14 +724,14 @@ if __name__ == "__main__":
                 n_steps=n_steps,  # Reduce n_steps if too large; ensure not less than some minimum like 2048 for sufficient learning per update.
                 batch_size=n_steps // 16,  # Reduce batch size if it's too large but ensure a minimum size for stability.
                 n_epochs=3,  # Adjusted for potentially more stable learning across batches.
-                gamma=0.998,  # Increased to give more importance to future rewards, can help escape repetitive actions.
-                # gae_lambda=0.90,  # Adjusted for a better balance between bias and variance in advantage estimation.
-                # learning_rate=learning_rate_schedule,  # Standard starting point for PPO, adjust based on performance.
+                gamma=0.9998,  # Increased to give more importance to future rewards, can help escape repetitive actions.
+                gae_lambda=0.90,  # Adjusted for a better balance between bias and variance in advantage estimation.
+                learning_rate=learning_rate_schedule,  # Standard starting point for PPO, adjust based on performance.
                 env=env, 
                 policy_kwargs=policy_kwargs,  # Ensure this aligns with the complexities of your environment.
                 verbose=1, 
                 device=device, 
-                # ent_coef=0.5,  # Reduced for less aggressive exploration after initial learning, adjust based on needs.
+                ent_coef=0.9998,  # Reduced for less aggressive exploration after initial learning, adjust based on needs.
                 # vf_coef=0.5,  # Adjusted to balance value function loss importance.
                )
 
@@ -720,5 +745,5 @@ if __name__ == "__main__":
             run_model.learn(total_timesteps=num_steps, progress_bar=False, callback=callbacks)
         return run_model
 
-    model = train_model(env, runsteps, steps=256, episodes=13)
+    model = train_model(env, runsteps, steps=128, episodes=13)
     model.save(f"{file_name}.zip")
