@@ -668,6 +668,7 @@ def make_env(game_path, emunum):
 
 
 if __name__ == "__main__":
+    tensorboard_log=f"/Volumes/Scratch/ofo/tensorboard/{os.uname()[1]}-{time.time()}"
     import argparse
     parser = argparse.ArgumentParser()
     parser.add_argument("--game_path", type=str, default="/home/mscs/PokemonYellow.gb")
