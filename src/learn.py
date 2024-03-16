@@ -380,7 +380,7 @@ class PyBoyEnv(gym.Env):
         # reward = int(pokemon_caught * 32000 // 152) + ((len(self.player_maps)) * (32000 // 255) * (2000  * (pokemon_caught + 1) - self.stationary_frames) / 2000 * (pokemon_caught + 1))
         
         
-        reward = (pokemon_caught  + pokemon_seen) + (len(self.player_maps) * 1000 + len(self.visited_xy) // 10) // 1000
+        reward = (pokemon_caught  + pokemon_seen) + (len(self.player_maps) * 1000 + len(self.visited_xy) // 10) // 100
         
         # reduce the reward by the % of frames the player has been stationary, allowing for longer events later in the game
         # reward = reward - int(self.stationary_frames // 10)
