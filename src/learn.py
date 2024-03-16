@@ -9,6 +9,8 @@ from timg import Renderer, Ansi24HblockMethod
 from PIL import Image, ImageDraw, ImageFont
 import sys
 
+from stable_baselines3.common.logger import TensorBoardOutputFormat
+
 from os.path import exists
 import gymnasium as gym
 
@@ -130,7 +132,8 @@ class CustomFeatureExtractor(BaseFeaturesExtractor):
 def learning_rate_schedule(progress):
     # return 0.025
     # progress starts at 1 and decreases as remaining approaches 0.
-    rate = 0.025 * progress
+    rate = 0.045 
+    rate = (rate + rate * progress) / 2
     print(f"LR: {rate}",file=sys.stderr)
     return rate
     #return  0.0
@@ -141,14 +144,37 @@ class CustomNetwork(ActorCriticPolicy):
         super(CustomNetwork, self).__init__(*args, **kwargs)
         self.lr_schedule = learning_rate_schedule
 
+class TensorboardLoggingCallback(BaseCallback):
+    def __init__(self, verbose=0):
+        super(TensorboardLoggingCallback, self).__init__(verbose)
+        # We set the frequency at which the callback will be called
+        # This could be set to be called at each step by setting it to 1
+        self.log_freq = 1000
+
+    def _on_step(self) -> bool:
+        # This method will be called by the model after each call to `env.step()`.
+        # Note: self.n_calls is incremented after this method is called.
+        if self.n_calls % self.log_freq == 0:
+            # Log scalar value (here a random variable)
+            rewards = self.locals['rewards']
+            if len(rewards) > 0:  # Check if rewards list is not empty
+                average_reward = sum(rewards) / len(rewards)
+                max_reward = max(rewards)
+                self.logger.record('reward/average_reward', average_reward)
+                self.logger.record('reward/max_reward', max_reward)
+        return True  # Returning True means we will continue training, returning False will stop training
+
 class PokeCaughtCallback(BaseCallback):
     def __init__(self, total_timesteps, verbose=0 ):
         super(PokeCaughtCallback, self).__init__(verbose)
+        
         self.timg_render = Renderer()
         self.filename_datetime = datetime.datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
         self.progress = 0
         self.total_timesteps = total_timesteps
         self.progress_bar = tqdm(total=self.total_timesteps, position=0, leave=True)
+
+
 
     def generate_gif_and_actions(self):
         actions = self.training_env.get_attr('actions')
@@ -206,7 +232,6 @@ class PokeCaughtCallback(BaseCallback):
         self.training_env.env_method('render', best_env_idx)
         self.progress = self.model.num_timesteps
         self.progress_bar.update(self.progress - self.progress_bar.n)
-
         
 
         # if terminal_size.columns < 160 or terminal_size.lines < 144 / 2:
@@ -384,7 +409,7 @@ class PyBoyEnv(gym.Env):
         # reward = int(pokemon_caught * 32000 // 152) + ((len(self.player_maps)) * (32000 // 255) * (2000  * (pokemon_caught + 1) - self.stationary_frames) / 2000 * (pokemon_caught + 1))
         
         
-        reward = (pokemon_caught * 100 + pokemon_seen * 50)+ (len(self.player_maps) * 1000 + len(self.visited_xy) // 10) // 100
+        reward = (pokemon_caught * 1000 + pokemon_seen * 500) + (len(self.player_maps) * 1000 + len(self.visited_xy) // 10) // 10
         
         # reduce the reward by the % of frames the player has been stationary, allowing for longer events later in the game
         # reward = reward - int(self.stationary_frames // 10)
@@ -392,8 +417,10 @@ class PyBoyEnv(gym.Env):
         #     self.reset()
         # elif reward < 0:
         #     reward = 0
-        if button_mash:
-            return reward // 10
+
+        reward = (reward) - (reward * (self.stationary_frames / (self.frames + 1)))
+        # if button_mash:
+        #     return reward // 10
 
         return reward
 
@@ -430,11 +457,10 @@ class PyBoyEnv(gym.Env):
             self.renderer.load_image(image)
             self.renderer.resize(terminal_size.columns, terminal_size.lines * 2 - terminal_offset)
             self.renderer.render(Ansi24HblockMethod)
-            mash_percent = f"{self.mash_count * 100 / (self.frames + 1):.3f}%"
             if target_index is not None:
-                print(f"Best:  {target_index} 🟢 {self.last_pokemon_count} 👀 {self.last_seen_pokemon_count} 🎬 {self.frames} 🌎 {len(self.visited_xy)} 🏆 {self.last_score} 💥: {mash_percent} 🦶 {self.stationary_frames} X: {self.last_player_x} Y: {self.last_player_y} XB: {self.last_player_x_block} YB: {self.last_player_y_block}, Map: {self.last_player_map} Actions {' '.join(self.actions[-6:])} {len(self.actions)}")
+                print(f"Best:  {target_index} 🟢 {self.last_pokemon_count} 👀 {self.last_seen_pokemon_count} 🎬 {self.frames} 🌎 {len(self.visited_xy)} 🏆 {self.last_score} 🦶 {self.stationary_frames} X: {self.last_player_x} Y: {self.last_player_y} XB: {self.last_player_x_block} YB: {self.last_player_y_block}, Map: {self.last_player_map} Actions {' '.join(self.actions[-6:])} {len(self.actions)}")
             if reset:
-                print(f"Reset: {self.emunum} 🟢 {self.last_pokemon_count} 👀 {self.last_seen_pokemon_count} 🎬 {self.frames} 🌎 {len(self.visited_xy)} 🏆 {self.last_score} 💥: {mash_percent} 🦶 {self.stationary_frames} X: {self.last_player_x} Y: {self.last_player_y} XB: {self.last_player_x_block} YB: {self.last_player_y_block}, Map: {self.last_player_map} Actions {' '.join(self.actions[-6:])} {len(self.actions)}")
+                print(f"Reset: {self.emunum} 🟢 {self.last_pokemon_count} 👀 {self.last_seen_pokemon_count} 🎬 {self.frames} 🌎 {len(self.visited_xy)} 🏆 {self.last_score} 🦶 {self.stationary_frames} X: {self.last_player_x} Y: {self.last_player_y} XB: {self.last_player_x_block} YB: {self.last_player_y_block}, Map: {self.last_player_map} Actions {' '.join(self.actions[-6:])} {len(self.actions)}")
             
 
     def step(self, action):
@@ -460,19 +486,12 @@ class PyBoyEnv(gym.Env):
             button_states[d_button - 1] = 1
 
         button_states_raw = "".join(str(i) for i in button_states)
-        button_mash = False
-        if sum(button_states[0:4]) > 1:
-            button_mash = True
-            self.mash_count += 1
         
         # count how many arrow buttons are pushed by checking the first 4 bits
 
-
-
-
-        for i, state in enumerate(button_states_raw):
-            if int(state) > 0:
-                button_states[i] = 1
+        # for i, state in enumerate(button_states_raw):
+        #     if int(state) > 0:
+        #         button_states[i] = 1
         # Fixed select button to 0 to prevent hard resets
         duration = 0
         # duration_bits = action[8:]
@@ -501,10 +520,7 @@ class PyBoyEnv(gym.Env):
                 self.pyboy.send_input(self.buttons[i])
             else:
                 self.pyboy.send_input(self.buttons[i + 8])
-        if button_mash:
-            self.actions.append(button_states_raw + "💥>")
-        else:
-            self.actions.append(button_states_raw + "👍>")
+        self.actions.append(button_states_raw + ">")
         for _ in range(ticks):
             self.pyboy.tick()
         # Grab less frames to append if we're standing still.
@@ -526,7 +542,7 @@ class PyBoyEnv(gym.Env):
         # memory_values = np.frombuffer(flo.read(), dtype=np.uint8)
 
         memory_values = self.get_memory_range()
-        reward = self.calculate_reward(memory_values=memory_values, button_mash = button_mash)
+        reward = round(self.calculate_reward(memory_values=memory_values, button_mash = False), 3)
         
 
         # Don't count the frames where the player is still in the starting menus. Pokemon caught gives more leeway on standing still
@@ -551,7 +567,7 @@ class PyBoyEnv(gym.Env):
         if reward < 0:
             reward = 0
 
-        info = {}
+        info = {"reward" : reward}
         observation = np.append(memory_values, reward)
         return observation, reward, terminated, truncated, info
 
@@ -676,6 +692,7 @@ if __name__ == "__main__":
 
 
     file_name = "model"
+    tensorboard_log=f"/Volumes/Scratch/ofo/tensorboard/{os.uname()[1]}-{time.time()}"
     def train_model(env, num_steps, steps, episodes):
         policy_kwargs = dict(
             features_extractor_class=CustomFeatureExtractor,
@@ -700,6 +717,7 @@ if __name__ == "__main__":
             run_model.device = device
             run_model.rollout_buffer.n_envs = num_cpu
             run_model.rollout_buffer.reset()
+            # run_model.tensorboard_log=f"/Volumes/Scratch/ofo/tensorboard/{os.uname()[1]}-{time.time()}",
 
         else:
             n_steps = steps * num_cpu
@@ -720,18 +738,19 @@ if __name__ == "__main__":
             #    )
 
 
-            run_model = PPO(policy="CnnPolicy", 
+            run_model = PPO(policy="CnnPolicy",
                 n_steps=n_steps,  # Reduce n_steps if too large; ensure not less than some minimum like 2048 for sufficient learning per update.
-                batch_size=n_steps // 16,  # Reduce batch size if it's too large but ensure a minimum size for stability.
-                n_epochs=3,  # Adjusted for potentially more stable learning across batches.
-                gamma=0.9998,  # Increased to give more importance to future rewards, can help escape repetitive actions.
-                gae_lambda=0.90,  # Adjusted for a better balance between bias and variance in advantage estimation.
+                batch_size=steps,  # Reduce batch size if it's too large but ensure a minimum size for stability.
+                n_epochs=13,  # Adjusted for potentially more stable learning across batches.
+                gamma=0.998,  # Increased to give more importance to future rewards, can help escape repetitive actions.
+                # gae_lambda=0.90,  # Adjusted for a better balance between bias and variance in advantage estimation.
                 learning_rate=learning_rate_schedule,  # Standard starting point for PPO, adjust based on performance.
-                env=env, 
+                env=env,
                 policy_kwargs=policy_kwargs,  # Ensure this aligns with the complexities of your environment.
-                verbose=1, 
-                device=device, 
-                ent_coef=0.9998,  # Reduced for less aggressive exploration after initial learning, adjust based on needs.
+                verbose=1,
+                device=device,
+                ent_coef=0.01,  # Reduced for less aggressive exploration after initial learning, adjust based on needs.
+                tensorboard_log=tensorboard_log,
                 # vf_coef=0.5,  # Adjusted to balance value function loss importance.
                )
 
@@ -741,7 +760,8 @@ if __name__ == "__main__":
         for _ in range(0, episodes):
             checkpoint_callback = CheckpointCallback(save_freq=10000, save_path=f"/Volumes/Scratch/ofo_chkpt/{os.uname()[1]}-{time.time()}.zip", name_prefix="poke")
             current_stats = EveryNTimesteps(n_steps=3000, callback=PokeCaughtCallback(runsteps))
-            callbacks = [checkpoint_callback, current_stats]
+            tbcallback = TensorboardLoggingCallback(tensorboard_log)
+            callbacks = [checkpoint_callback, current_stats, tbcallback]
             run_model.learn(total_timesteps=num_steps, progress_bar=False, callback=callbacks)
         return run_model
 
