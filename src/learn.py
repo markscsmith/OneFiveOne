@@ -738,7 +738,7 @@ if __name__ == "__main__":
             #     vf_coef=0.5,  # Adjusted to balance value function loss importance.
             #    )
 
-
+            tensorboard_log=f"/Volumes/Scratch/ofo/tensorboard/{os.uname()[1]}-{time.time()}"
             run_model = PPO(policy="CnnPolicy",
                 n_steps=n_steps,  # Reduce n_steps if too large; ensure not less than some minimum like 2048 for sufficient learning per update.
                 batch_size=steps,  # Reduce batch size if it's too large but ensure a minimum size for stability.
