@@ -128,7 +128,8 @@ class CustomFeatureExtractor(BaseFeaturesExtractor):
 
 
 def learning_rate_schedule(progress):
-    return 0.025
+    # return 0.025
+    return 0.025 - progress * (0.025 / 100)
     #return  0.0
 
 
@@ -462,7 +463,7 @@ class PyBoyEnv(gym.Env):
         #     duration += 2
         # if duration_bits[3] > 0.5:
         #     duration += 1
-        temp_reset_penalty = 0
+
         if self.reset_unlocked:
             pass
         else:
@@ -679,19 +680,35 @@ if __name__ == "__main__":
         else:
             n_steps = steps * num_cpu
 
+            # run_model = PPO(policy="CnnPolicy", 
+            #     n_steps=n_steps,  # Reduce n_steps if too large; ensure not less than some minimum like 2048 for sufficient learning per update.
+            #     batch_size=n_steps // 16,  # Reduce batch size if it's too large but ensure a minimum size for stability.
+            #     n_epochs=10,  # Adjusted for potentially more stable learning across batches.
+            #     gamma=0.999,  # Increased to give more importance to future rewards, can help escape repetitive actions.
+            #     gae_lambda=0.90,  # Adjusted for a better balance between bias and variance in advantage estimation.
+            #     learning_rate=learning_rate_schedule,  # Standard starting point for PPO, adjust based on performance.
+            #     env=env, 
+            #     policy_kwargs=policy_kwargs,  # Ensure this aligns with the complexities of your environment.
+            #     verbose=1, 
+            #     device=device, 
+            #     ent_coef=0.5,  # Reduced for less aggressive exploration after initial learning, adjust based on needs.
+            #     vf_coef=0.5,  # Adjusted to balance value function loss importance.
+            #    )
+
+
             run_model = PPO(policy="CnnPolicy", 
                 n_steps=n_steps,  # Reduce n_steps if too large; ensure not less than some minimum like 2048 for sufficient learning per update.
                 batch_size=n_steps // 16,  # Reduce batch size if it's too large but ensure a minimum size for stability.
                 n_epochs=10,  # Adjusted for potentially more stable learning across batches.
-                gamma=0.999,  # Increased to give more importance to future rewards, can help escape repetitive actions.
-                gae_lambda=0.90,  # Adjusted for a better balance between bias and variance in advantage estimation.
-                learning_rate=0.001,  # Standard starting point for PPO, adjust based on performance.
+                gamma=0.99,  # Increased to give more importance to future rewards, can help escape repetitive actions.
+                # gae_lambda=0.90,  # Adjusted for a better balance between bias and variance in advantage estimation.
+                learning_rate=learning_rate_schedule,  # Standard starting point for PPO, adjust based on performance.
                 env=env, 
                 policy_kwargs=policy_kwargs,  # Ensure this aligns with the complexities of your environment.
                 verbose=1, 
                 device=device, 
-                ent_coef=0.5,  # Reduced for less aggressive exploration after initial learning, adjust based on needs.
-                vf_coef=0.5,  # Adjusted to balance value function loss importance.
+                # ent_coef=0.5,  # Reduced for less aggressive exploration after initial learning, adjust based on needs.
+                # vf_coef=0.5,  # Adjusted to balance value function loss importance.
                )
 
         # model_merge_callback = EveryNTimesteps(n_steps=steps * num_cpu * 1024, callback=ModelMergeCallback(args.num_hosts))
