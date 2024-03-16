@@ -741,7 +741,7 @@ if __name__ == "__main__":
             run_model = PPO(policy="CnnPolicy",
                 n_steps=n_steps,  # Reduce n_steps if too large; ensure not less than some minimum like 2048 for sufficient learning per update.
                 batch_size=steps,  # Reduce batch size if it's too large but ensure a minimum size for stability.
-                n_epochs=13,  # Adjusted for potentially more stable learning across batches.
+                n_epochs=3,  # Adjusted for potentially more stable learning across batches.
                 gamma=0.998,  # Increased to give more importance to future rewards, can help escape repetitive actions.
                 # gae_lambda=0.90,  # Adjusted for a better balance between bias and variance in advantage estimation.
                 learning_rate=learning_rate_schedule,  # Standard starting point for PPO, adjust based on performance.
@@ -758,6 +758,7 @@ if __name__ == "__main__":
         # TODO: Progress callback that collects data from each frame for stats
         
         for _ in range(0, episodes):
+            tensorboard_log=f"/Volumes/Scratch/ofo/tensorboard/{os.uname()[1]}-{time.time()}"
             checkpoint_callback = CheckpointCallback(save_freq=10000, save_path=f"/Volumes/Scratch/ofo_chkpt/{os.uname()[1]}-{time.time()}.zip", name_prefix="poke")
             current_stats = EveryNTimesteps(n_steps=3000, callback=PokeCaughtCallback(runsteps))
             tbcallback = TensorboardLoggingCallback(tensorboard_log)
@@ -765,5 +766,5 @@ if __name__ == "__main__":
             run_model.learn(total_timesteps=num_steps, progress_bar=False, callback=callbacks)
         return run_model
 
-    model = train_model(env, runsteps, steps=128, episodes=13)
+    model = train_model(env, runsteps, steps=256, episodes=13)
     model.save(f"{file_name}.zip")
