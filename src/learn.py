@@ -635,7 +635,7 @@ if __name__ == "__main__":
 
     num_cpu = multiprocessing.cpu_count()
     
-    hrs = 10 # number of hours to run for.
+    hrs = 25 # number of hours to run for.
     runsteps = int(5000  * (hrs) * num_cpu)
     # num_cpu = 1
     # Hostname and timestamp
@@ -720,5 +720,5 @@ if __name__ == "__main__":
             run_model.learn(total_timesteps=num_steps, progress_bar=False, callback=callbacks)
         return run_model
 
-    model = train_model(env, runsteps, steps=512, episodes=13)
+    model = train_model(env, runsteps, steps=256, episodes=13)
     model.save(f"{file_name}.zip")
