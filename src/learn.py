@@ -326,7 +326,8 @@ class PyBoyEnv(gym.Env):
         # Define actioqn_space and observation_space
         # self.action_space = gym.spaces.Discrete(256)
         # self.action_space = gym.spaces.Box(low=0, high=1, shape=(12,), dtype=np.float32)
-        self.action_space = gym.spaces.Box(low=0, high=1, shape=(8,), dtype=np.float32)
+        # self.action_space = gym.spaces.Box(low=0, high=1, shape=(8,), dtype=np.float32)
+        self.action_space = gym.spaces.MultiBinary(8)
         size = MEM_END - MEM_START + 2
         self.observation_space = gym.spaces.Box(low=0, high=255, shape=(size,), dtype=np.uint16)
 
@@ -382,7 +383,7 @@ class PyBoyEnv(gym.Env):
             reward = pokemon_caught * 10000  + pokemon_seen * 5000 + len(self.player_maps) * 1000 + len(self.visited_xy) // 10
         
         # reduce the reward by the % of frames the player has been stationary, allowing for longer events later in the game
-        # reward = reward - int(reward * (self.stationary_frames / (self.frames + 1)))  * 10
+        reward = reward - int(self.stationary_frames // 10)
         # if reward < -50000:
         #     self.reset()
         # elif reward < 0:
@@ -438,7 +439,7 @@ class PyBoyEnv(gym.Env):
         #           """  U  D  L  R  A  B  *  > """
         button_states = [0, 0, 0, 0, 0, 0, 0, 0]
         for i, _ in enumerate(button_states):
-            if action[i] > 0.75:
+            if action[i] > 0:
                 button_states[i] = 1
         button_states_raw = "".join(str(i) for i in button_states)
         button_mash = 0
@@ -679,17 +680,17 @@ if __name__ == "__main__":
             n_steps = steps * num_cpu
 
             run_model = PPO(policy="CnnPolicy", 
-                n_steps=max(n_steps // 2, 10240),  # Reduce n_steps if too large; ensure not less than some minimum like 2048 for sufficient learning per update.
-                batch_size=max(n_steps * num_cpu // 4, 256),  # Reduce batch size if it's too large but ensure a minimum size for stability.
+                n_steps=n_steps,  # Reduce n_steps if too large; ensure not less than some minimum like 2048 for sufficient learning per update.
+                batch_size=n_steps // 16,  # Reduce batch size if it's too large but ensure a minimum size for stability.
                 n_epochs=10,  # Adjusted for potentially more stable learning across batches.
                 gamma=0.999,  # Increased to give more importance to future rewards, can help escape repetitive actions.
-                gae_lambda=0.998,  # Adjusted for a better balance between bias and variance in advantage estimation.
+                gae_lambda=0.90,  # Adjusted for a better balance between bias and variance in advantage estimation.
                 learning_rate=0.001,  # Standard starting point for PPO, adjust based on performance.
                 env=env, 
                 policy_kwargs=policy_kwargs,  # Ensure this aligns with the complexities of your environment.
                 verbose=1, 
                 device=device, 
-                ent_coef=0.01,  # Reduced for less aggressive exploration after initial learning, adjust based on needs.
+                ent_coef=0.5,  # Reduced for less aggressive exploration after initial learning, adjust based on needs.
                 vf_coef=0.5,  # Adjusted to balance value function loss importance.
                )
 
