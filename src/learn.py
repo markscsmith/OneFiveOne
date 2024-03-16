@@ -129,7 +129,7 @@ class CustomFeatureExtractor(BaseFeaturesExtractor):
 
 def learning_rate_schedule(progress):
     # return 0.025
-    return 0.025 - progress * (0.025 / 100)
+    return 0.025 - (progress * (0.015))
     #return  0.0
 
 
@@ -379,12 +379,12 @@ class PyBoyEnv(gym.Env):
         # More caught pokemon = more leeway for standing still
         # reward = int(pokemon_caught * 32000 // 152) + ((len(self.player_maps)) * (32000 // 255) * (2000  * (pokemon_caught + 1) - self.stationary_frames) / 2000 * (pokemon_caught + 1))
         if pokemon_seen == 0:
-            reward = len(self.player_maps) * 1000 + len(self.visited_xy) // 10
+            reward = (len(self.player_maps) * 1000 + len(self.visited_xy) // 10) // 1000
         else:
-            reward = pokemon_caught * 10000  + pokemon_seen * 5000 + len(self.player_maps) * 100 + len(self.visited_xy) // 10
+            reward = (pokemon_caught * 1000  + pokemon_seen * 500 + len(self.player_maps) * 100 + len(self.visited_xy) // 10) // 1000
         
         # reduce the reward by the % of frames the player has been stationary, allowing for longer events later in the game
-        reward = reward - int(self.stationary_frames // 10)
+        # reward = reward - int(self.stationary_frames // 10)
         # if reward < -50000:
         #     self.reset()
         # elif reward < 0:
@@ -699,10 +699,10 @@ if __name__ == "__main__":
             run_model = PPO(policy="CnnPolicy", 
                 n_steps=n_steps,  # Reduce n_steps if too large; ensure not less than some minimum like 2048 for sufficient learning per update.
                 batch_size=n_steps // 16,  # Reduce batch size if it's too large but ensure a minimum size for stability.
-                n_epochs=10,  # Adjusted for potentially more stable learning across batches.
-                gamma=0.99,  # Increased to give more importance to future rewards, can help escape repetitive actions.
+                n_epochs=3,  # Adjusted for potentially more stable learning across batches.
+                gamma=0.998,  # Increased to give more importance to future rewards, can help escape repetitive actions.
                 # gae_lambda=0.90,  # Adjusted for a better balance between bias and variance in advantage estimation.
-                learning_rate=learning_rate_schedule,  # Standard starting point for PPO, adjust based on performance.
+                # learning_rate=learning_rate_schedule,  # Standard starting point for PPO, adjust based on performance.
                 env=env, 
                 policy_kwargs=policy_kwargs,  # Ensure this aligns with the complexities of your environment.
                 verbose=1, 
