@@ -683,7 +683,8 @@ if __name__ == "__main__":
                 n_epochs=3,  # Adjusted for potentially more stable learning across batches.
                 gamma=0.998,  # Increased to give more importance to future rewards, can help escape repetitive actions.
                 # gae_lambda=0.90,  # Adjusted for a better balance between bias and variance in advantage estimation.
-                learning_rate=learning_rate_schedule,  # Standard starting point for PPO, adjust based on performance.
+                # learning_rate=learning_rate_schedule,  # Standard starting point for PPO, adjust based on performance.
+                learning_rate=0.025,
                 env=env,
                 policy_kwargs=policy_kwargs,  # Ensure this aligns with the complexities of your environment.
                 verbose=1,
@@ -708,5 +709,5 @@ if __name__ == "__main__":
             run_model.learn(total_timesteps=num_steps, progress_bar=False, callback=callbacks)
         return run_model
 
-    model = train_model(env, runsteps, steps=1024, episodes=27)
+    model = train_model(env, runsteps, steps=512, episodes=27)
     model.save(f"{file_name}.zip")
