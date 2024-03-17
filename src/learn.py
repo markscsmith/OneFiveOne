@@ -100,6 +100,7 @@ class CustomFeatureExtractor(BaseFeaturesExtractor):
 
         base_file_name = f"{hostname}-{self.filename_datetime}-{self.model.num_timesteps}"
         # Generate a CSV of data
+        # TODO: make path a parameter and use more sensible defaults for non-me users
         with open(f"/Volumes/Scratch/ofo/{base_file_name}.csv", "w", encoding="utf-8") as f:
             f.write("env_num,caught,actions,rewards,frames,visiteds\n")
             for env_num, (action, caught, reward, frame, visited) in enumerate(zip(actions, pokemon_caughts, rewards, frames, visiteds)):
@@ -109,6 +110,7 @@ class CustomFeatureExtractor(BaseFeaturesExtractor):
 
     def scan_models(self):
         # Force LS of directory to refresh cacche:
+        # TODO: make path a parameter and use more sensible defaults for non-me users
         os.system("ls /Volumes/Scratch/ofo")
         model_files = glob.glob("/Volumes/Scratch/ofo/*-*.zip")
 
@@ -189,6 +191,7 @@ class PokeCaughtCallback(BaseCallback):
             hostname = os.uname()[1]
             file_name = f"{hostname}"
             # Generate a CSV of data
+            # TODO: make path a parameter and use more sensible defaults for non-me users
             with open(f"/Volumes/Scratch/ofo/{file_name}.csv", "w", encoding="utf-8") as f:
                 f.write("env_num,caught,actions,rewards,frames,visiteds\n")
                 for env_num, (action, caught, reward, frame, visited) in enumerate(zip(actions, pokemon_caughts, rewards, frames, visiteds)):
@@ -477,6 +480,7 @@ class PyBoyEnv(gym.Env):
                 print(f"Reset: {self.emunum} 🟢 {self.last_pokemon_count} 👀 {self.last_seen_pokemon_count} 🎬 {self.frames} 🌎 {len(self.visited_xy)} 🏆 {self.last_score} 🦶 {self.stationary_frames} X: {self.last_player_x} Y: {self.last_player_y} XB: {self.last_player_x_block} YB: {self.last_player_y_block}, Map: {self.last_player_map} Actions {' '.join(self.actions[-6:])} {len(self.actions)}")
             
 
+    # TODO: build expanding pixel map to show extents of game travelled. (minimap?) Use 3d numpy array to store visited pixels. performance?
     def step(self, action):
         self.frames = self.pyboy.frame_count
         
@@ -621,10 +625,18 @@ def make_env(game_path, emunum):
 
 
 if __name__ == "__main__":
+    # TODO: make path a parameter and use more sensible defaults for non-me users
     tensorboard_log=f"/Volumes/Scratch/ofo/tensorboard/{os.uname()[1]}-{time.time()}"
     import argparse
     parser = argparse.ArgumentParser()
+    # TODO: use more sensible defaults for non-me users
+    # TODO: sensible defaults should be "current directory, any gb file I can find. If I find more than one, open the newest one. If I find none, error out."
+    # TODO: make sure the output indicates what is being done and why. e.g. "No directory specified.  Checking current directory for .gb files. Found 3 files. Using the newest one: PokemonYellow.gb"
+    # TODO: be "quiet" when parameters are passed and work as expected, but "chatty" when the parameter is skipped and the application is doing "defaulty" things.
+    # TODO: DIRECTORY CLEANUP INCLUDING LOGROTATINON.
     parser.add_argument("--game_path", type=str, default="/home/mscs/PokemonYellow.gb")
+    # TODO: fix multi-host model merge.  Can we train across multiple instances of the same cart? Can we train across DIFFERENT pokemon carts?
+    # TODO: Expirement: If we can train on DIFFERENT pokemon carts, can we train on multiple GB games at a time and build a generally good base "gameboy game" model for training specific games?
     parser.add_argument("--num_hosts", type=int, default=1)
     args = parser.parse_args()
 
