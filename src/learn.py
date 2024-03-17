@@ -630,8 +630,8 @@ if __name__ == "__main__":
 
     num_cpu = multiprocessing.cpu_count()
     
-    hrs = 1 # number of hours to run for.
-    runsteps = int(100000  * (hrs) * num_cpu)
+    hrs = 5 # number of hours to run for.
+    runsteps = int(3200000  * (hrs))
     # num_cpu = 1
     # Hostname and timestamp
 
