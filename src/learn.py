@@ -759,6 +759,9 @@ if __name__ == "__main__":
         # TODO: Progress callback that collects data from each frame for stats
         
         for _ in range(0, episodes):
+            checkpoint_callback = None
+            current_stats = None
+            tbcallback = None
             tensorboard_log=f"/Volumes/Scratch/ofo/tensorboard/{os.uname()[1]}-{time.time()}"
             checkpoint_callback = CheckpointCallback(save_freq=10000, save_path=f"/Volumes/Scratch/ofo_chkpt/{os.uname()[1]}-{time.time()}.zip", name_prefix="poke")
             current_stats = EveryNTimesteps(n_steps=3000, callback=PokeCaughtCallback(runsteps))
