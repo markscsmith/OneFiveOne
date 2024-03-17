@@ -333,15 +333,28 @@ class PyBoyEnv(gym.Env):
         #                 WindowEvent.RELEASE_BUTTON_A, WindowEvent.RELEASE_BUTTON_B, WindowEvent.RELEASE_BUTTON_START,
         #                 WindowEvent.RELEASE_BUTTON_SELECT]
 
-        self.buttons = [WindowEvent.PRESS_ARROW_UP, WindowEvent.PRESS_ARROW_DOWN, WindowEvent.PRESS_ARROW_LEFT,
-                        WindowEvent.PRESS_ARROW_RIGHT,WindowEvent.PRESS_BUTTON_A, WindowEvent.PRESS_BUTTON_B,
-                        WindowEvent.PRESS_BUTTON_START, WindowEvent.PASS, WindowEvent.RELEASE_ARROW_UP,
-                        WindowEvent.RELEASE_ARROW_DOWN, WindowEvent.RELEASE_ARROW_LEFT, WindowEvent.RELEASE_ARROW_RIGHT,
-                        WindowEvent.RELEASE_BUTTON_A, WindowEvent.RELEASE_BUTTON_B, WindowEvent.RELEASE_BUTTON_START,
-                        WindowEvent.PASS]
+        self.buttons = {
+            0: (WindowEvent.PASS, "_"),
+            1: (WindowEvent.PRESS_ARROW_UP, "U"),
+            2: (WindowEvent.PRESS_ARROW_DOWN, "D"),
+            3: (WindowEvent.PRESS_ARROW_LEFT, "L"),
+            4: (WindowEvent.PRESS_ARROW_RIGHT, "R"),
+            5: (WindowEvent.PRESS_BUTTON_A, "A"),
+            6: (WindowEvent.PRESS_BUTTON_B, "B"),
+            7: (WindowEvent.PRESS_BUTTON_START, "S"),
+            8: (WindowEvent.PASS, "."),
+            9: (WindowEvent.RELEASE_ARROW_UP, "u"),
+            10: (WindowEvent.RELEASE_ARROW_DOWN, "d"),
+            11: (WindowEvent.RELEASE_ARROW_LEFT, "l"),
+            12: (WindowEvent.RELEASE_ARROW_RIGHT, "r"),
+            13: (WindowEvent.RELEASE_BUTTON_A, "a"),
+            14: (WindowEvent.RELEASE_BUTTON_B, "b"),
+            15: (WindowEvent.RELEASE_BUTTON_START, "s"),
+            
+        }
 
 
-        self.buttons_names = "UDLRABS!udlrabs."
+        self.buttons_names = "UDLRABS!_udlrabs.-"
 
 
 
@@ -357,7 +370,7 @@ class PyBoyEnv(gym.Env):
         # self.action_space = gym.spaces.Discrete(256)
         # self.action_space = gym.spaces.Box(low=0, high=1, shape=(12,), dtype=np.float32)
         # self.action_space = gym.spaces.Box(low=0, high=1, shape=(8,), dtype=np.float32)
-        self.action_space = gym.spaces.MultiBinary(8)
+        self.action_space = gym.spaces.Discrete(8, start=0)
         size = MEM_END - MEM_START + 2
         self.observation_space = gym.spaces.Box(low=0, high=255, shape=(size,), dtype=np.uint16)
 
@@ -465,64 +478,19 @@ class PyBoyEnv(gym.Env):
 
     def step(self, action):
         self.frames = self.pyboy.frame_count
+        
+        
+        button_1, button_name_1 = self.buttons[action]
+        button_2, button_name_2 = self.buttons[action + 8]
+        self.pyboy.send_input(button_1)
+        
+        
         ticks = 1
-        frame_checks = 24
-        # rethink the action space as the binary state of all 8 buttons:
-        # U = UP, D = DOWN, L = LEFT, R = RIGHT, A = A, B = B, * = "STAR"T, > = SELECT
-        #           """  U  D  L  R  A  B  *  > """
-        button_states = [0, 0, 0, 0, 0, 0, 0, 0]
-        # convert first 4 bits of action to button states
-
-            
-
-
-        for i, _ in enumerate(button_states):
-            if action[i] > 0:
-                button_states[i] = 1
-        
-        d_button = sum(button_states[0:4])
-        if d_button >= 1:
-            button_states[0:4] = [0, 0, 0, 0]
-            button_states[d_button - 1] = 1
-
-        button_states_raw = "".join(str(i) for i in button_states)
-        
-        # count how many arrow buttons are pushed by checking the first 4 bits
-
-        # for i, state in enumerate(button_states_raw):
-        #     if int(state) > 0:
-        #         button_states[i] = 1
-        # Fixed select button to 0 to prevent hard resets
-        duration = 0
-        # duration_bits = action[8:]
-        # if duration_bits[0] > 0.5:
-        #     duration += 8
-        # if duration_bits[1] > 0.5:
-        #     duration += 4
-        # if duration_bits[2] > 0.5:
-        #     duration += 2
-        # if duration_bits[3] > 0.5:
-        #     duration += 1
-
-        if self.reset_unlocked:
-            pass
-        else:
-            button_states[7] = 0
-
-
-
-
-        # ticks += duration
-        # self.pyboy.send_input(self.buttons[action])
-        # self.actions.append(self.buttons_names[action])
-        for i, state in enumerate(button_states):
-            if state:
-                self.pyboy.send_input(self.buttons[i])
-            else:
-                self.pyboy.send_input(self.buttons[i + 8])
-        self.actions.append(button_states_raw + ">")
         for _ in range(ticks):
             self.pyboy.tick()
+        
+        self.pyboy.send_input(button_2)
+        self.actions.append(button_name_1 + button_name_2 + ">")
         # Grab less frames to append if we're standing still.
 
         # screen_bytes = self.generate_screen_ndarray().tobytes()
@@ -743,9 +711,9 @@ if __name__ == "__main__":
                 n_steps=n_steps,  # Reduce n_steps if too large; ensure not less than some minimum like 2048 for sufficient learning per update.
                 batch_size=steps,  # Reduce batch size if it's too large but ensure a minimum size for stability.
                 n_epochs=3,  # Adjusted for potentially more stable learning across batches.
-                gamma=0.98,  # Increased to give more importance to future rewards, can help escape repetitive actions.
+                gamma=0.998,  # Increased to give more importance to future rewards, can help escape repetitive actions.
                 # gae_lambda=0.90,  # Adjusted for a better balance between bias and variance in advantage estimation.
-                learning_rate=learning_rate_schedule,  # Standard starting point for PPO, adjust based on performance.
+                #learning_rate=learning_rate_schedule,  # Standard starting point for PPO, adjust based on performance.
                 env=env,
                 policy_kwargs=policy_kwargs,  # Ensure this aligns with the complexities of your environment.
                 verbose=1,
@@ -770,5 +738,5 @@ if __name__ == "__main__":
             run_model.learn(total_timesteps=num_steps, progress_bar=False, callback=callbacks)
         return run_model
 
-    model = train_model(env, runsteps, steps=128, episodes=13)
+    model = train_model(env, runsteps, steps=256, episodes=13)
     model.save(f"{file_name}.zip")
