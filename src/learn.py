@@ -743,7 +743,7 @@ if __name__ == "__main__":
                 n_steps=n_steps,  # Reduce n_steps if too large; ensure not less than some minimum like 2048 for sufficient learning per update.
                 batch_size=steps,  # Reduce batch size if it's too large but ensure a minimum size for stability.
                 n_epochs=3,  # Adjusted for potentially more stable learning across batches.
-                gamma=0.998,  # Increased to give more importance to future rewards, can help escape repetitive actions.
+                gamma=0.98,  # Increased to give more importance to future rewards, can help escape repetitive actions.
                 # gae_lambda=0.90,  # Adjusted for a better balance between bias and variance in advantage estimation.
                 learning_rate=learning_rate_schedule,  # Standard starting point for PPO, adjust based on performance.
                 env=env,
@@ -767,5 +767,5 @@ if __name__ == "__main__":
             run_model.learn(total_timesteps=num_steps, progress_bar=False, callback=callbacks)
         return run_model
 
-    model = train_model(env, runsteps, steps=256, episodes=13)
+    model = train_model(env, runsteps, steps=128, episodes=13)
     model.save(f"{file_name}.zip")
