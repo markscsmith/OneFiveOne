@@ -26,7 +26,8 @@ import hashlib
 import glob
 from tqdm import tqdm
 
-MEM_START = 0xCC3C
+# MEM_START = 0xCC3C
+MEM_START = 0xD2F7
 MEM_END = 0xDEE1
 
 
@@ -422,7 +423,7 @@ class PyBoyEnv(gym.Env):
         # reward = int(pokemon_caught * 32000 // 152) + ((len(self.player_maps)) * (32000 // 255) * (2000  * (pokemon_caught + 1) - self.stationary_frames) / 2000 * (pokemon_caught + 1))
         
         
-        reward = (pokemon_caught * 1000 + pokemon_seen * 500) + (len(self.player_maps) * 1000 + len(self.visited_xy) // 10) // 10
+        reward = (pokemon_caught * 5000 + pokemon_seen * 2000) + (len(self.player_maps) * 1000 + len(self.visited_xy) // 10) // 10
         
         # reduce the reward by the % of frames the player has been stationary, allowing for longer events later in the game
         # reward = reward - int(self.stationary_frames // 10)
@@ -492,22 +493,6 @@ class PyBoyEnv(gym.Env):
         self.pyboy.send_input(button_2)
         self.actions.append(button_name_1 + button_name_2 + ">")
         # Grab less frames to append if we're standing still.
-
-        # screen_bytes = self.generate_screen_ndarray().tobytes()
-        # if screen_bytes not in self.last_n_frames:
-        #     self.last_n_frames.append(screen_bytes)
-        #     self.last_n_frames.pop(0)
-        #     self.screen_image_arrays.add(screen_bytes)
-        #     self.unchanged_frames -= 1
-        # else:
-        #     self.unchanged_frames += 1
-
-
-
-        # flo = io.BytesIO()
-        # self.pyboy.save_state(flo)
-        # flo.seek(0)
-        # memory_values = np.frombuffer(flo.read(), dtype=np.uint8)
 
         memory_values = self.get_memory_range()
         reward = round(self.calculate_reward(memory_values=memory_values, button_mash = False), 3)
@@ -691,29 +676,14 @@ if __name__ == "__main__":
         else:
             n_steps = steps * num_cpu
 
-            # run_model = PPO(policy="CnnPolicy", 
-            #     n_steps=n_steps,  # Reduce n_steps if too large; ensure not less than some minimum like 2048 for sufficient learning per update.
-            #     batch_size=n_steps // 16,  # Reduce batch size if it's too large but ensure a minimum size for stability.
-            #     n_epochs=10,  # Adjusted for potentially more stable learning across batches.
-            #     gamma=0.999,  # Increased to give more importance to future rewards, can help escape repetitive actions.
-            #     gae_lambda=0.90,  # Adjusted for a better balance between bias and variance in advantage estimation.
-            #     learning_rate=learning_rate_schedule,  # Standard starting point for PPO, adjust based on performance.
-            #     env=env, 
-            #     policy_kwargs=policy_kwargs,  # Ensure this aligns with the complexities of your environment.
-            #     verbose=1, 
-            #     device=device, 
-            #     ent_coef=0.5,  # Reduced for less aggressive exploration after initial learning, adjust based on needs.
-            #     vf_coef=0.5,  # Adjusted to balance value function loss importance.
-            #    )
-
             tensorboard_log=f"/Volumes/Scratch/ofo/tensorboard/{os.uname()[1]}-{time.time()}"
-            run_model = PPO(policy="CnnPolicy",
-                n_steps=n_steps,  # Reduce n_steps if too large; ensure not less than some minimum like 2048 for sufficient learning per update.
+            run_model = PPO(policy="MlpPolicy",
+                n_steps= steps * num_cpu,  # Reduce n_steps if too large; ensure not less than some minimum like 2048 for sufficient learning per update.
                 batch_size=steps,  # Reduce batch size if it's too large but ensure a minimum size for stability.
                 n_epochs=3,  # Adjusted for potentially more stable learning across batches.
                 gamma=0.998,  # Increased to give more importance to future rewards, can help escape repetitive actions.
                 # gae_lambda=0.90,  # Adjusted for a better balance between bias and variance in advantage estimation.
-                #learning_rate=learning_rate_schedule,  # Standard starting point for PPO, adjust based on performance.
+                learning_rate=learning_rate_schedule,  # Standard starting point for PPO, adjust based on performance.
                 env=env,
                 policy_kwargs=policy_kwargs,  # Ensure this aligns with the complexities of your environment.
                 verbose=1,
@@ -738,5 +708,5 @@ if __name__ == "__main__":
             run_model.learn(total_timesteps=num_steps, progress_bar=False, callback=callbacks)
         return run_model
 
-    model = train_model(env, runsteps, steps=256, episodes=13)
+    model = train_model(env, runsteps, steps=1024, episodes=27)
     model.save(f"{file_name}.zip")
