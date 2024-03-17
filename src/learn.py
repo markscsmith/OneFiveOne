@@ -637,12 +637,16 @@ if __name__ == "__main__":
     parser.add_argument("--game_path", type=str, default="/home/mscs/PokemonYellow.gb")
     # TODO: fix multi-host model merge.  Can we train across multiple instances of the same cart? Can we train across DIFFERENT pokemon carts?
     # TODO: Expirement: If we can train on DIFFERENT pokemon carts, can we train on multiple GB games at a time and build a generally good base "gameboy game" model for training specific games?
+
+    # TODO: Visual gif of map as it exapnds over time, with frames of the game as it is played, so the map is faded gray in the spot the AI isn't currently at.  Should be updated in frame order.  BIG PROJECT.
+    # TODO: 5529600 frames is roughly 10 seconds of gametime (144h * 160w * 24fps * 10) and about 5.2mb of data. 10m of data is about 317MB. Math OK? 144 * 160 * 24 * 60 * 10 / 1024 / 1024
     parser.add_argument("--num_hosts", type=int, default=1)
     args = parser.parse_args()
 
     num_cpu = multiprocessing.cpu_count()
     
-    hrs = 5 # number of hours to run for.
+    # hrs = 5 # number of hours to run for.
+    hrs = 0.5 # temporarily shorter duration.
     runsteps = int(3200000  * (hrs))
     # num_cpu = 1
     # Hostname and timestamp
@@ -659,7 +663,7 @@ if __name__ == "__main__":
 
     file_name = "model"
     tensorboard_log=f"/Volumes/Scratch/ofo/tensorboard/{os.uname()[1]}-{time.time()}"
-    def train_model(env, num_steps, steps, episodes):
+    def train_model(env, num_steps, steps, episode=0):
         policy_kwargs = dict(
             features_extractor_class=CustomFeatureExtractor,
             features_extractor_kwargs={},
@@ -688,11 +692,11 @@ if __name__ == "__main__":
         else:
             n_steps = steps * num_cpu
 
-            tensorboard_log=f"/Volumes/Scratch/ofo/tensorboard/{os.uname()[1]}-{time.time()}"
+            tensorboard_log=f"/Volumes/Scratch/ofo/tensorboard/{os.uname()[1]}-{time.time()}-{episode}"
             run_model = PPO(policy="MlpPolicy",
                 n_steps= steps * num_cpu,  # Reduce n_steps if too large; ensure not less than some minimum like 2048 for sufficient learning per update.
                 batch_size=steps,  # Reduce batch size if it's too large but ensure a minimum size for stability.
-                n_epochs=7,  # Adjusted foor potentially more stable learning across batches.
+                n_epochs=3,  # Adjusted foor potentially more stable learning across batches.
                 gamma=0.998,  # Increased to give more importance to future rewards, can help escape repetitive actions.
                 gae_lambda=0.998,  # Adjusted for a better balance between bias and variance in advantage estimation.
                 # learning_rate=learning_rate_schedule,  # Standard starting point for PPO, adjust based on performance.
@@ -709,17 +713,19 @@ if __name__ == "__main__":
         # model_merge_callback = EveryNTimesteps(n_steps=steps * num_cpu * 1024, callback=ModelMergeCallback(args.num_hosts))
         # TODO: Progress callback that collects data from each frame for stats
         
-        for _ in range(0, episodes):
-            checkpoint_callback = None
-            current_stats = None
-            tbcallback = None
-            tensorboard_log=f"/Volumes/Scratch/ofo/tensorboard/{os.uname()[1]}-{time.time()}"
-            checkpoint_callback = CheckpointCallback(save_freq=10000, save_path=f"/Volumes/Scratch/ofo_chkpt/{os.uname()[1]}-{time.time()}.zip", name_prefix="poke")
-            current_stats = EveryNTimesteps(n_steps=3000, callback=PokeCaughtCallback(runsteps))
-            tbcallback = TensorboardLoggingCallback(tensorboard_log)
-            callbacks = [checkpoint_callback, current_stats, tbcallback]
-            run_model.learn(total_timesteps=num_steps, progress_bar=False, callback=callbacks)
+        
+        checkpoint_callback = None
+        current_stats = None
+        tbcallback = None
+        tensorboard_log=f"/Volumes/Scratch/ofo/tensorboard/{os.uname()[1]}-{time.time()}"
+        checkpoint_callback = CheckpointCallback(save_freq=10000, save_path=f"/Volumes/Scratch/ofo_chkpt/{os.uname()[1]}-{time.time()}.zip", name_prefix="poke")
+        current_stats = EveryNTimesteps(n_steps=3000, callback=PokeCaughtCallback(runsteps))
+        tbcallback = TensorboardLoggingCallback(tensorboard_log)
+        callbacks = [checkpoint_callback, current_stats, tbcallback]
+        run_model.learn(total_timesteps=num_steps, progress_bar=False, callback=callbacks)
         return run_model
 
-    model = train_model(env, runsteps, steps=128, episodes=13)
-    model.save(f"{file_name}.zip")
+    episodes = 13
+    for episode in range(0, episodes):
+        model = train_model(env, runsteps, steps=128, episode=episode)
+        model.save(f"{file_name}.zip")
