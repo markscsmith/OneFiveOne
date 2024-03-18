@@ -100,6 +100,7 @@ class TensorboardLoggingCallback(BaseCallback):
             # Log scalar value (here a random variable)
             rewards = self.locals['rewards']
             infos = self.locals['infos']
+            # todo: record each progress/reward separately like I do the actions?
             if len(rewards) > 0:  # Check if rewards list is not empty
                 average_reward = sum(rewards) / len(rewards)
                 max_reward = max(rewards)
@@ -111,6 +112,7 @@ class TensorboardLoggingCallback(BaseCallback):
                     emunum = info['emunum']
                     reward = info['reward']
                     frames = info['frames']
+                    # TODO: pad emunumber with 0s to match number of digits in possible emunum
                     self.logger.record(f"actions/{emunum}", f"{actions[-self.log_freq:-self.log_freq].lower()}{actions[-self.log_freq:]}:rew={reward}:fra={frames}")
 
         return True  # Returning True means we will continue training, returning False will stop training
