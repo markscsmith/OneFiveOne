@@ -700,7 +700,7 @@ if __name__ == "__main__":
                 gamma=0.998,  # Increased to give more importance to future rewards, can help escape repetitive actions.
                 gae_lambda=0.998,  # Adjusted for a better balance between bias and variance in advantage estimation.
                 # learning_rate=learning_rate_schedule,  # Standard starting point for PPO, adjust based on performance.
-                learning_rate=0.0006,
+                # learning_rate=0.0002,
                 env=env,
                 policy_kwargs=policy_kwargs,  # Ensure this aligns with the complexities of your environment.
                 verbose=1,
@@ -727,5 +727,5 @@ if __name__ == "__main__":
 
     episodes = 13
     for episode in range(0, episodes):
-        model = train_model(env, runsteps, steps=128, episode=episode)
+        model = train_model(env, runsteps, steps=64, episode=episode)
         model.save(f"{file_name}.zip")
