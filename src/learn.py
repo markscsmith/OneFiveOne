@@ -511,8 +511,8 @@ if __name__ == "__main__":
 
     num_cpu = multiprocessing.cpu_count()
     
-    # hrs = 5 # number of hours to run for.
-    hrs = 1 # temporarily shorter duration.
+    hrs = 5 # number of hours (in-game) to run for.
+    # hrs = 1 # temporarily shorter duration.
     runsteps = int(3200000  * (hrs))
     
     
@@ -586,5 +586,5 @@ if __name__ == "__main__":
 
     episodes = 13
     for episode in range(0, episodes):
-        model = train_model(env, runsteps, steps=4096, episode=episode)
+        model = train_model(env, runsteps, steps=8192, episode=episode)
         model.save(f"{file_name}.zip")
