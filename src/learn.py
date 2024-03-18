@@ -107,13 +107,16 @@ class TensorboardLoggingCallback(BaseCallback):
                 self.logger.record('reward/average_reward', average_reward)
                 self.logger.record('reward/max_reward', max_reward)
             for i, info in enumerate(infos):
+                # TODO: ADD POKEMON CAUGHT TO INFO
                 if all(key in info for key in ['actions', 'emunum', 'reward', 'frames']):
                     actions = info['actions']
                     emunum = info['emunum']
                     reward = info['reward']
                     frames = info['frames']
+                    caught = info['pokemon_caught']
+                    seen = info['pokemon_seen']
                     # TODO: pad emunumber with 0s to match number of digits in possible emunum
-                    self.logger.record(f"actions/{emunum}", f"{actions[-self.log_freq:-self.log_freq].lower()}{actions[-self.log_freq:]}:rew={reward}:fra={frames}")
+                    self.logger.record(f"actions/{emunum}", f"{actions[-self.log_freq:-self.log_freq].lower()}{actions[-self.log_freq:]}:rew={reward}:fra={frames}:caught={caught}:seen={seen}")
 
         return True  # Returning True means we will continue training, returning False will stop training
 
@@ -418,7 +421,9 @@ class PyBoyEnv(gym.Env):
         info = {"reward" : reward,
                 "actions": self.actions,
                 "emunum": self.emunum,
-                "frames": self.frames,}
+                "frames": self.frames,
+                "pokemon_caught": self.last_pokemon_count,
+                "pokemon_seen": self.last_seen_pokemon_count,}
         observation = np.append(self.get_memory_range(), reward)
         return observation, reward, terminated, truncated, info
 
