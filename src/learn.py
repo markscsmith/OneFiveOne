@@ -314,6 +314,10 @@ class PyBoyEnv(gym.Env):
         pokemon_seen = sum(
              [bin(values).count('1') for values in self.pyboy.memory[self.seen_pokemmon_start: self.seen_pokemmon_end]]
         )
+
+        # FIXME TODO: Workaround for Pokemon Blue bug where the number of pokemon caught shoots up to 4 before any pokemon are seen or caught.
+        if pokemon_seen == 0:
+            pokemon_caught = 0
         
         self.last_seen_pokemon_count = pokemon_seen
 
@@ -500,6 +504,9 @@ if __name__ == "__main__":
     tensorboard_log=f"/Volumes/Scratch/ofo/tensorboard/{os.uname()[1]}-{time.time()}"
     import argparse
     parser = argparse.ArgumentParser()
+    # TODO: Investigate Pokemon Blue caught = 4 before you have a pokedex. Is this a bug in the game?  Is it a bug in the emulator?  Is it a bug in the memory address? Seems to work fine on Red, 
+    # only happens during looking at starter pokemon in Oak's lab.
+    
     # TODO: use more sensible defaults for non-me users
     # TODO: sensible defaults should be "current directory, any gb file I can find. If I find more than one, open the newest one. If I find none, error out."
     # TODO: make sure the output indicates what is being done and why. e.g. "No directory specified.  Checking current directory for .gb files. Found 3 files. Using the newest one: PokemonYellow.gb"
@@ -511,6 +518,7 @@ if __name__ == "__main__":
 
     # TODO: Visual gif of map as it exapnds over time, with frames of the game as it is played, so the map is faded gray in the spot the AI isn't currently at.  Should be updated in frame order.  BIG PROJECT.
     # TODO: 5529600 frames is roughly 10 seconds of gametime (144h * 160w * 24fps * 10) and about 5.2mb of data. 10m of data is about 317MB. Math OK? 144 * 160 * 24 * 60 * 10 / 1024 / 1024
+    
     parser.add_argument("--num_hosts", type=int, default=1)
     args = parser.parse_args()
 
