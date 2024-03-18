@@ -91,6 +91,7 @@ class TensorboardLoggingCallback(BaseCallback):
         # We set the frequency at which the callback will be called
         # This could be set to be called at each step by setting it to 1
         self.log_freq = 1000
+        self.buttons_names = "UDLRABS!-udlrabs.-"
 
     def _on_step(self) -> bool:
         # This method will be called by the model after each call to `env.step()`.
@@ -98,11 +99,20 @@ class TensorboardLoggingCallback(BaseCallback):
         if self.n_calls % self.log_freq == 0:
             # Log scalar value (here a random variable)
             rewards = self.locals['rewards']
+            infos = self.locals['infos']
             if len(rewards) > 0:  # Check if rewards list is not empty
                 average_reward = sum(rewards) / len(rewards)
                 max_reward = max(rewards)
                 self.logger.record('reward/average_reward', average_reward)
                 self.logger.record('reward/max_reward', max_reward)
+            for i, info in enumerate(infos):
+                if all(key in info for key in ['actions', 'emunum', 'reward', 'frames']):
+                    actions = info['actions']
+                    emunum = info['emunum']
+                    reward = info['reward']
+                    frames = info['frames']
+                    self.logger.record(f"actions/{emunum}", f"{actions[-self.log_freq:-self.log_freq].lower()}{actions[-self.log_freq:]}:rew={reward}:fra={frames}")
+
         return True  # Returning True means we will continue training, returning False will stop training
 
 class PokeCaughtCallback(BaseCallback):
@@ -206,7 +216,7 @@ class PyBoyEnv(gym.Env):
         self.n = 21600 # 15 minutes of game time in frames
         self.last_n_frames = [self.pyboy.screen.ndarray] * self.n
         self.renderer = Renderer()
-        self.actions = []
+        self.actions = ""
         self.screen_images = []
         self.reset_unlocked = False
         # Define the memory range for 'number of Pokémon caught'
@@ -242,7 +252,7 @@ class PyBoyEnv(gym.Env):
         self.max_frames = max_frames
 
         self.buttons = {
-            0: (WindowEvent.PASS, "_"),
+            0: (WindowEvent.PASS, "-"),
             1: (WindowEvent.PRESS_ARROW_UP, "U"),
             2: (WindowEvent.PRESS_ARROW_DOWN, "D"),
             3: (WindowEvent.PRESS_ARROW_LEFT, "L"),
@@ -389,7 +399,7 @@ class PyBoyEnv(gym.Env):
             self.pyboy.tick()
         
         self.pyboy.send_input(button_2)
-        self.actions.append(f"{self.frames}:{button_name_1}>")
+        self.actions = self.actions + (f"{button_name_1}")
         # Grab less frames to append if we're standing still.
 
         
@@ -403,7 +413,10 @@ class PyBoyEnv(gym.Env):
         else:
             terminated = False
 
-        info = {"reward" : reward}
+        info = {"reward" : reward,
+                "actions": self.actions,
+                "emunum": self.emunum,
+                "frames": self.frames,}
         observation = np.append(self.get_memory_range(), reward)
         return observation, reward, terminated, truncated, info
 
@@ -442,7 +455,7 @@ class PyBoyEnv(gym.Env):
             exit(1)
 
         
-        self.actions = []
+        self.actions = ""
         self.screen_image_arrays = set()
         self.screen_image_arrays_list = []
         self.visited_xy = set()
