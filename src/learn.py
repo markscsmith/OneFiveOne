@@ -42,6 +42,7 @@ class PokeCart():
         # identify cart
         carts = {"a6924ce1f9ad2228e1c6580779b23878":  "POKEMONG.GBC",
                  "9f2922b235a5eeb78d65594e82ef5dde":  "PMCRYSTA.GBC",
+                 #TODO: Add Pokemon Yellow logic to keep Pikachu happy. 🌩️🐭
                  "d9290db87b1f0a23b89f99ee4469e34b":  "POKEMONY.GBC",
                  "50927e843568814f7ed45ec4f944bd8b":  "POKEMONB.GBC",
                  "3e098020b56c807393cc2ebae5e1857a":  "POKEMONS.GBC",
