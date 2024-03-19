@@ -418,10 +418,10 @@ class PyBoyEnv(gym.Env):
         self.last_score = reward
 
         truncated = False
-        if self.frames >= self.max_frames:
-            terminated = True
-        else:
-            terminated = False
+        # if self.frames >= self.max_frames:
+        #     terminated = True
+        # else:
+        terminated = False
 
         info = {"reward" : reward,
                 "actions": self.actions,
@@ -437,9 +437,9 @@ class PyBoyEnv(gym.Env):
         return memory_values
 
     def reset(self, seed=0, **kwargs):
-        reward = self.calculate_reward()
-        observation = np.append(
-            self.get_memory_range(), reward)
+        # reward = self.calculate_reward()
+        # observation = np.append(
+        #     self.get_memory_range(), reward)
         
         self.stationary_frames = 0
         self.unchanged_frames = 0
@@ -479,7 +479,9 @@ class PyBoyEnv(gym.Env):
         self.last_player_y = 0
         self.last_player_x_block = 0
         self.last_player_y_block = 0
-
+        reward = self.calculate_reward()
+        observation = np.append(
+            self.get_memory_range(), reward)
         print("RESET:OS:SHAPE:", observation.shape, seed, file=sys.stderr)
         return observation, {"seed": seed}
 
