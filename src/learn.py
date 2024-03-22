@@ -429,6 +429,7 @@ class PyBoyEnv(gym.Env):
                 "frames": self.frames,
                 "pokemon_caught": self.last_pokemon_count,
                 "pokemon_seen": self.last_seen_pokemon_count,}
+
         observation = np.append(self.get_memory_range(), reward)
         return observation, reward, terminated, truncated, info
 
