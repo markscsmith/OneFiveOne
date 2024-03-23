@@ -76,10 +76,12 @@ class PokeCart():
 def learning_rate_schedule(progress):
     # return 0.025
     # progress starts at 1 and decreases as remaining approaches 0.
-    rate = 0.045
-    rate = (rate + rate * progress) / 2
+    rate = 0.0003
+    variation = 0.2 * rate * progress
+    new_rate = rate + variation * 20 * np.sin(progress * np.pi * 20)
+    # rate = (rate + rate * progress) / 2
     print(f"LR: {rate}", file=sys.stderr)
-    return rate
+    return new_rate
     # return  0.0
 
 
