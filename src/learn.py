@@ -78,7 +78,7 @@ def learning_rate_schedule(progress):
     # progress starts at 1 and decreases as remaining approaches 0.
     rate = 0.0003
     variation = 0.2 * rate * progress
-    new_rate = rate + variation * 20 * np.sin(progress * np.pi * 20)
+    new_rate = rate + variation * np.sin(progress * np.pi * 20)
     # rate = (rate + rate * progress) / 2
     print(f"LR: {rate}", file=sys.stderr)
     return new_rate
