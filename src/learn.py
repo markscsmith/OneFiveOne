@@ -1,34 +1,38 @@
-import multiprocessing
-from pyboy import PyBoy
-from pyboy.utils import WindowEvent
-from stable_baselines3 import PPO
-from stable_baselines3.common.env_util import SubprocVecEnv, DummyVecEnv
-from stable_baselines3.common.callbacks import BaseCallback, EveryNTimesteps, CheckpointCallback
-from stable_baselines3.common.policies import ActorCriticPolicy
-from timg import Renderer, Ansi24HblockMethod
-from PIL import Image, ImageDraw, ImageFont
 import sys
-
-from stable_baselines3.common.logger import TensorBoardOutputFormat
-
-from os.path import exists
-import gymnasium as gym
-
-from gym.spaces import Box, Dict, Discrete
-import numpy as np
-import torch
-import torch.nn as nn
 import time
 import os
 import datetime
 import hashlib
-import glob
+from os.path import exists
+
+# Compute and AI libs
+import numpy as np
+import torch
+import torch.nn as nn
+
+import gymnasium as gym
+from stable_baselines3 import PPO
+
+from stable_baselines3.common.callbacks import BaseCallback, EveryNTimesteps, CheckpointCallback
+from stable_baselines3.common.policies import ActorCriticPolicy
+
+# multiprocessing environment for parallel training
+import multiprocessing
+from stable_baselines3.common.env_util import SubprocVecEnv, DummyVecEnv
+
+# Emulator libs
+from pyboy import PyBoy
+from pyboy.utils import WindowEvent
+
+# Output libs
+from timg import Renderer, Ansi24HblockMethod
+from PIL import Image, ImageDraw, ImageFont
 from tqdm import tqdm
 
+# Memory ranges to read in Pokemon Red/Blue (+ Yellow?)
 # MEM_START = 0xCC3C
 MEM_START = 0xD2F7
 MEM_END = 0xDEE1
-
 
 class PokeCart():
     def __init__(self, cart_data) -> None:
@@ -36,17 +40,15 @@ class PokeCart():
         self.cart_data = cart_data
         self.checksum = hashlib.md5(cart_data).hexdigest()
 
-
-
     def identify_cart(self):
         # identify cart
         carts = {"a6924ce1f9ad2228e1c6580779b23878":  "POKEMONG.GBC",
                  "9f2922b235a5eeb78d65594e82ef5dde":  "PMCRYSTA.GBC",
-                 #TODO: Add Pokemon Yellow logic to keep Pikachu happy. 🌩️🐭
+                 # TODO: Add Pokemon Yellow logic to keep Pikachu happy. 🌩️🐭
                  "d9290db87b1f0a23b89f99ee4469e34b":  "POKEMONY.GBC",
                  "50927e843568814f7ed45ec4f944bd8b":  "POKEMONB.GBC",
                  "3e098020b56c807393cc2ebae5e1857a":  "POKEMONS.GBC",
-                 "3d45c1ee9abd5738df46d2bdda8b57dc":  "POKEMONR.GBC",}
+                 "3d45c1ee9abd5738df46d2bdda8b57dc":  "POKEMONR.GBC", }
         if self.checksum in carts:
             return carts[self.checksum]
         else:
@@ -56,14 +58,14 @@ class PokeCart():
     def cart_offset(self):
         # Pokemon Yellow has offset -1 vs blue and green
         # TODO: Pokemon Gold Silver and Crystal
-        carts ={
-                "POKEMONR.GBC": 0,
-                "POKEMONB.GBC": 0,
-                "POKEMONY.GBC": 0,
-                "POKEMONG.GBC": 0,
-                "PMCRYSTA.GBC": 0,
-                "POKEMONS.GBC": 0,
-                }
+        carts = {
+            "POKEMONR.GBC": 0,
+            "POKEMONB.GBC": 0,
+            "POKEMONY.GBC": 0,
+            "POKEMONG.GBC": 0,
+            "PMCRYSTA.GBC": 0,
+            "POKEMONS.GBC": 0,
+        }
         if self.identify_cart() in carts:
             return carts[self.identify_cart()]
         else:
@@ -74,17 +76,18 @@ class PokeCart():
 def learning_rate_schedule(progress):
     # return 0.025
     # progress starts at 1 and decreases as remaining approaches 0.
-    rate = 0.045 
+    rate = 0.045
     rate = (rate + rate * progress) / 2
-    print(f"LR: {rate}",file=sys.stderr)
+    print(f"LR: {rate}", file=sys.stderr)
     return rate
-    #return  0.0
+    # return  0.0
 
 
 class CustomNetwork(ActorCriticPolicy):
     def __init__(self, *args, **kwargs):
         super(CustomNetwork, self).__init__(*args, **kwargs)
         self.lr_schedule = learning_rate_schedule
+
 
 class TensorboardLoggingCallback(BaseCallback):
     def __init__(self, verbose=0):
@@ -117,21 +120,22 @@ class TensorboardLoggingCallback(BaseCallback):
                     caught = info['pokemon_caught']
                     seen = info['pokemon_seen']
                     # TODO: pad emunumber with 0s to match number of digits in possible emunum
-                    self.logger.record(f"actions/{emunum}", f"{actions[-self.log_freq:-self.log_freq].lower()}{actions[-self.log_freq:]}:rew={reward}:fra={frames}:caught={caught}:seen={seen}")
+                    self.logger.record(
+                        f"actions/{emunum}", f"{actions[-self.log_freq:-self.log_freq].lower()}{actions[-self.log_freq:]}:rew={reward}:fra={frames}:caught={caught}:seen={seen}")
 
         return True  # Returning True means we will continue training, returning False will stop training
 
+
 class PokeCaughtCallback(BaseCallback):
-    def __init__(self, total_timesteps, verbose=0 ):
+    def __init__(self, total_timesteps, verbose=0):
         super(PokeCaughtCallback, self).__init__(verbose)
-        
+
         self.timg_render = Renderer()
         self.filename_datetime = datetime.datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
         self.progress = 0
         self.total_timesteps = total_timesteps
-        self.progress_bar = tqdm(total=self.total_timesteps, position=0, leave=True)
-
-
+        self.progress_bar = tqdm(
+            total=self.total_timesteps, position=0, leave=True)
 
     def generate_gif_and_actions(self):
         actions = self.training_env.get_attr('actions')
@@ -139,7 +143,6 @@ class PokeCaughtCallback(BaseCallback):
         frames = self.training_env.get_attr('frames')
         visiteds = self.training_env.get_attr('visited_xy')
         pokemon_caughts = self.training_env.get_attr('last_pokemon_count')
-
 
         if self.model.num_timesteps % 100000 == 0:
             hostname = os.uname()[1]
@@ -149,13 +152,14 @@ class PokeCaughtCallback(BaseCallback):
             with open(f"/Volumes/Scratch/ofo/{file_name}.csv", "w", encoding="utf-8") as f:
                 f.write("env_num,caught,actions,rewards,frames,visiteds\n")
                 for env_num, (action, caught, reward, frame, visited) in enumerate(zip(actions, pokemon_caughts, rewards, frames, visiteds)):
-                    f.write(f"{env_num},{caught},{''.join(action)},{reward},{frame},\"{visited}\"\n")
+                    f.write(
+                        f"{env_num},{caught},{''.join(action)},{reward},{frame},\"{visited}\"\n")
 
     def _on_step(self) -> bool:
         # Retrieve pokemon_caught from each environment
         # all_pokemon_caught = self.training_env.get_attr('last_pokemon_count')
         # visiteds = self.training_env.get_attr('visited_xy')
-        
+
         # frames = self.training_env.get_attr('frames')
         # stationary_frames = self.training_env.get_attr('stationary_frames')
         # xs = self.training_env.get_attr('last_player_x')
@@ -170,6 +174,7 @@ class PokeCaughtCallback(BaseCallback):
         self.progress = self.model.num_timesteps
         self.progress_bar.update(self.progress - self.progress_bar.n)
         return True
+
 
 def add_string_overlay(
     image, display_string, position=(20, 20), font_size=40, color=(255, 0, 0)
@@ -213,13 +218,14 @@ def add_string_overlay(
 
     return image
 
+
 class PyBoyEnv(gym.Env):
     def __init__(self, game_path, emunum, save_state_path=None, max_frames=500_000, **kwargs):
         super(PyBoyEnv, self).__init__()
         self.pyboy = PyBoy(game_path, window="null", cgb=True)
         self.game_path = game_path
-        self.menu_value =  None
-        self.n = 21600 # 15 minutes of game time in frames
+        self.menu_value = None
+        self.n = 21600  # 15 minutes of game time in frames
         self.last_n_frames = [self.pyboy.screen.ndarray] * self.n
         self.renderer = Renderer()
         self.actions = ""
@@ -274,21 +280,16 @@ class PyBoyEnv(gym.Env):
             13: (WindowEvent.RELEASE_BUTTON_A, "a"),
             14: (WindowEvent.RELEASE_BUTTON_B, "b"),
             15: (WindowEvent.RELEASE_BUTTON_START, "s"),
-            
+
         }
 
-
         self.buttons_names = "UDLRABS!_udlrabs.-"
-
-
 
         # Get the current date and time
         current_datetime = datetime.datetime.now()
 
         # Format the datetime as a string suitable for a Unix filename
         self.filename_datetime = current_datetime.strftime("%Y-%m-%d_%H-%M-%S")
-
-
 
         # Define actioqn_space and observation_space
         # self.action_space = gym.spaces.Discrete(256)
@@ -297,12 +298,11 @@ class PyBoyEnv(gym.Env):
         self.action_space = gym.spaces.Discrete(8, start=0)
         size = MEM_END - MEM_START + 2
         # size = MEM_START MEM_END + 2
-        self.observation_space = gym.spaces.Box(low=0, high=255, shape=(size,), dtype=np.uint16)
-
+        self.observation_space = gym.spaces.Box(
+            low=0, high=255, shape=(size,), dtype=np.uint16)
 
     def generate_image(self):
         return self.pyboy.screen.ndarray
-
 
     def generate_screen_ndarray(self):
         return self.pyboy.screen.ndarray
@@ -310,16 +310,18 @@ class PyBoyEnv(gym.Env):
     def calculate_reward(self):
         # calculate total bits from the memory values
         pokemon_caught = sum(
-             [bin(values).count('1') for values in self.pyboy.memory[self.caught_pokemon_start: self.caught_pokemon_end]]
+            [bin(values).count('1')
+             for values in self.pyboy.memory[self.caught_pokemon_start: self.caught_pokemon_end]]
         )
         pokemon_seen = sum(
-             [bin(values).count('1') for values in self.pyboy.memory[self.seen_pokemmon_start: self.seen_pokemmon_end]]
+            [bin(values).count('1')
+             for values in self.pyboy.memory[self.seen_pokemmon_start: self.seen_pokemmon_end]]
         )
 
         # FIXME TODO: Workaround for Pokemon Blue bug where the number of pokemon caught shoots up to 4 before any pokemon are seen or caught.
         if pokemon_seen == 0:
             pokemon_caught = 0
-        
+
         self.last_seen_pokemon_count = pokemon_seen
 
         px = self.pyboy.memory[self.player_x_mem]
@@ -341,35 +343,33 @@ class PyBoyEnv(gym.Env):
         # convert binary chunks into a single string
         chunk_id = f"{px}:{py}:{pbx}:{pby}:{map_id}"
 
-
         self.visited_xy.add(chunk_id)
-
 
         self.last_pokemon_count = pokemon_caught
         # reward = pokemon_caught * 1000 + len(self.visited_xy) * 10 - self.stationary_frames * 10 - self.unchanged_frames * 10 - self.reset_penalty
         # More caught pokemon = more leeway for standing still
         # reward = int(pokemon_caught * 32000 // 152) + ((len(self.player_maps)) * (32000 // 255) * (2000  * (pokemon_caught + 1) - self.stationary_frames) / 2000 * (pokemon_caught + 1))
 
+        reward = (pokemon_caught * 5000 + pokemon_seen * 2000) + \
+            (len(self.player_maps) * 1000 + len(self.visited_xy) // 10) // 10
 
-        reward = (pokemon_caught * 5000 + pokemon_seen * 2000) + (len(self.player_maps) * 1000 + len(self.visited_xy) // 10) // 10
-
-        reward = (reward) - (reward * (self.stationary_frames / (self.frames + 1)))
+        reward = (reward) - (reward *
+                             (self.stationary_frames / (self.frames + 1)))
 
         return reward
 
-
-    def render(self, target_index = None, reset = False):
+    def render(self, target_index=None, reset=False):
         if target_index is not None and target_index == self.emunum or reset:
             terminal_size = os.get_terminal_size()
             terminal_offset = 4
-
 
             image = self.pyboy.screen.image
             w = 160
             h = 144
             if terminal_size.columns != w or terminal_size.lines < h / 2:
                 image_aspect_ratio = w / h
-                terminal_aspect_ratio = terminal_size.columns / (terminal_size.lines - terminal_offset)
+                terminal_aspect_ratio = terminal_size.columns / \
+                    (terminal_size.lines - terminal_offset)
 
                 if image_aspect_ratio > terminal_aspect_ratio:
                     new_width = int(w / image_aspect_ratio)
@@ -386,33 +386,33 @@ class PyBoyEnv(gym.Env):
                 image = replacer
 
             self.renderer.load_image(image)
-            self.renderer.resize(terminal_size.columns, terminal_size.lines * 2 - terminal_offset)
+            self.renderer.resize(terminal_size.columns,
+                                 terminal_size.lines * 2 - terminal_offset)
             self.renderer.render(Ansi24HblockMethod)
             if target_index is not None:
-                print(f"Best:  {target_index} 🟢 {self.last_pokemon_count} 👀 {self.last_seen_pokemon_count} 🎬 {self.frames} 🌎 {len(self.visited_xy)} 🏆 {self.last_score} 🦶 {self.stationary_frames} X: {self.last_player_x} Y: {self.last_player_y} XB: {self.last_player_x_block} YB: {self.last_player_y_block}, Map: {self.last_player_map} Actions {' '.join(self.actions[-6:])} {len(self.actions)}")
+                print(
+                    f"Best:  {target_index} 🟢 {self.last_pokemon_count} 👀 {self.last_seen_pokemon_count} 🎬 {self.frames} 🌎 {len(self.visited_xy)} 🏆 {self.last_score} 🦶 {self.stationary_frames} X: {self.last_player_x} Y: {self.last_player_y} XB: {self.last_player_x_block} YB: {self.last_player_y_block}, Map: {self.last_player_map} Actions {' '.join(self.actions[-6:])} {len(self.actions)}")
             if reset:
-                print(f"Reset: {self.emunum} 🟢 {self.last_pokemon_count} 👀 {self.last_seen_pokemon_count} 🎬 {self.frames} 🌎 {len(self.visited_xy)} 🏆 {self.last_score} 🦶 {self.stationary_frames} X: {self.last_player_x} Y: {self.last_player_y} XB: {self.last_player_x_block} YB: {self.last_player_y_block}, Map: {self.last_player_map} Actions {' '.join(self.actions[-6:])} {len(self.actions)}")
-
+                print(
+                    f"Reset: {self.emunum} 🟢 {self.last_pokemon_count} 👀 {self.last_seen_pokemon_count} 🎬 {self.frames} 🌎 {len(self.visited_xy)} 🏆 {self.last_score} 🦶 {self.stationary_frames} X: {self.last_player_x} Y: {self.last_player_y} XB: {self.last_player_x_block} YB: {self.last_player_y_block}, Map: {self.last_player_map} Actions {' '.join(self.actions[-6:])} {len(self.actions)}")
 
     # TODO: build expanding pixel map to show extents of game travelled. (minimap?) Use 3d numpy array to store visited pixels. performance?
+
     def step(self, action):
         self.frames = self.pyboy.frame_count
-        
-        
-        button_1, button_name_1 = self.buttons[action]
-        button_2, button_name_2 = self.buttons[action + 8]
-        self.pyboy.send_input(button_1)
 
+        button_1, button_name_1 = self.buttons[action]
+        button_2, _ = self.buttons[action + 8]
+        self.pyboy.send_input(button_1)
 
         ticks = 1
         for _ in range(ticks):
             self.pyboy.tick()
-        
+
         self.pyboy.send_input(button_2)
         self.actions = self.actions + (f"{button_name_1}")
         # Grab less frames to append if we're standing still.
 
-        
         reward = round(self.calculate_reward(), 3)
 
         self.last_score = reward
@@ -423,17 +423,17 @@ class PyBoyEnv(gym.Env):
         # else:
         terminated = False
 
-        info = {"reward" : reward,
+        info = {"reward": reward,
                 "actions": self.actions,
                 "emunum": self.emunum,
                 "frames": self.frames,
                 "pokemon_caught": self.last_pokemon_count,
-                "pokemon_seen": self.last_seen_pokemon_count,}
+                "pokemon_seen": self.last_seen_pokemon_count, }
 
         observation = np.append(self.get_memory_range(), reward)
         return observation, reward, terminated, truncated, info
 
-    def get_memory_range(self):    
+    def get_memory_range(self):
         memory_values = self.pyboy.memory[MEM_START: MEM_END + 1]
         return memory_values
 
@@ -441,7 +441,7 @@ class PyBoyEnv(gym.Env):
         # reward = self.calculate_reward()
         # observation = np.append(
         #     self.get_memory_range(), reward)
-        
+
         self.stationary_frames = 0
         self.unchanged_frames = 0
 
@@ -464,10 +464,10 @@ class PyBoyEnv(gym.Env):
         if self.save_state_path is not None:
             self.pyboy.load_state(open(self.save_state_path, "rb"))
         else:
-            print(f"Error: No state file found for {self.save_state_path}", file=sys.stderr)
+            print(
+                f"Error: No state file found for {self.save_state_path}", file=sys.stderr)
             exit(1)
 
-        
         self.actions = ""
         self.screen_image_arrays = set()
         self.screen_image_arrays_list = []
@@ -491,117 +491,126 @@ def make_env(game_path, emunum):
     def _init():
         if os.path.exists(game_path + ".state"):
             print(f"Loading state {game_path}.state")
-            new_env = PyBoyEnv(game_path, emunum=emunum, save_state_path=game_path + ".state")
+            new_env = PyBoyEnv(game_path, emunum=emunum,
+                               save_state_path=game_path + ".state")
             new_env.pyboy.load_state(open(game_path + ".state", "rb"))
         else:
             print(f"Error: No state file found for {game_path}.state")
             exit(1)
-            
 
         new_env.pyboy.set_emulation_speed(0)
         return new_env
     return _init
 
 
+
+def train_model(env, total_steps, steps, episode, file_name):
+    policy_kwargs = dict(
+        # features_extractor_class=CustomFeatureExtractor,
+        features_extractor_kwargs={},
+        net_arch=dict(pi=[256, 128, 32], vf=[256, 128, 32]),
+        activation_fn=nn.ReLU,
+    )
+
+    device = "cpu"
+    device = (
+        "mps"
+        if torch.backends.mps.is_available() and torch.backends.mps.is_built()
+        else device
+    )
+    device = "cuda" if torch.cuda.is_available() else device
+    tensorboard_log = f"/Volumes/Scratch/ofo/tensorboard/{os.uname()[1]}-{time.time()-episode}"
+    if exists(file_name + '.zip'):
+        print('\nloading checkpoint')
+        run_model = PPO.load(file_name, env=env, device=device, tensorboard_log=tensorboard_log)
+        run_model.rollout_buffer.reset()
+        # run_model.tensorboard_log=f"/Volumes/Scratch/ofo/tensorboard/{os.uname()[1]}-{time.time()}",
+
+    else:
+        # n_steps = steps * num_cpu
+        tensorboard_log = f"/Volumes/Scratch/ofo/tensorboard/{os.uname()[1]}-{time.time()}-{episode}"
+        run_model = PPO(policy="MlpPolicy",
+                        # Reduce n_steps if too large; ensure not less than some minimum like 2048 for sufficient learning per update.
+                        n_steps=steps,
+                        # Reduce batch size if it's too large but ensure a minimum size for stability.
+                        batch_size=steps // 8,
+                        # Adjusted foor potentially more stable learning across batches.
+                        n_epochs=13,
+                        # Increased to give more importance to future rewards, can help escape repetitive actions.
+                        gamma=0.998,
+                        # Adjusted for a better balance between bias and variance in advantage estimation.
+                        gae_lambda=0.998,
+                        # learning_rate=learning_rate_schedule,  # Standard starting point for PPO, adjust based on performance.
+                        # learning_rate=0.0002,
+                        env=env,
+                        # Ensure this aligns with the complexities of your environment.
+                        policy_kwargs=policy_kwargs,
+                        verbose=1,
+                        device=device,
+                        # Reduced for less aggressive exploration after initial learning, adjust based on needs.
+                        ent_coef=0.01,
+                        tensorboard_log=tensorboard_log,
+                        # vf_coef=0.5,  # Adjusted to balance value function loss importance.
+                        )
+
+    # model_merge_callback = EveryNTimesteps(n_steps=steps * num_cpu * 1024, callback=ModelMergeCallback(args.num_hosts))
+    # TODO: Progress callback that collects data from each frame for stats
+
+    checkpoint_callback = None
+    current_stats = None
+    tbcallback = None
+
+    checkpoint_callback = CheckpointCallback(
+        save_freq=10000, save_path=f"/Volumes/Scratch/ofo_chkpt/{os.uname()[1]}-{time.time()}.zip", name_prefix="poke")
+    current_stats = EveryNTimesteps(
+        n_steps=3000, callback=PokeCaughtCallback(total_steps))
+    tbcallback = TensorboardLoggingCallback(tensorboard_log)
+    callbacks = [checkpoint_callback, current_stats, tbcallback]
+    run_model.learn(total_timesteps=total_steps,
+                    progress_bar=False, callback=callbacks)
+    return run_model
+
 if __name__ == "__main__":
     # TODO: make path a parameter and use more sensible defaults for non-me users
-    tensorboard_log=f"/Volumes/Scratch/ofo/tensorboard/{os.uname()[1]}-{time.time()}"
+    
     import argparse
     parser = argparse.ArgumentParser()
-    # TODO: Investigate Pokemon Blue caught = 4 before you have a pokedex. Is this a bug in the game?  Is it a bug in the emulator?  Is it a bug in the memory address? Seems to work fine on Red, 
+    # TODO: Investigate Pokemon Blue caught = 4 before you have a pokedex. Is this a bug in the game?  Is it a bug in the emulator?  Is it a bug in the memory address? Seems to work fine on Red,
     # only happens during looking at starter pokemon in Oak's lab.
-    
+
     # TODO: use more sensible defaults for non-me users
     # TODO: sensible defaults should be "current directory, any gb file I can find. If I find more than one, open the newest one. If I find none, error out."
     # TODO: make sure the output indicates what is being done and why. e.g. "No directory specified.  Checking current directory for .gb files. Found 3 files. Using the newest one: PokemonYellow.gb"
     # TODO: be "quiet" when parameters are passed and work as expected, but "chatty" when the parameter is skipped and the application is doing "defaulty" things.
     # TODO: DIRECTORY CLEANUP INCLUDING LOGROTATINON.
-    parser.add_argument("--game_path", type=str, default="/home/mscs/PokemonYellow.gb")
+    parser.add_argument("--game_path", type=str,
+                        default="/home/mscs/PokemonYellow.gb")
     # TODO: fix multi-host model merge.  Can we train across multiple instances of the same cart? Can we train across DIFFERENT pokemon carts?
     # TODO: Expirement: If we can train on DIFFERENT pokemon carts, can we train on multiple GB games at a time and build a generally good base "gameboy game" model for training specific games?
 
     # TODO: Visual gif of map as it exapnds over time, with frames of the game as it is played, so the map is faded gray in the spot the AI isn't currently at.  Should be updated in frame order.  BIG PROJECT.
     # TODO: 5529600 frames is roughly 10 seconds of gametime (144h * 160w * 24fps * 10) and about 5.2mb of data. 10m of data is about 317MB. Math OK? 144 * 160 * 24 * 60 * 10 / 1024 / 1024
-    
+
     parser.add_argument("--num_hosts", type=int, default=1)
     args = parser.parse_args()
 
     num_cpu = multiprocessing.cpu_count()
-    
-    hrs = 5 # number of hours (in-game) to run for.
+
+    hrs = 5  # number of hours (in-game) to run for.
     # hrs = 1 # temporarily shorter duration.
-    runsteps = int(3200000  * (hrs))
-    
-    
+    runsteps = int(3200000 * (hrs))
+
     # num_cpu = 1
+    run_env = None
     if num_cpu == 1:
-        env =  DummyVecEnv([make_env(args.game_path, 0)])
+        run_env = DummyVecEnv([make_env(args.game_path, 0)])
     else:
-        env = SubprocVecEnv([make_env(args.game_path,
-                                  emunum) for emunum in range(num_cpu)])
+        run_env = SubprocVecEnv([make_env(args.game_path,
+                                      emunum) for emunum in range(num_cpu)])
 
-
-    file_name = "model"
-    tensorboard_log=f"/Volumes/Scratch/ofo/tensorboard/{os.uname()[1]}-{time.time()}"
-    def train_model(env, num_steps, steps, episode=0):
-        policy_kwargs = dict(
-            # features_extractor_class=CustomFeatureExtractor,
-            features_extractor_kwargs={},
-            net_arch=dict(pi=[256, 128, 32], vf=[256, 128, 32]),
-            activation_fn=nn.ReLU,
-        )
-
-        device = "cpu"
-        device = (
-            "mps"
-            if torch.backends.mps.is_available() and torch.backends.mps.is_built()
-            else device
-        )
-        device = "cuda" if torch.cuda.is_available() else device
-
-        if exists(file_name + '.zip'):
-            print('\nloading checkpoint')
-            run_model = PPO.load(file_name, env=env, device=device)
-            run_model.rollout_buffer.reset()
-            # run_model.tensorboard_log=f"/Volumes/Scratch/ofo/tensorboard/{os.uname()[1]}-{time.time()}",
-
-        else:
-            n_steps = steps * num_cpu
-
-            tensorboard_log=f"/Volumes/Scratch/ofo/tensorboard/{os.uname()[1]}-{time.time()}-{episode}"
-            run_model = PPO(policy="MlpPolicy",
-                n_steps= steps,  # Reduce n_steps if too large; ensure not less than some minimum like 2048 for sufficient learning per update.
-                batch_size=steps // 8,  # Reduce batch size if it's too large but ensure a minimum size for stability.
-                n_epochs=13,  # Adjusted foor potentially more stable learning across batches.
-                gamma=0.998,  # Increased to give more importance to future rewards, can help escape repetitive actions.
-                gae_lambda=0.998,  # Adjusted for a better balance between bias and variance in advantage estimation.
-                # learning_rate=learning_rate_schedule,  # Standard starting point for PPO, adjust based on performance.
-                # learning_rate=0.0002,
-                env=env,
-                policy_kwargs=policy_kwargs,  # Ensure this aligns with the complexities of your environment.
-                verbose=1,
-                device=device,
-                ent_coef=0.01,  # Reduced for less aggressive exploration after initial learning, adjust based on needs.
-                tensorboard_log=tensorboard_log,
-                # vf_coef=0.5,  # Adjusted to balance value function loss importance.
-               )
-
-        # model_merge_callback = EveryNTimesteps(n_steps=steps * num_cpu * 1024, callback=ModelMergeCallback(args.num_hosts))
-        # TODO: Progress callback that collects data from each frame for stats
-
-
-        checkpoint_callback = None
-        current_stats = None
-        tbcallback = None
-        tensorboard_log=f"/Volumes/Scratch/ofo/tensorboard/{os.uname()[1]}-{time.time()}"
-        checkpoint_callback = CheckpointCallback(save_freq=10000, save_path=f"/Volumes/Scratch/ofo_chkpt/{os.uname()[1]}-{time.time()}.zip", name_prefix="poke")
-        current_stats = EveryNTimesteps(n_steps=3000, callback=PokeCaughtCallback(runsteps))
-        tbcallback = TensorboardLoggingCallback(tensorboard_log)
-        callbacks = [checkpoint_callback, current_stats, tbcallback]
-        run_model.learn(total_timesteps=num_steps, progress_bar=False, callback=callbacks)
-        return run_model
+    model_file_name = "model"
 
     episodes = 13
-    for episode in range(0, episodes):
-        model = train_model(env, runsteps, steps=8192, episode=episode)
-        model.save(f"{file_name}.zip")
+    for e in range(0, episodes):
+        model = train_model(run_env, runsteps, steps=8192, episode=e, file_name=model_file_name)
+        model.save(f"{model_file_name}.zip")
