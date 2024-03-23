@@ -530,6 +530,7 @@ def train_model(env, total_steps, steps, episode, file_name):
         # n_steps = steps * num_cpu
         tensorboard_log = f"/Volumes/Scratch/ofo/tensorboard/{os.uname()[1]}-{time.time()}-{episode}"
         run_model = PPO(policy="MlpPolicy",
+                        
                         # Reduce n_steps if too large; ensure not less than some minimum like 2048 for sufficient learning per update.
                         n_steps=steps,
                         # Reduce batch size if it's too large but ensure a minimum size for stability.
@@ -540,7 +541,7 @@ def train_model(env, total_steps, steps, episode, file_name):
                         gamma=0.998,
                         # Adjusted for a better balance between bias and variance in advantage estimation.
                         gae_lambda=0.998,
-                        # learning_rate=learning_rate_schedule,  # Standard starting point for PPO, adjust based on performance.
+                        learning_rate=learning_rate_schedule,  # Standard starting point for PPO, adjust based on performance.
                         # learning_rate=0.0002,
                         env=env,
                         # Ensure this aligns with the complexities of your environment.
