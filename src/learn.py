@@ -78,7 +78,7 @@ def learning_rate_schedule(progress):
     # progress starts at 1 and decreases as remaining approaches 0.
     rate = 0.0003
     variation = 0.2 * rate * progress
-    new_rate = rate + variation * np.sin(progress * np.pi * 20)
+    new_rate = rate + np.abs(variation * np.sin(progress * np.pi * 20))
     # rate = (rate + rate * progress) / 2
     print(f"LR: {rate}", file=sys.stderr)
     return new_rate
@@ -352,8 +352,8 @@ class PyBoyEnv(gym.Env):
         # More caught pokemon = more leeway for standing still
         # reward = int(pokemon_caught * 32000 // 152) + ((len(self.player_maps)) * (32000 // 255) * (2000  * (pokemon_caught + 1) - self.stationary_frames) / 2000 * (pokemon_caught + 1))
 
-        reward = (pokemon_caught * 5000 + pokemon_seen * 2000) + \
-            (len(self.player_maps) * 1000 + len(self.visited_xy) // 10) // 10
+        reward = (len(self.player_maps) * 1000 + len(self.visited_xy) // 10) // 10
+        reward = reward + (reward * (pokemon_caught * 2) + (pokemon_seen)) // 150
 
         reward = (reward) - (reward *
                              (self.stationary_frames / (self.frames + 1)))
@@ -543,7 +543,7 @@ def train_model(env, total_steps, steps, episode, file_name):
                         gamma=0.998,
                         # Adjusted for a better balance between bias and variance in advantage estimation.
                         gae_lambda=0.998,
-                        learning_rate=learning_rate_schedule,  # Standard starting point for PPO, adjust based on performance.
+                        # learning_rate=learning_rate_schedule,  # Standard starting point for PPO, adjust based on performance.
                         # learning_rate=0.0002,
                         env=env,
                         # Ensure this aligns with the complexities of your environment.
