@@ -61,7 +61,7 @@ class PokeCart():
         carts = {
             "POKEMONR.GBC": MEM_START,
             "POKEMONB.GBC": MEM_START,
-            "POKEMONY.GBC": MEM_START,
+            "POKEMONY.GBC": MEM_START + 1,
             "POKEMONG.GBC": 0,
             "PMCRYSTA.GBC": 0,
             "POKEMONS.GBC": 0,
