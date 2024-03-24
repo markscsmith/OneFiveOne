@@ -81,7 +81,7 @@ def learning_rate_schedule(progress):
     # new_rate = rate + np.abs(variation * np.sin(progress * np.pi * 20)) # all positive
     new_rate = rate + variation * np.sin(progress * np.pi * 20) # positive and negative adjustments
     # rate = (rate + rate * progress) / 2
-    print(f"LR: {rate}", file=sys.stderr)
+    print(f"LR: {new_rate}", file=sys.stderr)
     return new_rate
     # return  0.0
 
