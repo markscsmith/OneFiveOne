@@ -112,7 +112,7 @@ class TensorboardLoggingCallback(BaseCallback):
                 max_reward = max(rewards)
                 self.logger.record('reward/average_reward', average_reward)
                 self.logger.record('reward/max_reward', max_reward)
-            for i, info in enumerate(infos):
+            for _, info in sorted(enumerate(infos)):
                 # TODO: ADD POKEMON CAUGHT TO INFO
                 if all(key in info for key in ['actions', 'emunum', 'reward', 'frames']):
                     actions = info['actions']
@@ -124,6 +124,9 @@ class TensorboardLoggingCallback(BaseCallback):
                     # TODO: pad emunumber with 0s to match number of digits in possible emunum
                     self.logger.record(
                         f"actions/{emunum}", f"{actions[-self.log_freq:-self.log_freq].lower()}{actions[-self.log_freq:]}:rew={reward}:fra={frames}:caught={caught}:seen={seen}")
+                    self.logger.record(f"caught/{emunum}", f"{caught}")
+                    self.logger.record(f"seen/{emunum}", f"{seen}")
+                    self.logger.record(f"reward/{emunum}", f"{reward}")
 
         return True  # Returning True means we will continue training, returning False will stop training
 
@@ -264,6 +267,7 @@ class PyBoyEnv(gym.Env):
         self.reset_penalty = 0
         self.player_maps = set()
         self.max_frames = max_frames
+        self.backtrack_bonus = 0
 
         self.buttons = {
             0: (WindowEvent.PASS, "-"),
@@ -321,10 +325,7 @@ class PyBoyEnv(gym.Env):
         )
 
         # FIXME TODO: Workaround for Pokemon Blue bug where the number of pokemon caught shoots up to 4 before any pokemon are seen or caught.
-        if pokemon_seen == 0:
-            pokemon_caught = 0
 
-        self.last_seen_pokemon_count = pokemon_seen
 
         px = self.pyboy.memory[self.player_x_mem]
         py = self.pyboy.memory[self.player_y_mem]
@@ -352,7 +353,17 @@ class PyBoyEnv(gym.Env):
         # More caught pokemon = more leeway for standing still
         # reward = int(pokemon_caught * 32000 // 152) + ((len(self.player_maps)) * (32000 // 255) * (2000  * (pokemon_caught + 1) - self.stationary_frames) / 2000 * (pokemon_caught + 1))
 
-        reward = (len(self.player_maps) * 1000 + len(self.visited_xy) // 10) // 10
+        if pokemon_seen == 0:
+            pokemon_caught = 0
+
+        if pokemon_caught > self.last_pokemon_count:
+            # Give a backtrack bonus and reset the explored list
+            self.backtrack_bonus = len(self.visited_xy)
+            self.visited_xy = set()
+            
+        self.last_pokemon_count = pokemon_caught
+        self.last_seen_pokemon_count = pokemon_seen
+        reward = (len(self.player_maps) * 1000 + (self.backtrack_bonus + len(self.visited_xy)) // 10) // 10
         reward = reward + (reward * (pokemon_caught * 2) + (pokemon_seen)) // 150
 
         reward = (reward) - (reward *
