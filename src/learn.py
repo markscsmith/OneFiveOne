@@ -374,7 +374,7 @@ class PyBoyEnv(gym.Env):
     def render(self, target_index=None, reset=False):
         if target_index is not None and target_index == self.emunum or reset:
             terminal_size = os.get_terminal_size()
-            terminal_offset = 4
+            terminal_offset = 6
 
             image = self.pyboy.screen.image
             w = 160
