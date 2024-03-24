@@ -59,9 +59,9 @@ class PokeCart():
         # Pokemon Yellow has offset -1 vs blue and green
         # TODO: Pokemon Gold Silver and Crystal
         carts = {
-            "POKEMONR.GBC": 0,
-            "POKEMONB.GBC": 0,
-            "POKEMONY.GBC": 0,
+            "POKEMONR.GBC": MEM_START,
+            "POKEMONB.GBC": MEM_START,
+            "POKEMONY.GBC": MEM_START,
             "POKEMONG.GBC": 0,
             "PMCRYSTA.GBC": 0,
             "POKEMONS.GBC": 0,
@@ -78,7 +78,8 @@ def learning_rate_schedule(progress):
     # progress starts at 1 and decreases as remaining approaches 0.
     rate = 0.0003
     variation = 0.2 * rate * progress
-    new_rate = rate + np.abs(variation * np.sin(progress * np.pi * 20))
+    # new_rate = rate + np.abs(variation * np.sin(progress * np.pi * 20)) # all positive
+    new_rate = rate + variation * np.sin(progress * np.pi * 20) # positive and negative adjustments
     # rate = (rate + rate * progress) / 2
     print(f"LR: {rate}", file=sys.stderr)
     return new_rate
@@ -269,6 +270,9 @@ class PyBoyEnv(gym.Env):
         self.max_frames = max_frames
         self.backtrack_bonus = 0
 
+        self.last_memory_update_frame = 0
+        self.current_memory = self.get_memory_range()
+
         self.buttons = {
             0: (WindowEvent.PASS, "-"),
             1: (WindowEvent.PRESS_ARROW_UP, "U"),
@@ -315,23 +319,24 @@ class PyBoyEnv(gym.Env):
 
     def calculate_reward(self):
         # calculate total bits from the memory values
+        self.get_memory_range()
         pokemon_caught = sum(
             [bin(values).count('1')
-             for values in self.pyboy.memory[self.caught_pokemon_start: self.caught_pokemon_end]]
+             for values in self.current_memory[self.caught_pokemon_start: self.caught_pokemon_end]]
         )
         pokemon_seen = sum(
             [bin(values).count('1')
-             for values in self.pyboy.memory[self.seen_pokemmon_start: self.seen_pokemmon_end]]
+             for values in self.current_memory[self.seen_pokemmon_start: self.seen_pokemmon_end]]
         )
 
         # FIXME TODO: Workaround for Pokemon Blue bug where the number of pokemon caught shoots up to 4 before any pokemon are seen or caught.
 
 
-        px = self.pyboy.memory[self.player_x_mem]
-        py = self.pyboy.memory[self.player_y_mem]
-        pbx = self.pyboy.memory[self.player_x_block_mem]
-        pby = self.pyboy.memory[self.player_y_block_mem]
-        map_id = self.pyboy.memory[self.player_map_mem]
+        px = self.current_memory[self.player_x_mem]
+        py = self.current_memory[self.player_y_mem]
+        pbx = self.current_memory[self.player_x_block_mem]
+        pby = self.current_memory[self.player_y_block_mem]
+        map_id = self.current_memory[self.player_map_mem]
         self.player_maps.add(map_id)
         if self.last_player_x == px and self.last_player_y == py and self.last_player_x_block == pbx and self.last_player_y_block == pby and self.last_player_map == map_id:
             self.stationary_frames += 1
@@ -404,26 +409,24 @@ class PyBoyEnv(gym.Env):
             self.renderer.render(Ansi24HblockMethod)
             if target_index is not None:
                 print(
-                    f"Best:  {target_index} 🟢 {self.last_pokemon_count} 👀 {self.last_seen_pokemon_count} 🎬 {self.frames} 🌎 {len(self.visited_xy)} 🏆 {self.last_score} 🦶 {self.stationary_frames} X: {self.last_player_x} Y: {self.last_player_y} XB: {self.last_player_x_block} YB: {self.last_player_y_block}, Map: {self.last_player_map} Actions {' '.join(self.actions[-6:])} {len(self.actions)}")
+                    f"Best:  {target_index} 🟢 {self.last_pokemon_count} 👀 {self.last_seen_pokemon_count} 🎬 {self.frames} 🌎 {len(self.visited_xy)}:{len(self.player_maps)} 🏆 {self.last_score} 🦶 {self.stationary_frames} X: {self.last_player_x} Y: {self.last_player_y} XB: {self.last_player_x_block} YB: {self.last_player_y_block}, Map: {self.last_player_map} Actions {' '.join(self.actions[-6:])} {len(self.actions)}")
             if reset:
                 print(
-                    f"Reset: {self.emunum} 🟢 {self.last_pokemon_count} 👀 {self.last_seen_pokemon_count} 🎬 {self.frames} 🌎 {len(self.visited_xy)} 🏆 {self.last_score} 🦶 {self.stationary_frames} X: {self.last_player_x} Y: {self.last_player_y} XB: {self.last_player_x_block} YB: {self.last_player_y_block}, Map: {self.last_player_map} Actions {' '.join(self.actions[-6:])} {len(self.actions)}")
+                    f"Reset: {self.emunum} 🟢 {self.last_pokemon_count} 👀 {self.last_seen_pokemon_count} 🎬 {self.frames} 🌎 {len(self.visited_xy)}:{len(self.player_maps)}🏆 {self.last_score} 🦶 {self.stationary_frames} X: {self.last_player_x} Y: {self.last_player_y} XB: {self.last_player_x_block} YB: {self.last_player_y_block}, Map: {self.last_player_map} Actions {' '.join(self.actions[-6:])} {len(self.actions)}")
 
     # TODO: build expanding pixel map to show extents of game travelled. (minimap?) Use 3d numpy array to store visited pixels. performance?
 
     def step(self, action):
         self.frames = self.pyboy.frame_count
-
         button_1, button_name_1 = self.buttons[action]
         button_2, _ = self.buttons[action + 8]
         self.pyboy.send_input(button_1)
-
-        ticks = 1
-        for _ in range(ticks):
-            self.pyboy.tick()
-
+        self.pyboy.tick()
+        #ticks = 1
+        #for _ in range(ticks):
         self.pyboy.send_input(button_2)
-        self.actions = self.actions + (f"{button_name_1}")
+        self.actions = f"{self.actions}{button_name_1}"
+        #self.actions = self.actions + (f"{button_name_1}")
         # Grab less frames to append if we're standing still.
 
         reward = round(self.calculate_reward(), 3)
@@ -443,12 +446,35 @@ class PyBoyEnv(gym.Env):
                 "pokemon_caught": self.last_pokemon_count,
                 "pokemon_seen": self.last_seen_pokemon_count, }
 
-        observation = np.append(self.get_memory_range(), reward)
+        self.current_memory = self.get_memory_range()
+        observation = np.append(self.current_memory, reward)
         return observation, reward, terminated, truncated, info
 
     def get_memory_range(self):
         memory_values = self.pyboy.memory[MEM_START: MEM_END + 1]
         return memory_values
+    
+
+    # def get_reward_memory_range(self):
+    #     freq = 24
+    #     # self.current_memory = self.get_memory_range()
+    #     if self.last_memory_update_frame <= self.frames - 24 or self.last_memory_update_frame == 0:
+    #         self.last_memory_update_frame = self.frames
+    #         self.current_memory = self.get_memory_range()
+    #     else:
+    #         self.current_memory[self.caught_pokemon_start:self.caught_pokemon_end] = self.pyboy.memory[self.caught_pokemon_start + MEM_START: self.caught_pokemon_end + MEM_START]
+    #         self.current_memory[self.seen_pokemmon_start:self.seen_pokemmon_end] = self.pyboy.memory[self.seen_pokemmon_start + MEM_START: self.seen_pokemmon_end + MEM_START]
+
+    #     # FIXME TODO: Workaround for Pokemon Blue bug where the number of pokemon caught shoots up to 4 before any pokemon are seen or caught.
+
+
+    #         self.current_memory[self.player_x_mem] = self.pyboy.memory[self.player_x_mem + MEM_START]
+    #         self.current_memory[self.player_y_mem] = self.pyboy.memory[self.player_y_mem + MEM_START]
+    #         self.current_memory[self.player_x_block_mem] = self.pyboy.memory[self.player_x_block_mem + MEM_START]
+    #         self.current_memory[self.player_x_block_mem] = self.pyboy.memory[self.player_y_block_mem + MEM_START]
+    #         self.current_memory[self.player_map_mem] = self.pyboy.memory[self.player_map_mem + MEM_START]
+    #     return self.current_memory
+    
 
     def reset(self, seed=0, **kwargs):
         # reward = self.calculate_reward()
@@ -460,7 +486,7 @@ class PyBoyEnv(gym.Env):
 
         # print("OS:RESET:", self.emunum, seed)
         super().reset(seed=seed, **kwargs)
-
+        self.last_memory_update_frame = 0
         self.visited_xy = set()
         self.player_maps = set()
         self.reset_penalty = 0
@@ -549,12 +575,12 @@ def train_model(env, total_steps, steps, episode, file_name):
                         # Reduce batch size if it's too large but ensure a minimum size for stability.
                         batch_size=steps // 8,
                         # Adjusted foor potentially more stable learning across batches.
-                        n_epochs=13,
+                        n_epochs=3,
                         # Increased to give more importance to future rewards, can help escape repetitive actions.
                         gamma=0.998,
                         # Adjusted for a better balance between bias and variance in advantage estimation.
                         gae_lambda=0.998,
-                        # learning_rate=learning_rate_schedule,  # Standard starting point for PPO, adjust based on performance.
+                        learning_rate=learning_rate_schedule,  # Standard starting point for PPO, adjust based on performance.
                         # learning_rate=0.0002,
                         env=env,
                         # Ensure this aligns with the complexities of your environment.
@@ -577,7 +603,7 @@ def train_model(env, total_steps, steps, episode, file_name):
     checkpoint_callback = CheckpointCallback(
         save_freq=10000, save_path=f"/Volumes/Scratch/ofo_chkpt/{os.uname()[1]}-{time.time()}.zip", name_prefix="poke")
     current_stats = EveryNTimesteps(
-        n_steps=3000, callback=PokeCaughtCallback(total_steps))
+        n_steps=10000, callback=PokeCaughtCallback(total_steps))
     tbcallback = TensorboardLoggingCallback(tensorboard_log)
     callbacks = [checkpoint_callback, current_stats, tbcallback]
     run_model.learn(total_timesteps=total_steps,
