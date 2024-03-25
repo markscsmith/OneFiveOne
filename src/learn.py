@@ -322,13 +322,14 @@ class PyBoyEnv(gym.Env):
     def calculate_reward(self):
         # calculate total bits from the memory values
         self.get_memory_range()
+        offset = self.cart.cart_offset() - MEM_START
         pokemon_caught = sum(
             [bin(values).count('1')
-             for values in self.current_memory[self.caught_pokemon_start: self.caught_pokemon_end]]
+             for values in self.current_memory[self.caught_pokemon_start + offset: self.caught_pokemon_end + offset]]
         )
         pokemon_seen = sum(
             [bin(values).count('1')
-             for values in self.current_memory[self.seen_pokemmon_start: self.seen_pokemmon_end]]
+             for values in self.current_memory[self.seen_pokemmon_start + offset: self.seen_pokemmon_end + offset]]
         )
 
         # FIXME TODO: Workaround for Pokemon Blue bug where the number of pokemon caught shoots up to 4 before any pokemon are seen or caught.
