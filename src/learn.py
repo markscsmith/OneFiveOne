@@ -575,11 +575,11 @@ def train_model(env, total_steps, steps, episode, file_name):
                         # Reduce n_steps if too large; ensure not less than some minimum like 2048 for sufficient learning per update.
                         n_steps=steps,
                         # Reduce batch size if it's too large but ensure a minimum size for stability.
-                        batch_size=steps // 8,
+                        batch_size=steps // 16,
                         # Adjusted foor potentially more stable learning across batches.
                         n_epochs=3,
                         # Increased to give more importance to future rewards, can help escape repetitive actions.
-                        gamma=0.998,
+                        gamma=0.9998,
                         # Adjusted for a better balance between bias and variance in advantage estimation.
                         gae_lambda=0.998,
                         learning_rate=learning_rate_schedule,  # Standard starting point for PPO, adjust based on performance.
