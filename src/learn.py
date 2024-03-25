@@ -44,7 +44,7 @@ class PokeCart():
         # identify cart
         carts = {"a6924ce1f9ad2228e1c6580779b23878":  "POKEMONG.GBC",
                  "9f2922b235a5eeb78d65594e82ef5dde":  "PMCRYSTA.GBC",
-                 # TODO: Add Pokemon Yellow logic to keep Pikachu happy. 🌩️🐭
+                 # TODO: Add Pokemon Yellow logic to keep Pikachu happy. 🌩️🐭  Address is 0xD46F    1    Pikachu's happiness per https://datacrystal.tcrf.net/wiki/Pokémon_Yellow/RAM_map
                  "d9290db87b1f0a23b89f99ee4469e34b":  "POKEMONY.GBC",
                  "50927e843568814f7ed45ec4f944bd8b":  "POKEMONB.GBC",
                  "3e098020b56c807393cc2ebae5e1857a":  "POKEMONS.GBC",
@@ -61,6 +61,8 @@ class PokeCart():
         carts = {
             "POKEMONR.GBC": MEM_START,
             "POKEMONB.GBC": MEM_START,
+            # I now suddenly understand what was meant by this comment from https://datacrystal.tcrf.net/wiki/Pokémon_Yellow/RAM_map: "The RAM map for this game has an offset of -1 from the one on Red and Blue."
+            # I think I tried this before, but I didn't grok it at the time due to other memory read glitches and bugs I introduced
             "POKEMONY.GBC": MEM_START + 1,
             "POKEMONG.GBC": 0,
             "PMCRYSTA.GBC": 0,
