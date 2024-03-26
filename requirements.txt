@@ -5,7 +5,7 @@ numba
 numpy
 pandas
 Pillow
-pyboy
+pyboy==2.0.0
 scipy
 Shimmy
 stable-baselines3
@@ -15,3 +15,4 @@ timg
 torch
 torchaudio
 torchvision
+tqdm
