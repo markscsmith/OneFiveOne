@@ -550,7 +550,7 @@ def train_model(env, total_steps, steps, episode, file_name):
     policy_kwargs = dict(
         # features_extractor_class=CustomFeatureExtractor,
         features_extractor_kwargs={},
-        net_arch=dict(pi=[256, 128, 32], vf=[256, 128, 32]),
+        net_arch=dict(pi=[2048, 1024, 1024, 512], vf=[2048, 1024, 1024, 512]),
         activation_fn=nn.ReLU,
     )
 
@@ -576,7 +576,7 @@ def train_model(env, total_steps, steps, episode, file_name):
                         # Reduce n_steps if too large; ensure not less than some minimum like 2048 for sufficient learning per update.
                         n_steps=steps,
                         # Reduce batch size if it's too large but ensure a minimum size for stability.
-                        batch_size=steps // 16,
+                        batch_size=steps // 8,
                         # Adjusted foor potentially more stable learning across batches.
                         n_epochs=3,
                         # Increased to give more importance to future rewards, can help escape repetitive actions.
@@ -639,7 +639,7 @@ if __name__ == "__main__":
 
     num_cpu = multiprocessing.cpu_count()
 
-    hrs = 5  # number of hours (in-game) to run for.
+    hrs = 10  # number of hours (in-game) to run for.
     # hrs = 1 # temporarily shorter duration.
     runsteps = int(3200000 * (hrs))
 
