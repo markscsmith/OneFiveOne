@@ -109,12 +109,7 @@ class TensorboardLoggingCallback(BaseCallback):
             # Log scalar value (here a random variable)
             rewards = self.locals['rewards']
             infos = self.locals['infos']
-            # todo: record each progress/reward separately like I do the actions?
-            if len(rewards) > 0:  # Check if rewards list is not empty
-                average_reward = sum(rewards) / len(rewards)
-                max_reward = max(rewards)
-                self.logger.record('reward/average_reward', average_reward)
-                self.logger.record('reward/max_reward', max_reward)
+            max_item_points = 0
             for _, info in sorted(enumerate(infos)):
                 # TODO: ADD POKEMON CAUGHT TO INFO
                 if all(key in info for key in ['actions', 'emunum', 'reward', 'frames']):
@@ -123,6 +118,8 @@ class TensorboardLoggingCallback(BaseCallback):
                     reward = info['reward']
                     frames = info['frames']
                     caught = info['pokemon_caught']
+
+                    
                     seen = info['pokemon_seen']
                     # TODO: pad emunumber with 0s to match number of digits in possible emunum
                     self.logger.record(
@@ -133,6 +130,17 @@ class TensorboardLoggingCallback(BaseCallback):
                     self.logger.record(f"visited/{emunum}", f"{len(info['visited_xy'])}")
                     self.logger.record(f"items/{emunum}", f"{info['items']}")
                     self.logger.record(f"speed_bonus/{emunum}", f"{info['speed_bonus']}")
+                    max_item_points = max(max_item_points, sum(info['items'].values()))
+
+            # todo: record each progress/reward separately like I do the actions?
+            if len(rewards) > 0:  # Check if rewards list is not empty
+                average_reward = sum(rewards) / len(rewards)
+                max_reward = max(rewards)
+                self.logger.record('reward/average_reward', average_reward)
+                self.logger.record('reward/max_reward', max_reward)
+                self.logger.record('reward/max_items', max_item_points)
+                
+
 
                     
                     
