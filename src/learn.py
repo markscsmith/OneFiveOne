@@ -248,7 +248,6 @@ class PyBoyEnv(gym.Env):
         self.reset_unlocked = False
         # Define the memory range for 'number of Pokémon caught'
         self.max_frames = max_frames
-        self.speed_bonus = self.max_frames / (self.frames + 1)
         self.cart = PokeCart(open(game_path, "rb").read())
         self.caught_pokemon_start = 0xD2F7 - self.cart.cart_offset()
         self.caught_pokemon_end = 0xD309 - self.cart.cart_offset()
@@ -282,6 +281,8 @@ class PyBoyEnv(gym.Env):
         self.item_points = {}
         self.last_items = []
         self.pokedex = {}
+
+        self.speed_bonus = self.max_frames / (self.frames + 1)
 
         self.last_memory_update_frame = 0
         self.current_memory = self.get_memory_range()
