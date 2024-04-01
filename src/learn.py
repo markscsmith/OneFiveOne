@@ -130,6 +130,13 @@ class TensorboardLoggingCallback(BaseCallback):
                     self.logger.record(f"caught/{emunum}", f"{caught}")
                     self.logger.record(f"seen/{emunum}", f"{seen}")
                     self.logger.record(f"reward/{emunum}", f"{reward}")
+                    self.logger.record(f"visited/{emunum}", f"{len(info['visited_xy'])}")
+                    self.logger.record(f"items/{emunum}", f"{info['items']}")
+
+                    
+                    
+                    
+                    
 
         return True  # Returning True means we will continue training, returning False will stop training
 
@@ -271,6 +278,9 @@ class PyBoyEnv(gym.Env):
         self.player_maps = set()
         self.max_frames = max_frames
         self.backtrack_bonus = 0
+        self.item_points = {}
+        self.last_items = []
+        self.pokedex = {}
 
         self.last_memory_update_frame = 0
         self.current_memory = self.get_memory_range()
@@ -332,7 +342,24 @@ class PyBoyEnv(gym.Env):
              for values in self.current_memory[self.seen_pokemmon_start + offset: self.seen_pokemmon_end + offset]]
         )
 
-        # FIXME TODO: Workaround for Pokemon Blue bug where the number of pokemon caught shoots up to 4 before any pokemon are seen or caught.
+        self.pokedex = {i: bin(values).count('1')
+                   for i, values in enumerate(self.current_memory[0xD31E + offset: 0xD345 + offset])}
+
+        items = [bin(values).count('1')
+                 for values in self.current_memory[0xD31E + offset: 0xD345 + offset]]
+        item_types = [items[i] for i in range(0, len(items), 2)]
+        item_counts = [items[i] for i in range(1, len(items), 2)]
+        # calculate points of items based on the numer of items added per step
+
+        
+        item_diff = [np.abs(item_counts[i] - self.last_items[i]) for i in range(len(item_counts))]
+            # create tuple of item type and points
+        item_and_points = [(item_types[i], item_diff[i]) for i in range(len(item_diff))]
+        if len(item_and_points) > 0:
+            self.item_points = {item: 0 for item in item_and_points}
+            
+        for item, points in item_and_points:
+            self.item_points[item] += points
 
 
         px = self.current_memory[self.player_x_mem]
@@ -372,7 +399,7 @@ class PyBoyEnv(gym.Env):
         self.last_pokemon_count = pokemon_caught
         self.last_seen_pokemon_count = pokemon_seen
         reward = (len(self.player_maps) * 1000 + (self.backtrack_bonus + len(self.visited_xy)) // 10) // 10
-        reward = reward + (reward * (pokemon_caught * 2) + (pokemon_seen)) // 150
+        reward = reward + (reward * (pokemon_caught * 2) + (pokemon_seen)) // 150 + sum(self.item_points.values()) * 10
 
         reward = (reward) - (reward *
                              (self.stationary_frames / (self.frames + 1)))
@@ -447,7 +474,10 @@ class PyBoyEnv(gym.Env):
                 "emunum": self.emunum,
                 "frames": self.frames,
                 "pokemon_caught": self.last_pokemon_count,
-                "pokemon_seen": self.last_seen_pokemon_count, }
+                "pokemon_seen": self.last_seen_pokemon_count, 
+                "visited_xy": self.visited_xy,
+                "stationary_frames": self.stationary_frames,
+                "items": self.item_points,}
 
         self.current_memory = self.get_memory_range()
         observation = np.append(self.current_memory, reward)
@@ -500,6 +530,7 @@ class PyBoyEnv(gym.Env):
         self.last_player_x_block = 0
         self.last_player_y_block = 0
         self.menu_value = 0
+        self.pokedex = {}
         self.pyboy = PyBoy(self.game_path, window="null", cgb=True)
         # self.last_n_frames = [self.pyboy.screen.ndarray] * self.n
 
