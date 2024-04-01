@@ -444,10 +444,10 @@ class PyBoyEnv(gym.Env):
             item_score = sum(self.item_points.values())
             if target_index is not None:
                 print(
-                    f"Best:  {target_index} 🟢 {self.last_pokemon_count} 👀 {self.last_seen_pokemon_count} 🎬 {self.frames} 🌎 {len(self.visited_xy)}:{len(self.player_maps)} 🏆 {self.last_score:.2f} 🎒 {item_score} 🕰️ {self.speed_bonus:.2f}🦶 {self.stationary_frames} X: {self.last_player_x} Y: {self.last_player_y} XB: {self.last_player_x_block} YB: {self.last_player_y_block}, Map: {self.last_player_map} Actions {' '.join(self.actions[-6:])} {len(self.actions)}")
+                    f"Best:  {target_index:2d} 🟢 {self.last_pokemon_count:3d} 👀 {self.last_seen_pokemon_count:3d} 🎬 {self.frames:6d} 🌎 {len(self.visited_xy):3d}:{len(self.player_maps):3d} 🏆 {self.last_score:7.2f} 🎒 {item_score:3d} 🐆 {self.speed_bonus:7.2f}🦶 {self.stationary_frames:3d} X: {self.last_player_x:3d} Y: {self.last_player_y:3d} XB: {self.last_player_x_block:3d} YB: {self.last_player_y_block:3d}, Map: {self.last_player_map:3d} Actions {' '.join(self.actions[-6:])} {len(self.actions)}")
             if reset:
                 print(
-                    f"Reset: {self.emunum} 🟢 {self.last_pokemon_count} 👀 {self.last_seen_pokemon_count} 🎬 {self.frames} 🌎 {len(self.visited_xy)}:{len(self.player_maps)}🏆 {self.last_score:.2f} 🎒 {item_score} 🕰️ {self.speed_bonus:.2f} 🦶 {self.stationary_frames} X: {self.last_player_x} Y: {self.last_player_y} XB: {self.last_player_x_block} YB: {self.last_player_y_block}, Map: {self.last_player_map} Actions {' '.join(self.actions[-6:])} {len(self.actions)}")
+                    f"Reset: {self.emunum:2d} 🟢 {self.last_pokemon_count:3d} 👀 {self.last_seen_pokemon_count:3d} 🎬 {self.frames:6d} 🌎 {len(self.visited_xy):3d}:{len(self.player_maps):3d}🏆 {self.last_score:7.2f} 🎒 {item_score:3d} 🐆 {self.speed_bonus:7.2f} 🦶 {self.stationary_frames:3d} X: {self.last_player_x:3d} Y: {self.last_player_y:3d} XB: {self.last_player_x_block:3d} YB: {self.last_player_y_block:3d}, Map: {self.last_player_map:3d} Actions {' '.join(self.actions[-6:])} {len(self.actions)}")
 
     # TODO: build expanding pixel map to show extents of game travelled. (minimap?) Use 3d numpy array to store visited pixels. performance?
 
