@@ -406,7 +406,7 @@ class PyBoyEnv(gym.Env):
         self.speed_bonus = self.max_frames / (self.frames + 1)
 
         reward = (reward) - (reward *
-                             (self.stationary_frames / (self.frames + 1))) + ((reward * speed_bonus) // 10)
+                             (self.stationary_frames / (self.frames + 1))) + ((reward * self.speed_bonus) // 10)
 
         return reward
 
