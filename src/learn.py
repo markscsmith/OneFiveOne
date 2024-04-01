@@ -132,6 +132,7 @@ class TensorboardLoggingCallback(BaseCallback):
                     self.logger.record(f"reward/{emunum}", f"{reward}")
                     self.logger.record(f"visited/{emunum}", f"{len(info['visited_xy'])}")
                     self.logger.record(f"items/{emunum}", f"{info['items']}")
+                    self.logger.record(f"speed_bonus/{emunum}", f"{info['speed_bonus']}")
 
                     
                     
@@ -403,10 +404,11 @@ class PyBoyEnv(gym.Env):
         reward = (len(self.player_maps) * 1000 + (self.backtrack_bonus + len(self.visited_xy)) // 10) // 10
         reward = reward + (reward * (pokemon_caught * 2) + (pokemon_seen)) // 150 + sum(self.item_points.values()) * 10
 
-        self.speed_bonus = self.max_frames / (self.frames + 1)
+        self.speed_bonus =  (reward // 10) * (self.max_frames / (self.frames + 1))
 
         reward = (reward) - (reward *
-                             (self.stationary_frames / (self.frames + 1))) + ((reward * self.speed_bonus) // 10)
+                             (self.stationary_frames / (self.frames + 1))) 
+        reward += self.speed_bonus
 
         return reward
 
@@ -482,7 +484,8 @@ class PyBoyEnv(gym.Env):
                 "pokemon_seen": self.last_seen_pokemon_count, 
                 "visited_xy": self.visited_xy,
                 "stationary_frames": self.stationary_frames,
-                "items": self.item_points,}
+                "items": self.item_points,
+                "speed_bonus": self.speed_bonus,}
 
         self.current_memory = self.get_memory_range()
         observation = np.append(self.current_memory, reward)
