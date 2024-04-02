@@ -626,8 +626,8 @@ def train_model(env, total_steps, steps, episode, file_name):
                         n_steps=steps,
                         # Reduce batch size if it's too large but ensure a minimum size for stability.
                         batch_size=steps // 8,
-                        # Adjusted foor potentially more stable learning across batches.
-                        n_epochs=7,
+                        # Adjusted for potentially more stable learning across batches.
+                        n_epochs=1,
                         # Increased to give more importance to future rewards, can help escape repetitive actions.
                         gamma=0.9998,
                         # Adjusted for a better balance between bias and variance in advantage estimation.
