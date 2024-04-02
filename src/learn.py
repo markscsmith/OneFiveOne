@@ -341,25 +341,25 @@ class PyBoyEnv(gym.Env):
         return self.pyboy.screen.ndarray
 
     def calculate_reward(self):
-        # calculate total bits from the memory values
-        self.get_memory_range()
+    # calculate total bits from the memory values
+        current_memory = self.get_memory_range()
         offset = self.cart.cart_offset() - MEM_START
-        pokemon_caught = sum(
-            [bin(values).count('1')
-             for values in self.current_memory[self.caught_pokemon_start + offset: self.caught_pokemon_end + offset]]
-        )
-        pokemon_seen = sum(
-            [bin(values).count('1')
-             for values in self.current_memory[self.seen_pokemmon_start + offset: self.seen_pokemmon_end + offset]]
-        )
+        caught_pokemon_start = self.caught_pokemon_start + offset
+        caught_pokemon_end = self.caught_pokemon_end + offset
+        seen_pokemon_start = self.seen_pokemon_start + offset
+        seen_pokemon_end = self.seen_pokemon_end + offset
+        item_start = 0xD31E + offset
+        item_end = 0xD345 + offset
 
-        self.pokedex = {i: bin(values).count('1')
-                   for i, values in enumerate(self.current_memory[0xD31E + offset: 0xD345 + offset])}
+        pokemon_caught = sum(bin(values).count('1') for values in current_memory[caught_pokemon_start: caught_pokemon_end])
+        pokemon_seen = sum(bin(values).count('1') for values in current_memory[seen_pokemon_start: seen_pokemon_end])
 
-        items = [bin(values).count('1')
-                 for values in self.current_memory[0xD31E + offset: 0xD345 + offset]]
+        self.pokedex = {i: bin(values).count('1') for i, values in enumerate(current_memory[item_start: item_end])}
+
+        items = (bin(values).count('1') for values in current_memory[item_start: item_end])
         item_types = [items[i] for i in range(0, len(items), 2)]
         item_counts = [items[i] for i in range(1, len(items), 2)]
+
         # calculate points of items based on the numer of items added per step
 
         
@@ -547,7 +547,7 @@ class PyBoyEnv(gym.Env):
         self.last_player_y_block = 0
         self.menu_value = 0
         self.pokedex = {}
-        self.pyboy = PyBoy(self.game_path, window="null", cgb=True)
+        self.pyboy = PyBoy(self.game_path, window="null", cgb=False)
         # self.last_n_frames = [self.pyboy.screen.ndarray] * self.n
 
         if self.save_state_path is not None:
