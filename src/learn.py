@@ -469,7 +469,6 @@ class PyBoyEnv(gym.Env):
         button_2, _ = self.buttons[action + 8]
         self.pyboy.send_input(button_1)
         self.pyboy.tick()
-        self.pyboy.tick()
         #for _ in range(ticks):
         self.pyboy.send_input(button_2)
         self.actions = f"{self.actions}{button_name_1}"
@@ -596,10 +595,11 @@ def make_env(game_path, emunum):
 
 
 def train_model(env, total_steps, steps, episode, file_name):
+    first_layer_size = MEM_END - MEM_START + 2
     policy_kwargs = dict(
         # features_extractor_class=CustomFeatureExtractor,
         features_extractor_kwargs={},
-        net_arch=dict(pi=[2048, 1024, 1024, 512], vf=[2048, 1024, 1024, 512]),
+        net_arch=dict(pi=[first_layer_size, first_layer_size // 2, first_layer_size // 4, first_layer_size // 8], vf=[first_layer_size, first_layer_size // 2, first_layer_size // 4, first_layer_size // 8]),
         activation_fn=nn.ReLU,
     )
 
