@@ -686,7 +686,7 @@ if __name__ == "__main__":
     parser.add_argument("--num_hosts", type=int, default=1)
     args = parser.parse_args()
 
-    num_cpu = multiprocessing.cpu_count() * 2 # make more faster?
+    num_cpu = multiprocessing.cpu_count() * 6 # make more faster and maybe do all carts at once?
 
     # hrs = 10  # number of hours (in-game) to run for.
     hrs = 5 # temporarily shorter duration.
