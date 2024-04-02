@@ -547,7 +547,7 @@ class PyBoyEnv(gym.Env):
         self.last_player_y_block = 0
         self.menu_value = 0
         self.pokedex = {}
-        self.pyboy = PyBoy(self.game_path, window="null", cgb=False)
+        self.pyboy = PyBoy(self.game_path, window="null", cgb=True, )
         # self.last_n_frames = [self.pyboy.screen.ndarray] * self.n
 
         if self.save_state_path is not None:
