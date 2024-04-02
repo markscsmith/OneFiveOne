@@ -340,9 +340,11 @@ class PyBoyEnv(gym.Env):
     def generate_screen_ndarray(self):
         return self.pyboy.screen.ndarray
 
+    import numpy as np
+
     def calculate_reward(self):
-    # calculate total bits from the memory values
-        current_memory = self.get_memory_range()
+        # calculate total bits from the memory values
+        current_memory = np.array(self.get_memory_range())
         offset = self.cart.cart_offset() - MEM_START
         caught_pokemon_start = self.caught_pokemon_start + offset
         caught_pokemon_end = self.caught_pokemon_end + offset
@@ -351,27 +353,24 @@ class PyBoyEnv(gym.Env):
         item_start = 0xD31E + offset
         item_end = 0xD345 + offset
 
-        pokemon_caught = sum(bin(values).count('1') for values in current_memory[caught_pokemon_start: caught_pokemon_end])
-        pokemon_seen = sum(bin(values).count('1') for values in current_memory[seen_pokemon_start: seen_pokemon_end])
+        pokemon_caught = np.sum(np.vectorize(lambda x: bin(x).count('1'))(current_memory[caught_pokemon_start: caught_pokemon_end]))
+        pokemon_seen = np.sum(np.vectorize(lambda x: bin(x).count('1'))(current_memory[seen_pokemon_start: seen_pokemon_end]))
 
         self.pokedex = {i: bin(values).count('1') for i, values in enumerate(current_memory[item_start: item_end])}
 
-        items = list(bin(values).count('1') for values in current_memory[item_start: item_end])
+        items = np.vectorize(lambda x: bin(x).count('1'))(current_memory[item_start: item_end])
         item_types = [items[i] for i in range(0, len(items), 2)]
         item_counts = [items[i] for i in range(1, len(items), 2)]
 
-        # calculate points of items based on the numer of items added per step
-
-        
+        # calculate points of items based on the number of items added per step
         item_diff = [np.abs(item_counts[i] - self.last_items[i]) for i in range(len(item_counts))]
-            # create tuple of item type and points
+        # create tuple of item type and points
         item_and_points = [(item_types[i], item_diff[i]) for i in range(len(item_diff))]
         if len(item_and_points) > 0:
             self.item_points = {item: 0 for item in item_and_points}
             
         for item, points in item_and_points:
             self.item_points[item] += points
-
 
         px = self.current_memory[self.player_x_mem]
         py = self.current_memory[self.player_y_mem]
@@ -391,14 +390,9 @@ class PyBoyEnv(gym.Env):
 
         # convert binary chunks into a single string
         chunk_id = f"{px}:{py}:{pbx}:{pby}:{map_id}"
-
         self.visited_xy.add(chunk_id)
 
         self.last_pokemon_count = pokemon_caught
-        # reward = pokemon_caught * 1000 + len(self.visited_xy) * 10 - self.stationary_frames * 10 - self.unchanged_frames * 10 - self.reset_penalty
-        # More caught pokemon = more leeway for standing still
-        # reward = int(pokemon_caught * 32000 // 152) + ((len(self.player_maps)) * (32000 // 255) * (2000  * (pokemon_caught + 1) - self.stationary_frames) / 2000 * (pokemon_caught + 1))
-
         if pokemon_seen == 0:
             pokemon_caught = 0
 
@@ -406,16 +400,14 @@ class PyBoyEnv(gym.Env):
             # Give a backtrack bonus and reset the explored list
             self.backtrack_bonus = len(self.visited_xy)
             self.visited_xy = set()
-            
+                
         self.last_pokemon_count = pokemon_caught
         self.last_seen_pokemon_count = pokemon_seen
         reward = (len(self.player_maps) * 1000 + (self.backtrack_bonus + len(self.visited_xy)) // 10) // 10
         reward = reward + (reward * (pokemon_caught * 2) + (pokemon_seen)) // 150 + sum(self.item_points.values()) * 10
-        
+            
         self.speed_bonus =  reward * ((self.max_frames - self.frames) / (self.max_frames + 1))
-
         reward -= (reward * (self.stationary_frames / (self.frames + 1))) 
-                             
         reward += self.speed_bonus
 
         return reward
