@@ -365,7 +365,7 @@ class PyBoyEnv(gym.Env):
         self.pokedex = {i: bin(values).count('1') for i, values in enumerate(current_memory[item_start: item_end]) if item_start < item_end}
 
         if item_start < item_end:
-            items = np.vectorize(lambda x: bin(x).count('1'))(current_memory[item_start: item_end])
+            items = np.vectorize(lambda x: bin(x).count('1'), otypes=[int])(current_memory[item_start: item_end])
             item_types = [items[i] for i in range(0, len(items), 2)]
             item_counts = [items[i] for i in range(1, len(items), 2)]
         else:
