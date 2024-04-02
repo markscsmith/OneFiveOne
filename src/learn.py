@@ -469,7 +469,9 @@ class PyBoyEnv(gym.Env):
         button_2, _ = self.buttons[action + 8]
         self.pyboy.send_input(button_1)
         self.pyboy.tick()
-        #ticks = 1
+        ticks = 2
+        for _ in range(2):
+            self.pyboy.tick()
         #for _ in range(ticks):
         self.pyboy.send_input(button_2)
         self.actions = f"{self.actions}{button_name_1}"
