@@ -412,7 +412,7 @@ class PyBoyEnv(gym.Env):
         reward = (len(self.player_maps) * 1000 + (self.backtrack_bonus + len(self.visited_xy)) // 10) // 10
         reward = reward + (reward * (pokemon_caught * 2) + (pokemon_seen)) // 150 + sum(self.item_points.values()) * 10
         
-        self.speed_bonus =  (reward) * (self.max_frames - self.frames / (self.max_frames + 1))
+        self.speed_bonus =  reward * ((self.max_frames - self.frames) / (self.max_frames + 1))
 
         reward -= (reward * (self.stationary_frames / (self.frames + 1))) 
                              
