@@ -340,7 +340,6 @@ class PyBoyEnv(gym.Env):
     def generate_screen_ndarray(self):
         return self.pyboy.screen.ndarray
 
-    import numpy as np
 
     def calculate_reward(self):
         # calculate total bits from the memory values
@@ -353,14 +352,25 @@ class PyBoyEnv(gym.Env):
         item_start = 0xD31E + offset
         item_end = 0xD345 + offset
 
-        pokemon_caught = np.sum(np.vectorize(lambda x: bin(x).count('1'))(current_memory[caught_pokemon_start: caught_pokemon_end]))
-        pokemon_seen = np.sum(np.vectorize(lambda x: bin(x).count('1'))(current_memory[seen_pokemon_start: seen_pokemon_end]))
+        if caught_pokemon_start < caught_pokemon_end:
+            pokemon_caught = np.sum(np.vectorize(lambda x: bin(x).count('1'))(current_memory[caught_pokemon_start: caught_pokemon_end]))
+        else:
+            pokemon_caught = 0
 
-        self.pokedex = {i: bin(values).count('1') for i, values in enumerate(current_memory[item_start: item_end])}
+        if seen_pokemon_start < seen_pokemon_end:
+            pokemon_seen = np.sum(np.vectorize(lambda x: bin(x).count('1'))(current_memory[seen_pokemon_start: seen_pokemon_end]))
+        else:
+            pokemon_seen = 0
 
-        items = np.vectorize(lambda x: bin(x).count('1'))(current_memory[item_start: item_end])
-        item_types = [items[i] for i in range(0, len(items), 2)]
-        item_counts = [items[i] for i in range(1, len(items), 2)]
+        self.pokedex = {i: bin(values).count('1') for i, values in enumerate(current_memory[item_start: item_end]) if item_start < item_end}
+
+        if item_start < item_end:
+            items = np.vectorize(lambda x: bin(x).count('1'))(current_memory[item_start: item_end])
+            item_types = [items[i] for i in range(0, len(items), 2)]
+            item_counts = [items[i] for i in range(1, len(items), 2)]
+        else:
+            item_types = []
+            item_counts = []
 
         # calculate points of items based on the number of items added per step
         item_diff = [np.abs(item_counts[i] - self.last_items[i]) for i in range(len(item_counts))]
