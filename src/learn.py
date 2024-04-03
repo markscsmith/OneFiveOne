@@ -419,6 +419,8 @@ class PyBoyEnv(gym.Env):
             # Give a backtrack bonus and reset the explored list
             self.backtrack_bonus = len(self.visited_xy)
             self.visited_xy = set()
+        reward = (len(self.player_maps) * 1000 + (self.backtrack_bonus + len(self.visited_xy)) // 10) // 10
+
         
         last_poke = self.last_pokemon_count
         last_poke_seen = self.last_seen_pokemon_count
@@ -434,7 +436,7 @@ class PyBoyEnv(gym.Env):
 
         self.last_pokemon_count = pokemon_caught
         self.last_seen_pokemon_count = pokemon_seen
-        reward = (len(self.player_maps) * 1000 + (self.backtrack_bonus + len(self.visited_xy)) // 10) // 10
+        
         reward = reward + (reward * (pokemon_caught * 2) + (pokemon_seen)) // 150 + sum(self.item_points.values()) * 10
             
         
