@@ -351,6 +351,7 @@ class PyBoyEnv(gym.Env):
         seen_pokemon_end = self.seen_pokemon_end + offset
         item_start = 0xD31E + offset
         item_end = 0xD345 + offset
+        speed_bonus_calc = (self.max_frames - self.frames) / (self.max_frames + 1)
 
         if caught_pokemon_start < caught_pokemon_end:
             pokemon_caught = np.sum(np.vectorize(lambda x: bin(x).count('1'))(current_memory[caught_pokemon_start: caught_pokemon_end]))
@@ -390,7 +391,11 @@ class PyBoyEnv(gym.Env):
         pbx = self.current_memory[self.player_x_block_mem]
         pby = self.current_memory[self.player_y_block_mem]
         map_id = self.current_memory[self.player_map_mem]
-        self.player_maps.add(map_id)
+        
+        if self.last_player_map != map_id:
+            self.player_maps.add(map_id)
+            self.speed_bonus += len(self.player_maps) * 10 * speed_bonus_calc
+
         if self.last_player_x == px and self.last_player_y == py and self.last_player_x_block == pbx and self.last_player_y_block == pby and self.last_player_map == map_id:
             self.stationary_frames += 1
         else:
@@ -418,11 +423,11 @@ class PyBoyEnv(gym.Env):
         last_poke_seen = self.last_seen_pokemon_count
         if pokemon_caught > last_poke:
             self.last_pokemon_count = pokemon_caught
-            self.speed_bonus +=  reward * ((self.max_frames - self.frames) / (self.max_frames + 1))
+            self.speed_bonus +=  reward * (speed_bonus_calc)
         
         if pokemon_seen > last_poke_seen:
             self.last_seen_pokemon_count = pokemon_seen
-            self.speed_bonus +=  reward * ((self.max_frames - self.frames) / (self.max_frames + 1)) // 2
+            self.speed_bonus +=  reward * (speed_bonus_calc) // 2
 
         
 
