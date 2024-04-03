@@ -711,8 +711,8 @@ if __name__ == "__main__":
 
     # hrs = 10  # number of hours (in-game) to run for.
     hrs = 5 # temporarily shorter duration.
-    # runsteps = int(3200000 * (hrs))
-    runsteps = int(32000 * (hrs))
+    runsteps = int(3200000 * (hrs))
+    #runsteps = int(32000 * (hrs))
     # num_cpu = 1
     run_env = None
     if num_cpu == 1:
@@ -726,5 +726,5 @@ if __name__ == "__main__":
     # episodes = 13
     episodes = 3
     for e in range(0, episodes):
-        model = train_model(run_env, runsteps, steps=4096 * 4, episode=e, file_name=model_file_name)
+        model = train_model(run_env, runsteps, steps=4096, episode=e, file_name=model_file_name)
         model.save(f"{model_file_name}.zip")
