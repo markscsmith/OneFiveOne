@@ -34,6 +34,8 @@ from tqdm import tqdm
 MEM_START = 0xD2F7
 MEM_END = 0xDEE1
 
+CGB = False
+
 class PokeCart():
     def __init__(self, cart_data) -> None:
         # calculate checksum of cart_data
@@ -246,7 +248,7 @@ def add_string_overlay(
 class PyBoyEnv(gym.Env):
     def __init__(self, game_path, emunum, save_state_path=None, max_frames=500_000, **kwargs):
         super(PyBoyEnv, self).__init__()
-        self.pyboy = PyBoy(game_path, window="null", cgb=True)
+        self.pyboy = PyBoy(game_path, window="null", cgb=CGB)
         self.game_path = game_path
         self.menu_value = None
         self.n = 21600  # 15 minutes of game time in frames
@@ -421,7 +423,7 @@ class PyBoyEnv(gym.Env):
             self.visited_xy = set()
         reward = (len(self.player_maps) * 1000 + (self.backtrack_bonus + len(self.visited_xy)) // 10) // 10
 
-        
+
         last_poke = self.last_pokemon_count
         last_poke_seen = self.last_seen_pokemon_count
         if pokemon_caught > last_poke:
@@ -571,7 +573,7 @@ class PyBoyEnv(gym.Env):
         self.last_player_y_block = 0
         self.menu_value = 0
         self.pokedex = {}
-        self.pyboy = PyBoy(self.game_path, window="null", cgb=True, )
+        self.pyboy = PyBoy(self.game_path, window="null", cgb=CGB, )
         # self.last_n_frames = [self.pyboy.screen.ndarray] * self.n
 
         if self.save_state_path is not None:
@@ -604,9 +606,13 @@ def make_env(game_path, emunum):
     def _init():
         if os.path.exists(game_path + ".state"):
             print(f"Loading state {game_path}.state")
+            
             new_env = PyBoyEnv(game_path, emunum=emunum,
                                save_state_path=game_path + ".state")
-            new_env.pyboy.load_state(open(game_path + ".state", "rb"))
+            if CGB:
+                new_env.pyboy.load_state(open(game_path + ".state", "rb"))
+            else:
+                new_env.pyboy.load_state(open(game_path + ".state-ogb", "rb"))
         else:
             print(f"Error: No state file found for {game_path}.state")
             exit(1)
