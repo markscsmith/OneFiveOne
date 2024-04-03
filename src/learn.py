@@ -291,7 +291,7 @@ class PyBoyEnv(gym.Env):
         self.last_items = []
         self.pokedex = {}
 
-        self.speed_bonus = (self.max_frames - self.frames) / (self.frames + 1)
+        self.speed_bonus = 0
 
         self.last_memory_update_frame = 0
         self.current_memory = self.get_memory_range()
@@ -548,7 +548,7 @@ class PyBoyEnv(gym.Env):
 
         self.stationary_frames = 0
         self.unchanged_frames = 0
-        self.speed_bonus = self.max_frames / (self.frames + 1)
+        self.speed_bonus = 0
         # print("OS:RESET:", self.emunum, seed)
         super().reset(seed=seed, **kwargs)
         self.last_memory_update_frame = 0
