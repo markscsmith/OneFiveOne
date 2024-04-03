@@ -34,7 +34,7 @@ from tqdm import tqdm
 MEM_START = 0xD2F7
 MEM_END = 0xDEE1
 
-CGB = False
+CGB = True
 
 class PokeCart():
     def __init__(self, cart_data) -> None:
@@ -85,7 +85,6 @@ def learning_rate_schedule(progress):
     # new_rate = rate + np.abs(variation * np.sin(progress * np.pi * 20)) # all positive
     new_rate = rate + variation * np.sin(progress * np.pi * 20) # positive and negative adjustments
     # rate = (rate + rate * progress) / 2
-    print(f"LR: {new_rate}", file=sys.stderr)
     return new_rate
     # return  0.0
 
@@ -631,7 +630,7 @@ def train_model(env, total_steps, steps, episode, file_name):
     policy_kwargs = dict(
         # features_extractor_class=CustomFeatureExtractor,
         features_extractor_kwargs={},
-        net_arch=dict(pi=[first_layer_size, first_layer_size // 2, first_layer_size // 4, first_layer_size // 8], vf=[first_layer_size, first_layer_size // 2, first_layer_size // 4, first_layer_size // 8]),
+        net_arch=dict(pi=[first_layer_size, first_layer_size, first_layer_size, first_layer_size // 2], vf=[first_layer_size, first_layer_size, first_layer_size, first_layer_size // 2]),
         activation_fn=nn.ReLU,
     )
 
