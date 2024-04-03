@@ -607,12 +607,15 @@ def make_env(game_path, emunum):
         if os.path.exists(game_path + ".state"):
             print(f"Loading state {game_path}.state")
             
-            new_env = PyBoyEnv(game_path, emunum=emunum,
-                               save_state_path=game_path + ".state")
+            
             if CGB:
-                new_env.pyboy.load_state(open(game_path + ".state", "rb"))
+                ext = ".state"
             else:
-                new_env.pyboy.load_state(open(game_path + ".state-ogb", "rb"))
+                ext = ".ogb_state"
+                
+                
+            new_env = PyBoyEnv(game_path, emunum=emunum, save_state_path=game_path + ext)
+            new_env.pyboy.load_state(open(game_path + ext, "rb"))
         else:
             print(f"Error: No state file found for {game_path}.state")
             exit(1)
