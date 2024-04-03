@@ -374,13 +374,16 @@ class PyBoyEnv(gym.Env):
 
         # calculate points of items based on the number of items added per step
         item_diff = [np.abs(item_counts[i] - self.last_items[i]) for i in range(len(item_counts))]
+        self.last_items = item_counts
+
         # create tuple of item type and points
         item_and_points = [(item_types[i], item_diff[i]) for i in range(len(item_diff))]
-        if len(item_and_points) > 0:
+        if len(item_and_points) == 0:
             self.item_points = {item: 0 for item in item_and_points}
             
         for item, points in item_and_points:
             self.item_points[item] += points
+            self.speed_bonus += points * 10
 
         px = self.current_memory[self.player_x_mem]
         py = self.current_memory[self.player_y_mem]
@@ -410,13 +413,25 @@ class PyBoyEnv(gym.Env):
             # Give a backtrack bonus and reset the explored list
             self.backtrack_bonus = len(self.visited_xy)
             self.visited_xy = set()
-                
+        
+        last_poke = self.last_pokemon_count
+        last_poke_seen = self.last_seen_pokemon_count
+        if pokemon_caught > last_poke:
+            self.last_pokemon_count = pokemon_caught
+            self.speed_bonus +=  reward * ((self.max_frames - self.frames) / (self.max_frames + 1))
+        
+        if pokemon_seen > last_poke_seen:
+            self.last_seen_pokemon_count = pokemon_seen
+            self.speed_bonus +=  reward * ((self.max_frames - self.frames) / (self.max_frames + 1)) // 2
+
+        
+
         self.last_pokemon_count = pokemon_caught
         self.last_seen_pokemon_count = pokemon_seen
         reward = (len(self.player_maps) * 1000 + (self.backtrack_bonus + len(self.visited_xy)) // 10) // 10
         reward = reward + (reward * (pokemon_caught * 2) + (pokemon_seen)) // 150 + sum(self.item_points.values()) * 10
             
-        self.speed_bonus =  reward * ((self.max_frames - self.frames) / (self.max_frames + 1))
+        
         reward -= (reward * (self.stationary_frames / (self.frames + 1))) 
         reward += self.speed_bonus
 
