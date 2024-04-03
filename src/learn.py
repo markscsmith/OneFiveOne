@@ -705,8 +705,8 @@ if __name__ == "__main__":
 
     # hrs = 10  # number of hours (in-game) to run for.
     hrs = 5 # temporarily shorter duration.
-    runsteps = int(3200000 * (hrs))
-
+    # runsteps = int(3200000 * (hrs))
+    runsteps = int(32000 * (hrs))
     # num_cpu = 1
     run_env = None
     if num_cpu == 1:
