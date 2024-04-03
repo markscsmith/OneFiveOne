@@ -393,8 +393,9 @@ class PyBoyEnv(gym.Env):
         map_id = self.current_memory[self.player_map_mem]
         
         if self.last_player_map != map_id:
-            self.player_maps.add(map_id)
-            self.speed_bonus += len(self.player_maps) * 10 * speed_bonus_calc
+            if map_id not in self.player_maps:
+                self.player_maps.add(map_id)
+                self.speed_bonus += len(self.player_maps) * 10 * speed_bonus_calc
 
         if self.last_player_x == px and self.last_player_y == py and self.last_player_x_block == pbx and self.last_player_y_block == pby and self.last_player_map == map_id:
             self.stationary_frames += 1
