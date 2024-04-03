@@ -291,7 +291,7 @@ class PyBoyEnv(gym.Env):
         self.last_items = []
         self.pokedex = {}
 
-        self.speed_bonus = self.max_frames / (self.frames + 1)
+        self.speed_bonus = (self.max_frames - self.frames) / (self.frames + 1)
 
         self.last_memory_update_frame = 0
         self.current_memory = self.get_memory_range()
