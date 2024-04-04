@@ -291,6 +291,9 @@ class PyBoyEnv(gym.Env):
         self.item_points = {}
         self.last_items = []
         self.pokedex = {}
+        self.last_total_items = 0
+        self.last_carried_item_total = 0
+        self.last_stored_item_total = 0
 
         self.speed_bonus = 0
 
@@ -352,6 +355,26 @@ class PyBoyEnv(gym.Env):
         seen_pokemon_end = self.seen_pokemon_end + offset
         item_start = 0xD31E - offset
         item_end = 0xD345 - offset
+
+        carried_item_total = current_memory[0xD31D - offset]
+        stored_item_total = current_memory[0xD53A - offset]
+
+        last_carried_item_total = self.last_carried_item_total
+        last_stored_item_total = self.last_stored_item_total
+
+        # prioritize pulling items from storage, collecting items, and using items from inventory.
+        if carried_item_total != last_carried_item_total and last_stored_item_total <= stored_item_total:
+            self.speed_bonus += np.abs(carried_item_total - last_carried_item_total) * 10
+    
+
+        self.last_stored_item_total = stored_item_total
+        self.last_carried_item_total = carried_item_total
+        
+        last_total_items = self.last_total_items
+        if carried_item_total + stored_item_total != last_total_items:
+            self.speed_bonus += np.abs((carried_item_total + stored_item_total) - last_total_items) * 10
+            self.last_total_items = carried_item_total + stored_item_total
+
         speed_bonus_calc = (self.max_frames - self.frames) / (self.max_frames + 1)
 
         if caught_pokemon_start < caught_pokemon_end:
@@ -494,7 +517,7 @@ class PyBoyEnv(gym.Env):
             item_score = sum(self.item_points.values())
             if target_index is not None:
                 print(
-                    f"Best: {target_index:2d} 🟢 {self.last_pokemon_count:3d} 👀 {self.last_seen_pokemon_count:3d} 🎬 {self.frames:6d} 🌎 {len(self.visited_xy):3d}:{len(self.player_maps):3d} 🏆 {self.last_score:7.2f} 🎒 {item_score:3d} 🐆 {self.speed_bonus:7.2f}🦶 {self.stationary_frames:3d} X: {self.last_player_x:3d} Y: {self.last_player_y:3d} XB: {self.last_player_x_block:3d} YB: {self.last_player_y_block:3d}, Map: {self.last_player_map:3d} Actions {' '.join(self.actions[-6:])} {len(self.actions)}")
+                    f"Best: {self.item_points} {target_index:2d} 🟢 {self.last_pokemon_count:3d} 👀 {self.last_seen_pokemon_count:3d} 🎬 {self.frames:6d} 🌎 {len(self.visited_xy):3d}:{len(self.player_maps):3d} 🏆 {self.last_score:7.2f} 🎒 {item_score:3d} 🐆 {self.speed_bonus:7.2f}🦶 {self.stationary_frames:3d} X: {self.last_player_x:3d} Y: {self.last_player_y:3d} XB: {self.last_player_x_block:3d} YB: {self.last_player_y_block:3d}, Map: {self.last_player_map:3d} Actions {' '.join(self.actions[-6:])} {len(self.actions)}")
             if reset:
                 print(
                     f"Reset: {self.emunum:2d} 🟢 {self.last_pokemon_count:3d} 👀 {self.last_seen_pokemon_count:3d} 🎬 {self.frames:6d} 🌎 {len(self.visited_xy):3d}:{len(self.player_maps):3d}🏆 {self.last_score:7.2f} 🎒 {item_score:3d} 🐆 {self.speed_bonus:7.2f} 🦶 {self.stationary_frames:3d} X: {self.last_player_x:3d} Y: {self.last_player_y:3d} XB: {self.last_player_x_block:3d} YB: {self.last_player_y_block:3d}, Map: {self.last_player_map:3d} Actions {' '.join(self.actions[-6:])} {len(self.actions)}")
@@ -570,6 +593,9 @@ class PyBoyEnv(gym.Env):
         # reward = self.calculate_reward()
         # observation = np.append(
         #     self.get_memory_range(), reward)
+        self.last_total_items = 0
+        self.last_carried_item_total = 0
+        self.last_stored_item_total = 0
 
         self.stationary_frames = 0
         self.unchanged_frames = 0
