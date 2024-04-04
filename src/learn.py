@@ -259,15 +259,16 @@ class PyBoyEnv(gym.Env):
         # Define the memory range for 'number of Pokémon caught'
         self.max_frames = max_frames
         self.cart = PokeCart(open(game_path, "rb").read())
-        self.caught_pokemon_start = 0xD2F7 - self.cart.cart_offset()
-        self.caught_pokemon_end = 0xD309 - self.cart.cart_offset()
-        self.seen_pokemon_start = 0xD30A - self.cart.cart_offset()
-        self.seen_pokemon_end = 0xD31C - self.cart.cart_offset()
-        self.player_x_mem = 0xD361 - self.cart.cart_offset()
-        self.player_y_mem = 0xD362 - self.cart.cart_offset()
-        self.player_x_block_mem = 0xD363 - self.cart.cart_offset()
-        self.player_y_block_mem = 0xD364 - self.cart.cart_offset()
-        self.player_map_mem = 0xD35E - self.cart.cart_offset()
+        offset = self.cart.cart_offset()
+        self.caught_pokemon_start = 0xD2F7 - offset
+        self.caught_pokemon_end = 0xD309 - offset
+        self.seen_pokemon_start = 0xD30A - offset
+        self.seen_pokemon_end = 0xD31C - offset
+        self.player_x_mem = 0xD361 - offset
+        self.player_y_mem = 0xD362 - offset
+        self.player_x_block_mem = 0xD363 - offset
+        self.player_y_block_mem = 0xD364 - offset
+        self.player_map_mem = 0xD35E - offset
         self.seen_events = set()
         self.emunum = emunum
         self.save_state_path = save_state_path
