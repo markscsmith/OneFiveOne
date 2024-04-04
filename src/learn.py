@@ -349,10 +349,10 @@ class PyBoyEnv(gym.Env):
         # calculate total bits from the memory values
         current_memory = np.array(self.get_memory_range())
         offset = self.cart.cart_offset()#  - MEM_START
-        caught_pokemon_start = self.caught_pokemon_start + offset
-        caught_pokemon_end = self.caught_pokemon_end + offset
-        seen_pokemon_start = self.seen_pokemon_start + offset
-        seen_pokemon_end = self.seen_pokemon_end + offset
+        caught_pokemon_start = self.caught_pokemon_start
+        caught_pokemon_end = self.caught_pokemon_end
+        seen_pokemon_start = self.seen_pokemon_start
+        seen_pokemon_end = self.seen_pokemon_end
         item_start = 0xD31E - offset
         item_end = 0xD345 - offset
 
