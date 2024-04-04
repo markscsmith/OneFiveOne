@@ -162,23 +162,23 @@ class PokeCaughtCallback(BaseCallback):
         self.progress_bar = tqdm(
             total=self.total_timesteps, position=0, leave=True)
 
-    def generate_gif_and_actions(self):
-        actions = self.training_env.get_attr('actions')
-        rewards = self.training_env.get_attr('last_score')
-        frames = self.training_env.get_attr('frames')
-        visiteds = self.training_env.get_attr('visited_xy')
-        pokemon_caughts = self.training_env.get_attr('last_pokemon_count')
+    # def generate_gif_and_actions(self):
+    #     actions = self.training_env.get_attr('actions')
+    #     rewards = self.training_env.get_attr('last_score')
+    #     frames = self.training_env.get_attr('frames')
+    #     visiteds = self.training_env.get_attr('visited_xy')
+    #     pokemon_caughts = self.training_env.get_attr('last_pokemon_count')
 
-        if self.model.num_timesteps % 100000 == 0:
-            hostname = os.uname()[1]
-            file_name = f"{hostname}"
-            # Generate a CSV of data
-            # TODO: make path a parameter and use more sensible defaults for non-me users
-            with open(f"/Volumes/Scratch/ofo/{file_name}.csv", "w", encoding="utf-8") as f:
-                f.write("env_num,caught,actions,rewards,frames,visiteds\n")
-                for env_num, (action, caught, reward, frame, visited) in enumerate(zip(actions, pokemon_caughts, rewards, frames, visiteds)):
-                    f.write(
-                        f"{env_num},{caught},{''.join(action)},{reward},{frame},\"{visited}\"\n")
+    #     if self.model.num_timesteps % 100000 == 0:
+    #         hostname = os.uname()[1]
+    #         file_name = f"{hostname}"
+    #         # Generate a CSV of data
+    #         # TODO: make path a parameter and use more sensible defaults for non-me users
+    #         with open(f"ofo/{file_name}.csv", "w", encoding="utf-8") as f:
+    #             f.write("env_num,caught,actions,rewards,frames,visiteds\n")
+    #             for env_num, (action, caught, reward, frame, visited) in enumerate(zip(actions, pokemon_caughts, rewards, frames, visiteds)):
+    #                 f.write(
+    #                     f"{env_num},{caught},{''.join(action)},{reward},{frame},\"{visited}\"\n")
 
     def _on_step(self) -> bool:
         # Retrieve pokemon_caught from each environment
@@ -345,54 +345,68 @@ class PyBoyEnv(gym.Env):
     def calculate_reward(self):
         # calculate total bits from the memory values
         current_memory = np.array(self.get_memory_range())
-        offset = self.cart.cart_offset() - MEM_START
+        offset = self.cart.cart_offset()#  - MEM_START
         caught_pokemon_start = self.caught_pokemon_start + offset
         caught_pokemon_end = self.caught_pokemon_end + offset
         seen_pokemon_start = self.seen_pokemon_start + offset
         seen_pokemon_end = self.seen_pokemon_end + offset
-        item_start = 0xD31E + offset
-        item_end = 0xD345 + offset
+        item_start = 0xD31E - offset
+        item_end = 0xD345 - offset
         speed_bonus_calc = (self.max_frames - self.frames) / (self.max_frames + 1)
 
         if caught_pokemon_start < caught_pokemon_end:
-            pokemon_caught = np.sum(np.vectorize(lambda x: bin(x).count('1'))(current_memory[caught_pokemon_start: caught_pokemon_end]))
+            pokemon_caught = np.sum(current_memory[caught_pokemon_start: caught_pokemon_end])
         else:
             pokemon_caught = 0
 
         if seen_pokemon_start < seen_pokemon_end:
-            pokemon_seen = np.sum(np.vectorize(lambda x: bin(x).count('1'))(current_memory[seen_pokemon_start: seen_pokemon_end]))
+            pokemon_seen = np.sum(current_memory[seen_pokemon_start: seen_pokemon_end])
         else:
             pokemon_seen = 0
 
-        self.pokedex = {i: bin(values).count('1') for i, values in enumerate(current_memory[item_start: item_end]) if item_start < item_end}
+        # self.pokedex = {i: bin(values).count('1') for i, values in enumerate(current_memory[item_start: item_end]) if item_start < item_end}
 
-        if item_start < item_end:
-            items = np.vectorize(lambda x: bin(x).count('1'), otypes=[int])(current_memory[item_start: item_end])
-            item_types = [items[i] for i in range(0, len(items), 2)]
-            item_counts = [items[i] for i in range(1, len(items), 2)]
-        else:
-            item_types = []
-            item_counts = []
+
+        items = current_memory[item_start: item_end]
+        # extract every 2 indexes from the list
+        item_counts = items[1::2]
+        item_types = items[0::2]
+        # item_types = [items[i] for i in range(0, len(items), 2)]
+        # item_counts = [items[i] for i in range(1, len(items), 2)]
+        
+        
 
         # calculate points of items based on the number of items added per step
-        item_diff = [np.abs(item_counts[i] - self.last_items[i]) for i in range(len(item_counts))]
+        last_items = self.last_items
+        if len(last_items) == 0:
+            last_items = [0] * len(item_counts)
+        
+        
+        item_diff = [item_counts[i] - last_items[i] for i in range(len(item_counts))]
         self.last_items = item_counts
 
         # create tuple of item type and points
-        item_and_points = [(item_types[i], item_diff[i]) for i in range(len(item_diff))]
-        if len(item_and_points) == 0:
-            self.item_points = {item: 0 for item in item_and_points}
-            
-        for item, points in item_and_points:
-            self.item_points[item] += points
-            self.speed_bonus += points * 10
+        new_item_points = zip(item_types, item_diff)
+        # print(f"ITEMS: {items}")
+        
+
+        for item, points in new_item_points:
+            if item == 0 or item == 255:
+                pass
+            elif item not in self.item_points:
+                self.item_points[item] = points
+                self.speed_bonus += points * 10
+            else:
+                self.item_points[item] += points
+                self.speed_bonus += points * 10
+
 
         px = self.current_memory[self.player_x_mem]
         py = self.current_memory[self.player_y_mem]
         pbx = self.current_memory[self.player_x_block_mem]
         pby = self.current_memory[self.player_y_block_mem]
         map_id = self.current_memory[self.player_map_mem]
-        
+
         if self.last_player_map != map_id:
             if map_id not in self.player_maps:
                 self.player_maps.add(map_id)
@@ -480,7 +494,7 @@ class PyBoyEnv(gym.Env):
             item_score = sum(self.item_points.values())
             if target_index is not None:
                 print(
-                    f"Best:  {target_index:2d} 🟢 {self.last_pokemon_count:3d} 👀 {self.last_seen_pokemon_count:3d} 🎬 {self.frames:6d} 🌎 {len(self.visited_xy):3d}:{len(self.player_maps):3d} 🏆 {self.last_score:7.2f} 🎒 {item_score:3d} 🐆 {self.speed_bonus:7.2f}🦶 {self.stationary_frames:3d} X: {self.last_player_x:3d} Y: {self.last_player_y:3d} XB: {self.last_player_x_block:3d} YB: {self.last_player_y_block:3d}, Map: {self.last_player_map:3d} Actions {' '.join(self.actions[-6:])} {len(self.actions)}")
+                    f"Best: {target_index:2d} 🟢 {self.last_pokemon_count:3d} 👀 {self.last_seen_pokemon_count:3d} 🎬 {self.frames:6d} 🌎 {len(self.visited_xy):3d}:{len(self.player_maps):3d} 🏆 {self.last_score:7.2f} 🎒 {item_score:3d} 🐆 {self.speed_bonus:7.2f}🦶 {self.stationary_frames:3d} X: {self.last_player_x:3d} Y: {self.last_player_y:3d} XB: {self.last_player_x_block:3d} YB: {self.last_player_y_block:3d}, Map: {self.last_player_map:3d} Actions {' '.join(self.actions[-6:])} {len(self.actions)}")
             if reset:
                 print(
                     f"Reset: {self.emunum:2d} 🟢 {self.last_pokemon_count:3d} 👀 {self.last_seen_pokemon_count:3d} 🎬 {self.frames:6d} 🌎 {len(self.visited_xy):3d}:{len(self.player_maps):3d}🏆 {self.last_score:7.2f} 🎒 {item_score:3d} 🐆 {self.speed_bonus:7.2f} 🦶 {self.stationary_frames:3d} X: {self.last_player_x:3d} Y: {self.last_player_y:3d} XB: {self.last_player_x_block:3d} YB: {self.last_player_y_block:3d}, Map: {self.last_player_map:3d} Actions {' '.join(self.actions[-6:])} {len(self.actions)}")
@@ -519,9 +533,10 @@ class PyBoyEnv(gym.Env):
                 "stationary_frames": self.stationary_frames,
                 "items": self.item_points,
                 "speed_bonus": self.speed_bonus,}
-
-        self.current_memory = self.get_memory_range()
-        observation = np.append(self.current_memory, reward)
+        mem = self.get_memory_range()
+        self.current_memory = mem
+        observation = np.append(mem, reward)
+        observation = torch.tensor(observation, dtype=torch.float32)
         return observation, reward, terminated, truncated, info
 
     def get_memory_range(self):
@@ -597,6 +612,7 @@ class PyBoyEnv(gym.Env):
         reward = self.calculate_reward()
         observation = np.append(
             self.get_memory_range(), reward)
+        observation = torch.tensor(observation, dtype=torch.float32)
         print("RESET:OS:SHAPE:", observation.shape, seed, file=sys.stderr)
         return observation, {"seed": seed}
 
@@ -625,7 +641,7 @@ def make_env(game_path, emunum):
 
 
 
-def train_model(env, total_steps, steps, episode, file_name):
+def train_model(env, total_steps, steps, episode, file_name, save_path = "ofo"):
     first_layer_size = MEM_END - MEM_START + 2
     policy_kwargs = dict(
         # features_extractor_class=CustomFeatureExtractor,
@@ -641,7 +657,7 @@ def train_model(env, total_steps, steps, episode, file_name):
         else device
     )
     device = "cuda" if torch.cuda.is_available() else device
-    tensorboard_log = f"/Volumes/Scratch/ofo/tensorboard/{os.uname()[1]}-{time.time()-episode}"
+    tensorboard_log = f"{save_path}/tensorboard/{os.uname()[1]}-{time.time()-episode}"
     if exists(file_name + '.zip'):
         print('\nloading checkpoint')
         run_model = PPO.load(file_name, env=env, device=device, tensorboard_log=tensorboard_log)
@@ -650,7 +666,7 @@ def train_model(env, total_steps, steps, episode, file_name):
 
     else:
         # n_steps = steps * num_cpu
-        tensorboard_log = f"/Volumes/Scratch/ofo/tensorboard/{os.uname()[1]}-{time.time()}-{episode}"
+        tensorboard_log = f"{save_path}/tensorboard/{os.uname()[1]}-{time.time()}-{episode}"
         run_model = PPO(policy="MlpPolicy",
                         
                         # Reduce n_steps if too large; ensure not less than some minimum like 2048 for sufficient learning per update.
@@ -684,7 +700,7 @@ def train_model(env, total_steps, steps, episode, file_name):
     tbcallback = None
 
     checkpoint_callback = CheckpointCallback(
-        save_freq=10000, save_path=f"/Volumes/Scratch/ofo_chkpt/{os.uname()[1]}-{time.time()}.zip", name_prefix="poke")
+        save_freq=10000, save_path=f"{save_path}_chkpt/{os.uname()[1]}-{time.time()}.zip", name_prefix="poke")
     current_stats = EveryNTimesteps(
         n_steps=10000, callback=PokeCaughtCallback(total_steps))
     tbcallback = TensorboardLoggingCallback(tensorboard_log)
@@ -713,7 +729,7 @@ if __name__ == "__main__":
 
     # TODO: Visual gif of map as it exapnds over time, with frames of the game as it is played, so the map is faded gray in the spot the AI isn't currently at.  Should be updated in frame order.  BIG PROJECT.
     # TODO: 5529600 frames is roughly 10 seconds of gametime (144h * 160w * 24fps * 10) and about 5.2mb of data. 10m of data is about 317MB. Math OK? 144 * 160 * 24 * 60 * 10 / 1024 / 1024
-
+    parser.add_argument("--output_dir", type=str, default="ofo")
     parser.add_argument("--num_hosts", type=int, default=1)
     args = parser.parse_args()
 
