@@ -61,11 +61,11 @@ class PokeCart():
         # Pokemon Yellow has offset -1 vs blue and green
         # TODO: Pokemon Gold Silver and Crystal
         carts = {
-            "POKEMONR.GBC": MEM_START,
-            "POKEMONB.GBC": MEM_START,
+            "POKEMONR.GBC": 0,
+            "POKEMONB.GBC": 0,
             # I now suddenly understand what was meant by this comment from https://datacrystal.tcrf.net/wiki/Pokémon_Yellow/RAM_map: "The RAM map for this game has an offset of -1 from the one on Red and Blue."
             # I think I tried this before, but I didn't grok it at the time due to other memory read glitches and bugs I introduced
-            "POKEMONY.GBC": MEM_START + 1,
+            "POKEMONY.GBC": 0 + 1,
             "POKEMONG.GBC": 0,
             "PMCRYSTA.GBC": 0,
             "POKEMONS.GBC": 0,
@@ -334,7 +334,8 @@ class PyBoyEnv(gym.Env):
         # self.action_space = gym.spaces.Box(low=0, high=1, shape=(12,), dtype=np.float32)
         # self.action_space = gym.spaces.Box(low=0, high=1, shape=(8,), dtype=np.float32)
         self.action_space = gym.spaces.Discrete(8, start=0)
-        size = MEM_END - MEM_START + 2
+        # size = MEM_END - MEM_START + 2
+        size = MEM_END + 2
         # size = MEM_START MEM_END + 2
         self.observation_space = gym.spaces.Box(
             low=0, high=255, shape=(size,), dtype=np.uint16)
@@ -565,7 +566,7 @@ class PyBoyEnv(gym.Env):
         return observation, reward, terminated, truncated, info
 
     def get_memory_range(self):
-        memory_values = self.pyboy.memory[MEM_START: MEM_END + 1]
+        memory_values = self.pyboy.memory[0: MEM_END + 1]
         return memory_values
     
 
