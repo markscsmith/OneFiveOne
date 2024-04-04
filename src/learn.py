@@ -334,8 +334,7 @@ class PyBoyEnv(gym.Env):
         # self.action_space = gym.spaces.Box(low=0, high=1, shape=(12,), dtype=np.float32)
         # self.action_space = gym.spaces.Box(low=0, high=1, shape=(8,), dtype=np.float32)
         self.action_space = gym.spaces.Discrete(8, start=0)
-        # size = MEM_END - MEM_START + 2
-        size = MEM_END + 2
+        size = MEM_END - MEM_START + 2
         # size = MEM_START MEM_END + 2
         self.observation_space = gym.spaces.Box(
             low=0, high=255, shape=(size,), dtype=np.uint16)
@@ -560,7 +559,7 @@ class PyBoyEnv(gym.Env):
                 "speed_bonus": self.speed_bonus,}
         mem = self.get_memory_range()
         self.current_memory = mem
-        observation = np.append(mem, reward)
+        observation = np.append(mem[MEM_START:MEM_END+1], reward)
         # convert observation into float16s
         observation = observation.astype(np.float16)
         return observation, reward, terminated, truncated, info
@@ -639,9 +638,11 @@ class PyBoyEnv(gym.Env):
         self.last_player_x_block = 0
         self.last_player_y_block = 0
         reward = self.calculate_reward()
+        mem = self.get_memory_range()
         observation = np.append(
-            self.get_memory_range(), reward)
+            mem[MEM_START:MEM_END+1], reward)
         observation = observation.astype(np.float16)
+        self.current_memory = mem
         print("RESET:OS:SHAPE:", observation.shape, seed, file=sys.stderr)
         return observation, {"seed": seed}
 
