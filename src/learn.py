@@ -34,12 +34,6 @@ from tqdm import tqdm
 MEM_START = 0xD2F7
 MEM_END = 0xDEE1
 
-
-if torch.backends.mps.is_available() and torch.backends.mps.is_built():
-    TORCH_TYPE = torch.float32
-else:
-    TORCH_TYPE = torch.float64
-
 CGB = True
 
 class PokeCart():
@@ -542,9 +536,8 @@ class PyBoyEnv(gym.Env):
         mem = self.get_memory_range()
         self.current_memory = mem
         observation = np.append(mem, reward)
-        if TORCH_TYPE == torch.float32:
-            observation = torch.tensor(observation, dtype=TORCH_TYPE)
-        print("DT:", observation.dtype)
+        # convert observation into float16s
+        observation = observation.astype(np.float16)
         return observation, reward, terminated, truncated, info
 
     def get_memory_range(self):
@@ -620,9 +613,7 @@ class PyBoyEnv(gym.Env):
         reward = self.calculate_reward()
         observation = np.append(
             self.get_memory_range(), reward)
-        if TORCH_TYPE == torch.float32:
-            observation = torch.tensor(observation, dtype=TORCH_TYPE)
-
+        observation = observation.astype(np.float16)
         print("RESET:OS:SHAPE:", observation.shape, seed, file=sys.stderr)
         return observation, {"seed": seed}
 
