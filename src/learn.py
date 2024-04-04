@@ -34,7 +34,11 @@ from tqdm import tqdm
 MEM_START = 0xD2F7
 MEM_END = 0xDEE1
 
-TORCH_TYPE = torch.float16
+
+if torch.backends.mps.is_available() and torch.backends.mps.is_built():
+    TORCH_TYPE = torch.float32
+else:
+    TORCH_TYPE = torch.float64
 
 CGB = True
 
