@@ -565,8 +565,7 @@ class PyBoyEnv(gym.Env):
         return observation, reward, terminated, truncated, info
 
     def get_memory_range(self):
-        blanks = [0] * (MEM_START)
-        memory_values = [*blanks, *self.pyboy.memory[MEM_START: MEM_END + 1]]
+        memory_values = self.pyboy.memory[0: MEM_END + 1]
         return memory_values
     
 
@@ -783,5 +782,5 @@ if __name__ == "__main__":
     # episodes = 13
     episodes = 13
     for e in range(0, episodes):
-        model = train_model(run_env, runsteps, steps=4096 * 4, episode=e, file_name=model_file_name, save_path=args.output_dir)
+        model = train_model(run_env, runsteps, steps=4096 * 2, episode=e, file_name=model_file_name, save_path=args.output_dir)
         model.save(f"{model_file_name}.zip")
