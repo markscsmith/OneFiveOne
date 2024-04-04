@@ -544,6 +544,7 @@ class PyBoyEnv(gym.Env):
         observation = np.append(mem, reward)
         if TORCH_TYPE == torch.float32:
             observation = torch.tensor(observation, dtype=TORCH_TYPE)
+        print("DT:", observation.dtype)
         return observation, reward, terminated, truncated, info
 
     def get_memory_range(self):
