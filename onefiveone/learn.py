@@ -798,7 +798,7 @@ if __name__ == "__main__":
     model_file_name = "model"
 
     # episodes = 13
-    episodes = 13
+    episodes = 13 * 6
     ten_minutes = 600 # 10 minutes of game time in frames
     steps = ten_minutes * 3 # .5 hour of game time
     runsteps = steps * 10 * num_cpu # total timesteps for 5 hours of game time across all cpus
