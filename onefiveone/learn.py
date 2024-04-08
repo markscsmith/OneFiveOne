@@ -65,7 +65,7 @@ class PokeCart():
             "POKEMONB.GBC": 0,
             # I now suddenly understand what was meant by this comment from https://datacrystal.tcrf.net/wiki/Pokémon_Yellow/RAM_map: "The RAM map for this game has an offset of -1 from the one on Red and Blue."
             # I think I tried this before, but I didn't grok it at the time due to other memory read glitches and bugs I introduced
-            "POKEMONY.GBC": 0 + 1,
+            "POKEMONY.GBC": 0 - 1,
             "POKEMONG.GBC": 0,
             "PMCRYSTA.GBC": 0,
             "POKEMONS.GBC": 0,
@@ -260,15 +260,15 @@ class PyBoyEnv(gym.Env):
         self.max_frames = max_frames
         self.cart = PokeCart(open(game_path, "rb").read())
         offset = self.cart.cart_offset()
-        self.caught_pokemon_start = 0xD2F7 - offset
-        self.caught_pokemon_end = 0xD309 - offset
-        self.seen_pokemon_start = 0xD30A - offset
-        self.seen_pokemon_end = 0xD31C - offset
-        self.player_x_mem = 0xD361 - offset
-        self.player_y_mem = 0xD362 - offset
-        self.player_x_block_mem = 0xD363 - offset
-        self.player_y_block_mem = 0xD364 - offset
-        self.player_map_mem = 0xD35E - offset
+        self.caught_pokemon_start = 0xD2F7 + offset
+        self.caught_pokemon_end = 0xD309 + offset
+        self.seen_pokemon_start = 0xD30A + offset
+        self.seen_pokemon_end = 0xD31C + offset
+        self.player_x_mem = 0xD361 + offset
+        self.player_y_mem = 0xD362 + offset
+        self.player_x_block_mem = 0xD363 + offset
+        self.player_y_block_mem = 0xD364 + offset
+        self.player_map_mem = 0xD35E + offset
         self.seen_events = set()
         self.emunum = emunum
         self.save_state_path = save_state_path
@@ -530,9 +530,12 @@ class PyBoyEnv(gym.Env):
         button_1, button_name_1 = self.buttons[action]
         button_2, _ = self.buttons[action + 8]
         self.pyboy.send_input(button_1)
-        self.pyboy.tick()
+        for _ in range(8):
+            self.pyboy.tick()
         #for _ in range(ticks):
         self.pyboy.send_input(button_2)
+        for _ in range(16):
+            self.pyboy.tick()
         self.actions = f"{self.actions}{button_name_1}"
         #self.actions = self.actions + (f"{button_name_1}")
         # Grab less frames to append if we're standing still.
@@ -702,9 +705,9 @@ def train_model(env, total_steps, steps, episode, file_name, save_path = "ofo"):
                         # Reduce n_steps if too large; ensure not less than some minimum like 2048 for sufficient learning per update.
                         n_steps=steps,
                         # Reduce batch size if it's too large but ensure a minimum size for stability.
-                        batch_size=steps // 8,
+                        batch_size=steps // 4,
                         # Adjusted for potentially more stable learning across batches.
-                        n_epochs=3,
+                        n_epochs=13,
                         # Increased to give more importance to future rewards, can help escape repetitive actions.
                         gamma=0.9998,
                         # Adjusted for a better balance between bias and variance in advantage estimation.
@@ -730,9 +733,9 @@ def train_model(env, total_steps, steps, episode, file_name, save_path = "ofo"):
     tbcallback = None
 
     checkpoint_callback = CheckpointCallback(
-        save_freq=10000, save_path=f"{save_path}_chkpt/{os.uname()[1]}-{time.time()}.zip", name_prefix="poke")
+        save_freq=steps * 2, save_path=f"{save_path}_chkpt/{os.uname()[1]}-{time.time()}.zip", name_prefix="poke")
     current_stats = EveryNTimesteps(
-        n_steps=10000, callback=PokeCaughtCallback(total_steps))
+        n_steps=steps, callback=PokeCaughtCallback(total_steps))
     tbcallback = TensorboardLoggingCallback(tensorboard_log)
     callbacks = [checkpoint_callback, current_stats, tbcallback]
     run_model.learn(total_timesteps=total_steps,
@@ -767,8 +770,9 @@ if __name__ == "__main__":
 
     # hrs = 10  # number of hours (in-game) to run for.
     hrs = 5 # temporarily shorter duration.
-    runsteps = int(3200000 * (hrs))
-    #runsteps = int(32000 * (hrs))
+    # runsteps = int(3200000 * (hrs))
+    # runsteps = int(32000 * (hrs))
+    runsteps = int(3600 * (hrs))
     # num_cpu = 1
     run_env = None
     if num_cpu == 1:
@@ -781,6 +785,9 @@ if __name__ == "__main__":
 
     # episodes = 13
     episodes = 13
+    ten_minutes = 600 # 10 minutes of game time in frames
+    steps = ten_minutes * 6 # 1 hour of game time
+    runsteps = steps * 5 * num_cpu # total timesteps for 5 hours of game time across all cpus
     for e in range(0, episodes):
-        model = train_model(run_env, runsteps, steps=4096 * 2, episode=e, file_name=model_file_name, save_path=args.output_dir)
+        model = train_model(run_env, runsteps, steps=steps, episode=e, file_name=model_file_name, save_path=args.output_dir)
         model.save(f"{model_file_name}.zip")
