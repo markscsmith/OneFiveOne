@@ -708,7 +708,7 @@ def train_model(env, total_steps, steps, episode, file_name, save_path = "ofo"):
                         # Reduce n_steps if too large; ensure not less than some minimum like 2048 for sufficient learning per update.
                         n_steps=steps,
                         # Reduce batch size if it's too large but ensure a minimum size for stability.
-                        batch_size=steps // 4,
+                        batch_size=steps // 8,
                         # Adjusted for potentially more stable learning across batches.
                         n_epochs=13,
                         # Increased to give more importance to future rewards, can help escape repetitive actions.
@@ -792,5 +792,6 @@ if __name__ == "__main__":
     steps = ten_minutes * 6 # 1 hour of game time
     runsteps = steps * 5 * num_cpu # total timesteps for 5 hours of game time across all cpus
     for e in range(0, episodes):
-        model = train_model(run_env, runsteps, steps=steps, episode=e, file_name=model_file_name, save_path=args.output_dir)
+        model = train_model(run_env, runsteps, steps=steps, episode=e, 
+                            file_name=model_file_name, save_path=args.output_dir)
         model.save(f"{model_file_name}.zip")
