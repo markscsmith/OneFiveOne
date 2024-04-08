@@ -360,15 +360,15 @@ class PyBoyEnv(gym.Env):
         # current_memory = self.pyboy.memory[MEM_START: MEM_END + 1]
         
         offset = self.cart.cart_offset() # + MEM_START
-        caught_pokemon_start = self.caught_pokemon_start - offset
-        caught_pokemon_end = self.caught_pokemon_end - offset
-        seen_pokemon_start = self.seen_pokemon_start - offset
-        seen_pokemon_end = self.seen_pokemon_end - offset
-        item_start = 0xD31E - offset
-        item_end = 0xD345 - offset
+        caught_pokemon_start = self.caught_pokemon_start
+        caught_pokemon_end = self.caught_pokemon_end
+        seen_pokemon_start = self.seen_pokemon_start
+        seen_pokemon_end = self.seen_pokemon_end
+        item_start = 0xD31E + offset
+        item_end = 0xD345 + offset
         curr_pyboy = self.pyboy
-        carried_item_total = curr_pyboy.memory[0xD31D - offset]
-        stored_item_total = curr_pyboy.memory[0xD53A - offset]
+        carried_item_total = curr_pyboy.memory[0xD31D + offset]
+        stored_item_total = curr_pyboy.memory[0xD53A + offset]
 
         last_carried_item_total = self.last_carried_item_total
         last_stored_item_total = self.last_stored_item_total
@@ -390,12 +390,12 @@ class PyBoyEnv(gym.Env):
         
 
         if caught_pokemon_start < caught_pokemon_end:
-            pokemon_caught = np.sum(curr_pyboy.memory[caught_pokemon_start - offset: caught_pokemon_end - offset])
+            pokemon_caught = np.sum(curr_pyboy.memory[caught_pokemon_start: caught_pokemon_end])
         else:
             pokemon_caught = 0
 
         if seen_pokemon_start < seen_pokemon_end:
-            pokemon_seen = np.sum(curr_pyboy.memory[seen_pokemon_start - offset: seen_pokemon_end - offset])
+            pokemon_seen = np.sum(curr_pyboy.memory[seen_pokemon_start: seen_pokemon_end])
         else:
             pokemon_seen = 0
 
@@ -436,11 +436,11 @@ class PyBoyEnv(gym.Env):
                 self.speed_bonus += points * 10
 
 
-        px = curr_pyboy.memory[self.player_x_mem - offset]
-        py = curr_pyboy.memory[self.player_y_mem - offset]
-        pbx = curr_pyboy.memory[self.player_x_block_mem - offset]
-        pby = curr_pyboy.memory[self.player_y_block_mem - offset]
-        map_id = curr_pyboy.memory[self.player_map_mem - offset]
+        px = curr_pyboy.memory[self.player_x_mem]
+        py = curr_pyboy.memory[self.player_y_mem]
+        pbx = curr_pyboy.memory[self.player_x_block_mem]
+        pby = curr_pyboy.memory[self.player_y_block_mem]
+        map_id = curr_pyboy.memory[self.player_map_mem]
 
         if self.last_player_map != map_id:
             if map_id not in self.player_maps:
