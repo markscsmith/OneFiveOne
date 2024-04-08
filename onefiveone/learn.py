@@ -68,8 +68,8 @@ class PokeCart():
         # Pokemon Yellow has offset -1 vs blue and green
         # TODO: Pokemon Gold Silver and Crystal
         carts = {
-            "POKEMONR.GBC": 0,
-            "POKEMONB.GBC": 0,
+            "POKEMONR.GBC": 0 - 1,
+            "POKEMONB.GBC": 0 - 1,
             # I now suddenly understand what was meant by this comment from https://datacrystal.tcrf.net/wiki/Pokémon_Yellow/RAM_map: "The RAM map for this game has an offset of -1 from the one on Red and Blue."
             # I think I tried this before, but I didn't grok it at the time due to other memory read glitches and bugs I introduced
             "POKEMONY.GBC": 0 - 1,
