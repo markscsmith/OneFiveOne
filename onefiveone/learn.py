@@ -33,6 +33,10 @@ from tqdm import tqdm
 # MEM_START = 0xCC3C
 MEM_START = 0xD2F7
 MEM_END = 0xDEE1
+SPRITE_MAP_START = 0xC3A0
+SPRITE_MAP_END = 0xC507
+
+LOG_FREQ = 1000
 
 CGB = True
 
@@ -100,7 +104,7 @@ class TensorboardLoggingCallback(BaseCallback):
         super(TensorboardLoggingCallback, self).__init__(verbose)
         # We set the frequency at which the callback will be called
         # This could be set to be called at each step by setting it to 1
-        self.log_freq = 1000
+        self.log_freq = LOG_FREQ
         self.buttons_names = "UDLRABS!-udlrabs.-"
 
     def _on_step(self) -> bool:
@@ -299,7 +303,7 @@ class PyBoyEnv(gym.Env):
         self.speed_bonus = 0
 
         self.last_memory_update_frame = 0
-        self.current_memory = self.get_memory_range()
+        self.current_memory = None
 
         self.buttons = {
             0: (WindowEvent.PASS, "-"),
@@ -334,7 +338,7 @@ class PyBoyEnv(gym.Env):
         # self.action_space = gym.spaces.Box(low=0, high=1, shape=(12,), dtype=np.float32)
         # self.action_space = gym.spaces.Box(low=0, high=1, shape=(8,), dtype=np.float32)
         self.action_space = gym.spaces.Discrete(8, start=0)
-        size = MEM_END - MEM_START + 2
+        size = SPRITE_MAP_END - SPRITE_MAP_START + 1
         # size = MEM_START MEM_END + 2
         self.observation_space = gym.spaces.Box(
             low=0, high=255, shape=(size,), dtype=np.uint16)
@@ -348,17 +352,18 @@ class PyBoyEnv(gym.Env):
 
     def calculate_reward(self):
         # calculate total bits from the memory values
-        current_memory = np.array(self.get_memory_range())
-        offset = self.cart.cart_offset()#  - MEM_START
-        caught_pokemon_start = self.caught_pokemon_start
-        caught_pokemon_end = self.caught_pokemon_end
-        seen_pokemon_start = self.seen_pokemon_start
-        seen_pokemon_end = self.seen_pokemon_end
+        # current_memory = self.pyboy.memory[MEM_START: MEM_END + 1]
+        
+        offset = self.cart.cart_offset() # + MEM_START
+        caught_pokemon_start = self.caught_pokemon_start - offset
+        caught_pokemon_end = self.caught_pokemon_end - offset
+        seen_pokemon_start = self.seen_pokemon_start - offset
+        seen_pokemon_end = self.seen_pokemon_end - offset
         item_start = 0xD31E - offset
         item_end = 0xD345 - offset
-
-        carried_item_total = current_memory[0xD31D - offset]
-        stored_item_total = current_memory[0xD53A - offset]
+        curr_pyboy = self.pyboy
+        carried_item_total = curr_pyboy.memory[0xD31D - offset]
+        stored_item_total = curr_pyboy.memory[0xD53A - offset]
 
         last_carried_item_total = self.last_carried_item_total
         last_stored_item_total = self.last_stored_item_total
@@ -379,19 +384,19 @@ class PyBoyEnv(gym.Env):
         speed_bonus_calc = (self.max_frames - self.frames) / (self.max_frames + 1)
 
         if caught_pokemon_start < caught_pokemon_end:
-            pokemon_caught = np.sum(current_memory[caught_pokemon_start: caught_pokemon_end])
+            pokemon_caught = np.sum(curr_pyboy.memory[caught_pokemon_start - offset: caught_pokemon_end - offset])
         else:
             pokemon_caught = 0
 
         if seen_pokemon_start < seen_pokemon_end:
-            pokemon_seen = np.sum(current_memory[seen_pokemon_start: seen_pokemon_end])
+            pokemon_seen = np.sum(curr_pyboy.memory[seen_pokemon_start - offset: seen_pokemon_end - offset])
         else:
             pokemon_seen = 0
 
         # self.pokedex = {i: bin(values).count('1') for i, values in enumerate(current_memory[item_start: item_end]) if item_start < item_end}
 
 
-        items = current_memory[item_start: item_end]
+        items = curr_pyboy.memory[item_start: item_end]
         # extract every 2 indexes from the list
         item_counts = items[1::2]
         item_types = items[0::2]
@@ -425,11 +430,11 @@ class PyBoyEnv(gym.Env):
                 self.speed_bonus += points * 10
 
 
-        px = self.current_memory[self.player_x_mem]
-        py = self.current_memory[self.player_y_mem]
-        pbx = self.current_memory[self.player_x_block_mem]
-        pby = self.current_memory[self.player_y_block_mem]
-        map_id = self.current_memory[self.player_map_mem]
+        px = curr_pyboy.memory[self.player_x_mem - offset]
+        py = curr_pyboy.memory[self.player_y_mem - offset]
+        pbx = curr_pyboy.memory[self.player_x_block_mem - offset]
+        pby = curr_pyboy.memory[self.player_y_block_mem - offset]
+        map_id = curr_pyboy.memory[self.player_map_mem - offset]
 
         if self.last_player_map != map_id:
             if map_id not in self.player_maps:
@@ -551,7 +556,7 @@ class PyBoyEnv(gym.Env):
         terminated = False
 
         info = {"reward": reward,
-                "actions": self.actions,
+                "actions": self.actions[LOG_FREQ:],
                 "emunum": self.emunum,
                 "frames": self.frames,
                 "pokemon_caught": self.last_pokemon_count,
@@ -560,16 +565,15 @@ class PyBoyEnv(gym.Env):
                 "stationary_frames": self.stationary_frames,
                 "items": self.item_points,
                 "speed_bonus": self.speed_bonus,}
-        mem = self.get_memory_range()
-        self.current_memory = mem
-        observation = np.append(mem[MEM_START:MEM_END+1], reward)
-        # convert observation into float16s
-        observation = observation.astype(np.float16)
+        screen = self.pyboy.memory[SPRITE_MAP_START:SPRITE_MAP_END]
+        observation = np.append(screen, reward)
+        # convert observation into float32s
+        observation = observation.astype(np.float32)
         return observation, reward, terminated, truncated, info
 
-    def get_memory_range(self):
-        memory_values = self.pyboy.memory[0: MEM_END + 1]
-        return memory_values
+    # def get_memory_range(self):
+    #     memory_values = self.pyboy.memory[MEM_START: MEM_END + 1]
+    #     return memory_values
     
 
     # def get_reward_memory_range(self):
@@ -641,11 +645,11 @@ class PyBoyEnv(gym.Env):
         self.last_player_x_block = 0
         self.last_player_y_block = 0
         reward = self.calculate_reward()
-        mem = self.get_memory_range()
+        screen = self.pyboy.memory[SPRITE_MAP_START:SPRITE_MAP_END]
         observation = np.append(
-            mem[MEM_START:MEM_END+1], reward)
-        observation = observation.astype(np.float16)
-        self.current_memory = mem
+            screen, reward)
+        observation = observation.astype(np.float32)
+        
         print("RESET:OS:SHAPE:", observation.shape, seed, file=sys.stderr)
         return observation, {"seed": seed}
 
@@ -675,11 +679,11 @@ def make_env(game_path, emunum):
 
 
 def train_model(env, total_steps, steps, episode, file_name, save_path = "ofo"):
-    first_layer_size = MEM_END - MEM_START + 2
+    first_layer_size = SPRITE_MAP_END - SPRITE_MAP_START + 1
     policy_kwargs = dict(
         # features_extractor_class=CustomFeatureExtractor,
         features_extractor_kwargs={},
-        net_arch=dict(pi=[first_layer_size, first_layer_size, first_layer_size, first_layer_size // 2], vf=[first_layer_size, first_layer_size, first_layer_size, first_layer_size // 2]),
+        net_arch=dict(pi=[first_layer_size, first_layer_size // 2, first_layer_size // 2, first_layer_size // 4 , 8], vf=[first_layer_size, first_layer_size // 2, first_layer_size // 2, first_layer_size // 4, 8]),
         activation_fn=nn.ReLU,
     )
 
