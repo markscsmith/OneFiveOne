@@ -254,7 +254,7 @@ class PyBoyEnv(gym.Env):
         self.pyboy = PyBoy(game_path, window="null", cgb=CGB)
         self.game_path = game_path
         self.menu_value = None
-        self.n = 30 # 30 seconds of frames
+        self.n = 15 # 30 seconds of frames
         self.last_n_frames = [self.pyboy.memory[SPRITE_MAP_START:SPRITE_MAP_END]] * self.n
         self.renderer = Renderer()
         self.actions = ""
@@ -680,11 +680,11 @@ def make_env(game_path, emunum):
 
 
 def train_model(env, total_steps, steps, episode, file_name, save_path = "ofo"):
-    first_layer_size = (30 * 359) + 1
+    first_layer_size = (15 * 359) + 1
     policy_kwargs = dict(
         # features_extractor_class=CustomFeatureExtractor,
         features_extractor_kwargs={},
-        net_arch=dict(pi=[first_layer_size, first_layer_size // 2, first_layer_size // 2, first_layer_size // 4 , 8], vf=[first_layer_size, first_layer_size // 2, first_layer_size // 2, first_layer_size // 4, 8]),
+        net_arch=dict(pi=[first_layer_size, first_layer_size // 2, first_layer_size // 4, first_layer_size // 8 , 8], vf=[first_layer_size, first_layer_size // 2, first_layer_size // 2, first_layer_size // 4, 8]),
         activation_fn=nn.ReLU,
     )
 
@@ -712,7 +712,7 @@ def train_model(env, total_steps, steps, episode, file_name, save_path = "ofo"):
                         # Reduce batch size if it's too large but ensure a minimum size for stability.
                         batch_size=steps // 8,
                         # Adjusted for potentially more stable learning across batches.
-                        n_epochs=13,
+                        n_epochs=3,
                         # Increased to give more importance to future rewards, can help escape repetitive actions.
                         gamma=0.9998,
                         # Adjusted for a better balance between bias and variance in advantage estimation.
