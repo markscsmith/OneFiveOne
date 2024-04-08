@@ -390,12 +390,13 @@ class PyBoyEnv(gym.Env):
         
 
         if caught_pokemon_start < caught_pokemon_end:
-            pokemon_caught = np.sum(curr_pyboy.memory[caught_pokemon_start: caught_pokemon_end])
+            pokemon_caught = np.sum([bin(byte).count('1') for byte in curr_pyboy.memory[caught_pokemon_start: caught_pokemon_end]])
         else:
             pokemon_caught = 0
 
         if seen_pokemon_start < seen_pokemon_end:
-            pokemon_seen = np.sum(curr_pyboy.memory[seen_pokemon_start: seen_pokemon_end])
+            pokemon_seen = np.sum([bin(byte).count('1') for byte in curr_pyboy.memory[seen_pokemon_start: seen_pokemon_end]])
+            
         else:
             pokemon_seen = 0
 
