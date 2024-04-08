@@ -38,6 +38,9 @@ SPRITE_MAP_END = 0xC507
 
 LOG_FREQ = 1000
 
+PRESS_FRAMES = 8
+RELEASE_FRAMES = 16
+
 CGB = True
 
 class PokeCart():
@@ -254,8 +257,9 @@ class PyBoyEnv(gym.Env):
         self.pyboy = PyBoy(game_path, window="null", cgb=CGB)
         self.game_path = game_path
         self.menu_value = None
-        self.n = 15 # 30 seconds of frames
-        self.last_n_frames = [self.pyboy.memory[SPRITE_MAP_START:SPRITE_MAP_END]] * self.n
+        self.n = 24 # 30 seconds of frames
+        self.last_n_frames = [self.pyboy.memory[SPRITE_MAP_START:SPRITE_MAP_END].copy() for _ in range(self.n)]
+        
         self.renderer = Renderer()
         self.actions = ""
         self.screen_images = []
@@ -350,7 +354,7 @@ class PyBoyEnv(gym.Env):
     def generate_screen_ndarray(self):
         return self.pyboy.screen.ndarray
 
-
+    
     def calculate_reward(self):
         # calculate total bits from the memory values
         # current_memory = self.pyboy.memory[MEM_START: MEM_END + 1]
@@ -383,6 +387,7 @@ class PyBoyEnv(gym.Env):
             self.last_total_items = carried_item_total + stored_item_total
 
         speed_bonus_calc = (self.max_frames - self.frames) / (self.max_frames + 1)
+        
 
         if caught_pokemon_start < caught_pokemon_end:
             pokemon_caught = np.sum(curr_pyboy.memory[caught_pokemon_start - offset: caught_pokemon_end - offset])
@@ -440,7 +445,7 @@ class PyBoyEnv(gym.Env):
         if self.last_player_map != map_id:
             if map_id not in self.player_maps:
                 self.player_maps.add(map_id)
-                self.speed_bonus += len(self.player_maps) * 10 * speed_bonus_calc
+                self.speed_bonus += len(self.player_maps) * speed_bonus_calc
 
         if self.last_player_x == px and self.last_player_y == py and self.last_player_x_block == pbx and self.last_player_y_block == pby and self.last_player_map == map_id:
             self.stationary_frames += 1
@@ -462,9 +467,9 @@ class PyBoyEnv(gym.Env):
 
         if pokemon_caught > self.last_pokemon_count:
             # Give a backtrack bonus and reset the explored list
-            self.backtrack_bonus = len(self.visited_xy)
+            self.backtrack_bonus += len(self.visited_xy)
             self.visited_xy = set()
-        reward = (len(self.player_maps) * 1000 + (self.backtrack_bonus + len(self.visited_xy)) // 10) // 10
+        reward = (len(self.player_maps) * 100 + (self.backtrack_bonus + len(self.visited_xy)) // 10) // 10
 
 
         last_poke = self.last_pokemon_count
@@ -475,7 +480,7 @@ class PyBoyEnv(gym.Env):
         
         if pokemon_seen > last_poke_seen:
             self.last_seen_pokemon_count = pokemon_seen
-            self.speed_bonus +=  reward * (speed_bonus_calc) // 2
+            self.speed_bonus +=  reward  // 2 * (speed_bonus_calc) 
 
         
 
@@ -530,17 +535,17 @@ class PyBoyEnv(gym.Env):
                     f"Reset: {self.emunum:2d} 🟢 {self.last_pokemon_count:3d} 👀 {self.last_seen_pokemon_count:3d} 🎬 {self.frames:6d} 🌎 {len(self.visited_xy):3d}:{len(self.player_maps):3d}🏆 {self.last_score:7.2f} 🎒 {item_score:3d} 🐆 {self.speed_bonus:7.2f} 🦶 {self.stationary_frames:3d} X: {self.last_player_x:3d} Y: {self.last_player_y:3d} XB: {self.last_player_x_block:3d} YB: {self.last_player_y_block:3d}, Map: {self.last_player_map:3d} Actions {' '.join(self.actions[-6:])} {len(self.actions)}")
 
     # TODO: build expanding pixel map to show extents of game travelled. (minimap?) Use 3d numpy array to store visited pixels. performance?
-
+    
     def step(self, action):
         self.frames = self.pyboy.frame_count
         button_1, button_name_1 = self.buttons[action]
         button_2, _ = self.buttons[action + 8]
         self.pyboy.send_input(button_1)
-        for _ in range(8):
+        for _ in range(PRESS_FRAMES):
             self.pyboy.tick()
         #for _ in range(ticks):
         self.pyboy.send_input(button_2)
-        for _ in range(16):
+        for _ in range(RELEASE_FRAMES):
             self.pyboy.tick()
         self.actions = f"{self.actions}{button_name_1}"
         #self.actions = self.actions + (f"{button_name_1}")
@@ -566,12 +571,12 @@ class PyBoyEnv(gym.Env):
                 "stationary_frames": self.stationary_frames,
                 "items": self.item_points,
                 "speed_bonus": self.speed_bonus,}
-        screen = self.pyboy.memory[SPRITE_MAP_START:SPRITE_MAP_END]
-        self.last_n_frames.pop(0)
-        self.last_n_frames.append(screen)
+        screen = self.pyboy.memory[SPRITE_MAP_START:SPRITE_MAP_END].copy()
+        self.last_n_frames[:-1] = self.last_n_frames[1:]
+        self.last_n_frames[-1] = screen
         observation = np.append(self.last_n_frames, reward)
         # convert observation into float32s
-        observation = observation.astype(np.float32)
+        observation = observation.astype(np.int16)
         return observation, reward, terminated, truncated, info
 
     # def get_memory_range(self):
@@ -648,7 +653,7 @@ class PyBoyEnv(gym.Env):
         self.last_player_x_block = 0
         self.last_player_y_block = 0
         reward = self.calculate_reward()
-        self.last_n_frames = [self.pyboy.memory[SPRITE_MAP_START:SPRITE_MAP_END]] * self.n
+        self.last_n_frames = [self.pyboy.memory[SPRITE_MAP_START:SPRITE_MAP_END].copy() for _ in range(self.n)]
         observation = np.append(self.last_n_frames, reward)
         observation = observation.astype(np.float32)
         
@@ -656,7 +661,7 @@ class PyBoyEnv(gym.Env):
         return observation, {"seed": seed}
 
 
-def make_env(game_path, emunum):
+def make_env(game_path, emunum, max_frames=500_000):
     def _init():
         if os.path.exists(game_path + ".state"):
             print(f"Loading state {game_path}.state")
@@ -668,7 +673,7 @@ def make_env(game_path, emunum):
                 ext = ".ogb_state"
                 
                 
-            new_env = PyBoyEnv(game_path, emunum=emunum, save_state_path=game_path + ext)
+            new_env = PyBoyEnv(game_path, emunum=emunum, save_state_path=game_path + ext, max_frames=max_frames)
             new_env.pyboy.load_state(open(game_path + ext, "rb"))
         else:
             print(f"Error: No state file found for {game_path}.state")
@@ -678,14 +683,13 @@ def make_env(game_path, emunum):
     return _init
 
 
-
 def train_model(env, total_steps, steps, episode, file_name, save_path = "ofo"):
-    first_layer_size = (15 * 359) + 1
+    first_layer_size = (24 * 359) + 1
     policy_kwargs = dict(
         # features_extractor_class=CustomFeatureExtractor,
         features_extractor_kwargs={},
-        net_arch=dict(pi=[first_layer_size, first_layer_size // 2, first_layer_size // 4, first_layer_size // 8 , 8], vf=[first_layer_size, first_layer_size // 2, first_layer_size // 2, first_layer_size // 4, 8]),
-        activation_fn=nn.ReLU,
+        # net_arch=dict(pi=[first_layer_size, first_layer_size // 4, 8], vf=[first_layer_size * 2, first_layer_size, first_layer_size // 2, 64]),
+        # activation_fn=nn.ReLU,
     )
 
     device = "cpu"
@@ -695,6 +699,8 @@ def train_model(env, total_steps, steps, episode, file_name, save_path = "ofo"):
         else device
     )
     device = "cuda" if torch.cuda.is_available() else device
+    if device == "cuda":
+        torch.backends.cuda.matmul.allow_tf32 = True
     tensorboard_log = f"{save_path}/tensorboard/{os.uname()[1]}-{time.time()-episode}"
     if exists(file_name + '.zip'):
         print('\nloading checkpoint')
@@ -705,18 +711,19 @@ def train_model(env, total_steps, steps, episode, file_name, save_path = "ofo"):
     else:
         # n_steps = steps * num_cpu
         tensorboard_log = f"{save_path}/tensorboard/{os.uname()[1]}-{time.time()}-{episode}"
+        
         run_model = PPO(policy="MlpPolicy",
                         
                         # Reduce n_steps if too large; ensure not less than some minimum like 2048 for sufficient learning per update.
                         n_steps=steps,
                         # Reduce batch size if it's too large but ensure a minimum size for stability.
-                        batch_size=steps // 8,
+                        batch_size=steps // 4,
                         # Adjusted for potentially more stable learning across batches.
-                        n_epochs=3,
+                        n_epochs=13,
                         # Increased to give more importance to future rewards, can help escape repetitive actions.
                         gamma=0.9998,
                         # Adjusted for a better balance between bias and variance in advantage estimation.
-                        gae_lambda=0.998,
+                        # gae_lambda=0.998,
                         learning_rate=learning_rate_schedule,  # Standard starting point for PPO, adjust based on performance.
                         # learning_rate=0.0002,
                         env=env,
@@ -780,6 +787,7 @@ if __name__ == "__main__":
     runsteps = int(3600 * (hrs))
     # num_cpu = 1
     run_env = None
+    max_frames = PRESS_FRAMES + RELEASE_FRAMES * runsteps
     if num_cpu == 1:
         run_env = DummyVecEnv([make_env(args.game_path, 0)])
     else:
@@ -791,8 +799,8 @@ if __name__ == "__main__":
     # episodes = 13
     episodes = 13
     ten_minutes = 600 # 10 minutes of game time in frames
-    steps = ten_minutes * 6 # 1 hour of game time
-    runsteps = steps * 5 * num_cpu # total timesteps for 5 hours of game time across all cpus
+    steps = ten_minutes * 3 # .5 hour of game time
+    runsteps = steps * 10 * num_cpu # total timesteps for 5 hours of game time across all cpus
     for e in range(0, episodes):
         model = train_model(run_env, runsteps, steps=steps, episode=e, 
                             file_name=model_file_name, save_path=args.output_dir)
