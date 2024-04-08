@@ -672,7 +672,6 @@ def make_env(game_path, emunum):
             print(f"Error: No state file found for {game_path}.state")
             exit(1)
 
-        new_env.pyboy.set_emulation_speed(0)
         return new_env
     return _init
 
