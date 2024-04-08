@@ -254,8 +254,8 @@ class PyBoyEnv(gym.Env):
         self.pyboy = PyBoy(game_path, window="null", cgb=CGB)
         self.game_path = game_path
         self.menu_value = None
-        self.n = 21600  # 15 minutes of game time in frames
-        self.last_n_frames = [self.pyboy.screen.ndarray] * self.n
+        self.n = 30 # 30 seconds of frames
+        self.last_n_frames = [self.pyboy.memory[SPRITE_MAP_START:SPRITE_MAP_END]] * self.n
         self.renderer = Renderer()
         self.actions = ""
         self.screen_images = []
@@ -338,7 +338,8 @@ class PyBoyEnv(gym.Env):
         # self.action_space = gym.spaces.Box(low=0, high=1, shape=(12,), dtype=np.float32)
         # self.action_space = gym.spaces.Box(low=0, high=1, shape=(8,), dtype=np.float32)
         self.action_space = gym.spaces.Discrete(8, start=0)
-        size = SPRITE_MAP_END - SPRITE_MAP_START + 1
+        # size = SPRITE_MAP_END - SPRITE_MAP_START + 1
+        size = (self.n * 359) + 1
         # size = MEM_START MEM_END + 2
         self.observation_space = gym.spaces.Box(
             low=0, high=255, shape=(size,), dtype=np.uint16)
@@ -566,7 +567,9 @@ class PyBoyEnv(gym.Env):
                 "items": self.item_points,
                 "speed_bonus": self.speed_bonus,}
         screen = self.pyboy.memory[SPRITE_MAP_START:SPRITE_MAP_END]
-        observation = np.append(screen, reward)
+        self.last_n_frames.pop(0)
+        self.last_n_frames.append(screen)
+        observation = np.append(self.last_n_frames, reward)
         # convert observation into float32s
         observation = observation.astype(np.float32)
         return observation, reward, terminated, truncated, info
@@ -645,9 +648,8 @@ class PyBoyEnv(gym.Env):
         self.last_player_x_block = 0
         self.last_player_y_block = 0
         reward = self.calculate_reward()
-        screen = self.pyboy.memory[SPRITE_MAP_START:SPRITE_MAP_END]
-        observation = np.append(
-            screen, reward)
+        self.last_n_frames = [self.pyboy.memory[SPRITE_MAP_START:SPRITE_MAP_END]] * self.n
+        observation = np.append(self.last_n_frames, reward)
         observation = observation.astype(np.float32)
         
         print("RESET:OS:SHAPE:", observation.shape, seed, file=sys.stderr)
@@ -678,7 +680,7 @@ def make_env(game_path, emunum):
 
 
 def train_model(env, total_steps, steps, episode, file_name, save_path = "ofo"):
-    first_layer_size = SPRITE_MAP_END - SPRITE_MAP_START + 1
+    first_layer_size = (30 * 359) + 1
     policy_kwargs = dict(
         # features_extractor_class=CustomFeatureExtractor,
         features_extractor_kwargs={},
