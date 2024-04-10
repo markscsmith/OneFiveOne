@@ -689,7 +689,7 @@ def make_env(game_path, emunum, max_frames=500_000):
 
 def train_model(env, total_steps, steps, episode, file_name, save_path = "ofo"):
     # first_layer_size = (24 * 359) + 1
-    first_layer_size = 4192
+    first_layer_size = 4192 * 2 
     policy_kwargs = dict(
         # features_extractor_class=CustomFeatureExtractor,
         features_extractor_kwargs={},
@@ -725,10 +725,10 @@ def train_model(env, total_steps, steps, episode, file_name, save_path = "ofo"):
                         # Adjusted for potentially more stable learning across batches.
                         n_epochs=13,
                         # Increased to give more importance to future rewards, can help escape repetitive actions.
-                        gamma=0.9998,
+                        gamma=0.998,
                         # Adjusted for a better balance between bias and variance in advantage estimation.
                         # gae_lambda=0.998,
-                        learning_rate=learning_rate_schedule,  # Standard starting point for PPO, adjust based on performance.
+                        # learning_rate=learning_rate_schedule,  # Standard starting point for PPO, adjust based on performance.
                         # learning_rate=0.0002,
                         env=env,
                         # Ensure this aligns with the complexities of your environment.
