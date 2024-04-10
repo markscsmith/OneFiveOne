@@ -688,12 +688,13 @@ def make_env(game_path, emunum, max_frames=500_000):
 
 
 def train_model(env, total_steps, steps, episode, file_name, save_path = "ofo"):
-    first_layer_size = (24 * 359) + 1
+    # first_layer_size = (24 * 359) + 1
+    first_layer_size = 4192 * 4
     policy_kwargs = dict(
         # features_extractor_class=CustomFeatureExtractor,
         features_extractor_kwargs={},
-        # net_arch=dict(pi=[first_layer_size, first_layer_size // 4, 8], vf=[first_layer_size * 2, first_layer_size, first_layer_size // 2, 64]),
-        # activation_fn=nn.ReLU,
+        net_arch=dict(pi=[first_layer_size * 2, first_layer_size, first_layer_size // 4, first_layer_size // 8], vf=[first_layer_size * 2, first_layer_size, first_layer_size // 4, first_layer_size // 8]),
+        activation_fn=nn.ReLU,
     )
 
     device = "cpu"
