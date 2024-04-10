@@ -689,11 +689,11 @@ def make_env(game_path, emunum, max_frames=500_000):
 
 def train_model(env, total_steps, steps, episode, file_name, save_path = "ofo"):
     # first_layer_size = (24 * 359) + 1
-    first_layer_size = 4192 * 4
+    first_layer_size = 4192
     policy_kwargs = dict(
         # features_extractor_class=CustomFeatureExtractor,
         features_extractor_kwargs={},
-        net_arch=dict(pi=[first_layer_size * 2, first_layer_size, first_layer_size // 4, first_layer_size // 8], vf=[first_layer_size * 2, first_layer_size, first_layer_size // 4, first_layer_size // 8]),
+        net_arch=dict(pi=[first_layer_size, first_layer_size, first_layer_size // 4, first_layer_size // 8], vf=[first_layer_size, first_layer_size, first_layer_size // 4, first_layer_size // 8]),
         activation_fn=nn.ReLU,
     )
 
@@ -704,8 +704,7 @@ def train_model(env, total_steps, steps, episode, file_name, save_path = "ofo"):
         else device
     )
     device = "cuda" if torch.cuda.is_available() else device
-    if device == "cuda":
-        torch.backends.cuda.matmul.allow_tf32 = True
+
     tensorboard_log = f"{save_path}/tensorboard/{os.uname()[1]}-{time.time()-episode}"
     if exists(file_name + '.zip'):
         print('\nloading checkpoint')
