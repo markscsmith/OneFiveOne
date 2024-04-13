@@ -689,7 +689,7 @@ def make_env(game_path, emunum, max_frames=500_000):
 
 def train_model(env, total_steps, steps, episode, file_name, save_path = "ofo"):
     # first_layer_size = (24 * 359) + 1
-    first_layer_size = 4192 * 2 
+    first_layer_size = 4192 
     policy_kwargs = dict(
         # features_extractor_class=CustomFeatureExtractor,
         features_extractor_kwargs={},
