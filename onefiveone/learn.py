@@ -338,17 +338,25 @@ class PyBoyEnv(gym.Env):
 
         # Format the datetime as a string suitable for a Unix filename
         self.filename_datetime = current_datetime.strftime("%Y-%m-%d_%H-%M-%S")
+        size = (self.n * 359) + 1
 
         # Define actioqn_space and observation_space
         # self.action_space = gym.spaces.Discrete(256)
         # self.action_space = gym.spaces.Box(low=0, high=1, shape=(12,), dtype=np.float32)
         # self.action_space = gym.spaces.Box(low=0, high=1, shape=(8,), dtype=np.float32)
+        # if self.device == "mps":
+        #     self.observation_space = gym.spaces.Box(
+        #     low=0, high=255, shape=(size,), dtype=np.float32)    
+        # else:
+        #     self.observation_space = gym.spaces.Box(
+        #     low=0, high=255, shape=(size,), dtype=np.float64)
+        self.observation_space = gym.spaces.Box(
+            low=0, high=255, shape=(size,), dtype=np.float32)    
         self.action_space = gym.spaces.Discrete(8, start=0)
         # size = SPRITE_MAP_END - SPRITE_MAP_START + 1
-        size = (self.n * 359) + 1
+        
         # size = MEM_START MEM_END + 2
-        self.observation_space = gym.spaces.Box(
-            low=0, high=255, shape=(size,), dtype=np.uint16)
+        
 
     def generate_image(self):
         return self.pyboy.screen.ndarray
@@ -582,8 +590,10 @@ class PyBoyEnv(gym.Env):
         self.last_n_frames[-1] = screen
         observation = np.append(self.last_n_frames, reward)
         # convert observation into float32s
-        if self.device == "mps":
-            observation = observation.astype(np.float32)
+        # if self.device == "mps":
+        #     observation = observation.astype(np.float32)
+        # else:
+        #     observation = observation.astype(np.float64)
         return observation, reward, terminated, truncated, info
 
     # def get_memory_range(self):
@@ -662,9 +672,10 @@ class PyBoyEnv(gym.Env):
         reward = self.calculate_reward()
         self.last_n_frames = [self.pyboy.memory[SPRITE_MAP_START:SPRITE_MAP_END].copy() for _ in range(self.n)]
         observation = np.append(self.last_n_frames, reward)
-        if self.device == "mps":
-            observation = observation.astype(np.float32)
-        
+        # if self.device == "mps":
+        #     observation = observation.astype(np.float32)
+        # else:
+        #     observation = observation.astype(np.float64)
         print("RESET:OS:SHAPE:", observation.shape, seed, file=sys.stderr)
         return observation, {"seed": seed}
 
@@ -691,13 +702,13 @@ def make_env(game_path, emunum, max_frames=500_000, device="cpu"):
     return _init
 
 
-def train_model(env, total_steps, steps, episode, file_name, save_path = "ofo", device="cpu"):
+def train_model(env, total_steps, batch_size, episode, file_name, save_path = "ofo", device="cpu"):
     # first_layer_size = (24 * 359) + 1
     first_layer_size = 4192 
     policy_kwargs = dict(
         # features_extractor_class=CustomFeatureExtractor,
         features_extractor_kwargs={},
-        net_arch=dict(pi=[first_layer_size, first_layer_size, first_layer_size // 4, first_layer_size // 8], vf=[first_layer_size, first_layer_size, first_layer_size // 4, first_layer_size // 8]),
+        net_arch=dict(pi=[first_layer_size, first_layer_size // 2, 8], vf=[first_layer_size, first_layer_size // 2, 8]),
         activation_fn=nn.ReLU,
     )
     # make sure we take care of accidental trailing slashes in the save path which
@@ -706,13 +717,37 @@ def train_model(env, total_steps, steps, episode, file_name, save_path = "ofo", 
 
 
     tensorboard_log = f"{save_path}/tensorboard/{os.uname()[1]}-{time.time()-episode}"
-    checkpoints = glob.glob(f"{checkpoint_path}*/*.zip")
+    checkpoints = glob.glob(f"{checkpoint_path}*.zip/*.zip")
     if len(checkpoints) > 0:
         print(f"Checkpoints found: {checkpoints}")
         # get the newest checkpoint
         newest_checkpoint = max(checkpoints, key=os.path.getctime)
         print(f"Newest checkpoint: {newest_checkpoint}")
-        run_model = PPO.load(newest_checkpoint, env=env, tensorboard_log=tensorboard_log, device=device)
+        run_model = PPO(policy="MlpPolicy",
+                        
+                        # Reduce n_steps if too large; ensure not less than some minimum like 2048 for sufficient learning per update.
+                        n_steps=batch_size * 4,
+                        # Reduce batch size if it's too large but ensure a minimum size for stability.
+                        batch_size=batch_size,
+                        # Adjusted for potentially more stable learning across batches.
+                        n_epochs=13,
+                        # Increased to give more importance to future rewards, can help escape repetitive actions.
+                        gamma=0.9998,
+                        # Adjusted for a better balance between bias and variance in advantage estimation.
+                        gae_lambda=0.998,
+                        learning_rate=learning_rate_schedule,  # Standard starting point for PPO, adjust based on performance.
+                        # learning_rate=0.0002,
+                        env=env,
+                        # Ensure this aligns with the complexities of your environment.
+                        policy_kwargs=policy_kwargs,
+                        verbose=1,
+                        device=device,
+                        # Reduced for less aggressive exploration after initial learning, adjust based on needs.
+                        ent_coef=0.01,
+                        tensorboard_log=tensorboard_log,
+                        # vf_coef=0.5,  # Adjusted to balance value function loss importance.
+                        )
+        run_model = PPO.load(newest_checkpoint, env=env, tensorboard_log=tensorboard_log)
         print('\ncheckpoint loaded')
 
     # if exists(file_name + '.zip'):
@@ -724,14 +759,13 @@ def train_model(env, total_steps, steps, episode, file_name, save_path = "ofo", 
 
     else:
         # n_steps = steps * num_cpu
-        tensorboard_log = f"{save_path}/tensorboard/{os.uname()[1]}-{time.time()}-{episode}"
         
         run_model = PPO(policy="MlpPolicy",
                         
                         # Reduce n_steps if too large; ensure not less than some minimum like 2048 for sufficient learning per update.
-                        n_steps=steps,
+                        n_steps=batch_size * 4,
                         # Reduce batch size if it's too large but ensure a minimum size for stability.
-                        batch_size=steps // 4,
+                        batch_size=batch_size,
                         # Adjusted for potentially more stable learning across batches.
                         n_epochs=13,
                         # Increased to give more importance to future rewards, can help escape repetitive actions.
@@ -759,9 +793,9 @@ def train_model(env, total_steps, steps, episode, file_name, save_path = "ofo", 
     tbcallback = None
 
     checkpoint_callback = CheckpointCallback(
-        save_freq=steps * 2, save_path=f"{save_path}_chkpt/{os.uname()[1]}-{time.time()}.zip", name_prefix="poke")
+        save_freq=batch_size, save_path=f"{save_path}_chkpt/{os.uname()[1]}-{time.time()}.zip", name_prefix="poke")
     current_stats = EveryNTimesteps(
-        n_steps=steps, callback=PokeCaughtCallback(total_steps))
+        n_steps=batch_size, callback=PokeCaughtCallback(total_steps))
     tbcallback = TensorboardLoggingCallback(tensorboard_log)
     callbacks = [checkpoint_callback, current_stats, tbcallback]
     run_model.learn(total_timesteps=total_steps,
@@ -822,10 +856,12 @@ if __name__ == "__main__":
     # episodes = 13
     episodes = 13 * 6
     ten_minutes = 600 # 10 minutes of game time in frames
-    steps = ten_minutes * 3 # .5 hour of game time
+    steps = ten_minutes * 4 # .5 hour of game time
     runsteps = steps * 10 * num_cpu # total timesteps for 5 hours of game time across all cpus
+    runsteps
+    
     for e in range(0, episodes):
-        model = train_model(run_env, runsteps, steps=steps, episode=e, 
+        model = train_model(env=run_env, total_steps=runsteps, batch_size=steps, episode=e, 
                             file_name=model_file_name, save_path=args.output_dir, device=device)
         
         
