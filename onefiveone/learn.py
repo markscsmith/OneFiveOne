@@ -724,7 +724,7 @@ def train_model(env, total_steps, n_steps, batch_size, episode, file_name, save_
                         # Reduce batch size if it's too large but ensure a minimum size for stability.
                         batch_size=batch_size,
                         # Adjusted for potentially more stable learning across batches.
-                        n_epochs=7,
+                        n_epochs=3,
                         # Increased to give more importance to future rewards, can help escape repetitive actions.
                         gamma=0.9998,
                         # Adjusted for a better balance between bias and variance in advantage estimation.
@@ -741,7 +741,8 @@ def train_model(env, total_steps, n_steps, batch_size, episode, file_name, save_
                         tensorboard_log=tensorboard_log,
                         # vf_coef=0.5,  # Adjusted to balance value function loss importance.
                         )
-        run_model = PPO.load(newest_checkpoint, env=env,)
+        run_model.load(newest_checkpoint, env=env, print_system_info=False, force_reset=True)
+        # run_model = PPO.load(newest_checkpoint, env=env,)
                              # tensorboard_log=tensorboard_log)
         print('\ncheckpoint loaded')
 
