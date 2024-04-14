@@ -252,7 +252,7 @@ def add_string_overlay(
 
 
 class PyBoyEnv(gym.Env):
-    def __init__(self, game_path, emunum, save_state_path=None, max_frames=500_000, **kwargs):
+    def __init__(self, game_path, emunum, save_state_path=None, max_frames=500_000, device="cpu", **kwargs):
         super(PyBoyEnv, self).__init__()
         self.pyboy = PyBoy(game_path, window="null", cgb=CGB)
         self.game_path = game_path
@@ -303,6 +303,7 @@ class PyBoyEnv(gym.Env):
         self.last_total_items = 0
         self.last_carried_item_total = 0
         self.last_stored_item_total = 0
+        self.device = device
 
         self.speed_bonus = 0
 
@@ -659,13 +660,14 @@ class PyBoyEnv(gym.Env):
         reward = self.calculate_reward()
         self.last_n_frames = [self.pyboy.memory[SPRITE_MAP_START:SPRITE_MAP_END].copy() for _ in range(self.n)]
         observation = np.append(self.last_n_frames, reward)
-        observation = observation.astype(np.float32)
+        if self.device == "mps":
+            observation = observation.astype(np.float32)
         
         print("RESET:OS:SHAPE:", observation.shape, seed, file=sys.stderr)
         return observation, {"seed": seed}
 
 
-def make_env(game_path, emunum, max_frames=500_000):
+def make_env(game_path, emunum, max_frames=500_000, device="cpu"):
     def _init():
         if os.path.exists(game_path + ".state"):
             print(f"Loading state {game_path}.state")
@@ -677,7 +679,7 @@ def make_env(game_path, emunum, max_frames=500_000):
                 ext = ".ogb_state"
                 
                 
-            new_env = PyBoyEnv(game_path, emunum=emunum, save_state_path=game_path + ext, max_frames=max_frames)
+            new_env = PyBoyEnv(game_path, emunum=emunum, save_state_path=game_path + ext, max_frames=max_frames, device=device)
             new_env.pyboy.load_state(open(game_path + ext, "rb"))
         else:
             print(f"Error: No state file found for {game_path}.state")
@@ -687,7 +689,7 @@ def make_env(game_path, emunum, max_frames=500_000):
     return _init
 
 
-def train_model(env, total_steps, steps, episode, file_name, save_path = "ofo"):
+def train_model(env, total_steps, steps, episode, file_name, save_path = "ofo", device="cpu"):
     # first_layer_size = (24 * 359) + 1
     first_layer_size = 4192 
     policy_kwargs = dict(
@@ -697,13 +699,7 @@ def train_model(env, total_steps, steps, episode, file_name, save_path = "ofo"):
         activation_fn=nn.ReLU,
     )
 
-    device = "cpu"
-    device = (
-        "mps"
-        if torch.backends.mps.is_available() and torch.backends.mps.is_built()
-        else device
-    )
-    device = "cuda" if torch.cuda.is_available() else device
+
 
     tensorboard_log = f"{save_path}/tensorboard/{os.uname()[1]}-{time.time()-episode}"
     if exists(file_name + '.zip'):
@@ -760,6 +756,13 @@ def train_model(env, total_steps, steps, episode, file_name, save_path = "ofo"):
 
 if __name__ == "__main__":
     # TODO: make path a parameter and use more sensible defaults for non-me users
+    device = "cpu"
+    device = (
+        "mps"
+        if torch.backends.mps.is_available() and torch.backends.mps.is_built()
+        else device
+    )
+    device = "cuda" if torch.cuda.is_available() else device
     
     import argparse
     parser = argparse.ArgumentParser()
@@ -792,11 +795,12 @@ if __name__ == "__main__":
     # num_cpu = 1
     run_env = None
     max_frames = PRESS_FRAMES + RELEASE_FRAMES * runsteps
+
     if num_cpu == 1:
-        run_env = DummyVecEnv([make_env(args.game_path, 0)])
+        run_env = DummyVecEnv([make_env(args.game_path, 0, device=device)])
     else:
         run_env = SubprocVecEnv([make_env(args.game_path,
-                                      emunum) for emunum in range(num_cpu)])
+                                      emunum, device=device) for emunum in range(num_cpu)])
 
     model_file_name = "model"
 
@@ -807,5 +811,5 @@ if __name__ == "__main__":
     runsteps = steps * 10 * num_cpu # total timesteps for 5 hours of game time across all cpus
     for e in range(0, episodes):
         model = train_model(run_env, runsteps, steps=steps, episode=e, 
-                            file_name=model_file_name, save_path=args.output_dir)
+                            file_name=model_file_name, save_path=args.output_dir, device=device)
         model.save(f"{model_file_name}.zip")
