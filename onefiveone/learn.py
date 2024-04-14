@@ -28,6 +28,7 @@ from pyboy.utils import WindowEvent
 from timg import Renderer, Ansi24HblockMethod
 from PIL import Image, ImageDraw, ImageFont
 from tqdm import tqdm
+import glob
 
 # Memory ranges to read in Pokemon Red/Blue (+ Yellow?)
 # MEM_START = 0xCC3C
@@ -581,7 +582,8 @@ class PyBoyEnv(gym.Env):
         self.last_n_frames[-1] = screen
         observation = np.append(self.last_n_frames, reward)
         # convert observation into float32s
-        observation = observation.astype(np.int16)
+        if self.device == "mps":
+            observation = observation.astype(np.float32)
         return observation, reward, terminated, truncated, info
 
     # def get_memory_range(self):
@@ -698,14 +700,26 @@ def train_model(env, total_steps, steps, episode, file_name, save_path = "ofo", 
         net_arch=dict(pi=[first_layer_size, first_layer_size, first_layer_size // 4, first_layer_size // 8], vf=[first_layer_size, first_layer_size, first_layer_size // 4, first_layer_size // 8]),
         activation_fn=nn.ReLU,
     )
-
+    # make sure we take care of accidental trailing slashes in the save path which
+    # would cause the checkpoint path to be incorrect.
+    checkpoint_path = f"{save_path.rstrip('/')}_chkpt/"
 
 
     tensorboard_log = f"{save_path}/tensorboard/{os.uname()[1]}-{time.time()-episode}"
-    if exists(file_name + '.zip'):
-        print('\nloading checkpoint')
-        run_model = PPO.load(file_name, env=env, device=device, tensorboard_log=tensorboard_log)
-        run_model.rollout_buffer.reset()
+    checkpoints = glob.glob(f"{checkpoint_path}*/*.zip")
+    if len(checkpoints) > 0:
+        print(f"Checkpoints found: {checkpoints}")
+        # get the newest checkpoint
+        newest_checkpoint = max(checkpoints, key=os.path.getctime)
+        print(f"Newest checkpoint: {newest_checkpoint}")
+        run_model = PPO.load(newest_checkpoint, env=env, tensorboard_log=tensorboard_log, device=device)
+        print('\ncheckpoint loaded')
+
+    # if exists(file_name + '.zip'):
+    #     print(f"\nloading checkpoint on {device}")
+    #     run_model = PPO.load(file_name, env=env, tensorboard_log=tensorboard_log, device=device)
+    #     print('\ncheckpoint loaded')
+        # run_model.rollout_buffer.reset()
         # run_model.tensorboard_log=f"/Volumes/Scratch/ofo/tensorboard/{os.uname()[1]}-{time.time()}",
 
     else:
@@ -764,6 +778,7 @@ if __name__ == "__main__":
     )
     device = "cuda" if torch.cuda.is_available() else device
     
+    
     import argparse
     parser = argparse.ArgumentParser()
     # TODO: Investigate Pokemon Blue caught = 4 before you have a pokedex. Is this a bug in the game?  Is it a bug in the emulator?  Is it a bug in the memory address? Seems to work fine on Red,
@@ -812,4 +827,5 @@ if __name__ == "__main__":
     for e in range(0, episodes):
         model = train_model(run_env, runsteps, steps=steps, episode=e, 
                             file_name=model_file_name, save_path=args.output_dir, device=device)
-        model.save(f"{model_file_name}.zip")
+        
+        
