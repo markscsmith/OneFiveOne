@@ -730,7 +730,7 @@ def train_model(env, total_steps, batch_size, episode, file_name, save_path = "o
                         # Reduce batch size if it's too large but ensure a minimum size for stability.
                         batch_size=batch_size,
                         # Adjusted for potentially more stable learning across batches.
-                        n_epochs=13,
+                        n_epochs=7,
                         # Increased to give more importance to future rewards, can help escape repetitive actions.
                         gamma=0.9998,
                         # Adjusted for a better balance between bias and variance in advantage estimation.
@@ -834,7 +834,7 @@ if __name__ == "__main__":
     parser.add_argument("--num_hosts", type=int, default=1)
     args = parser.parse_args()
 
-    num_cpu = multiprocessing.cpu_count()
+    num_cpu = multiprocessing.cpu_count() * 2
 
     # hrs = 10  # number of hours (in-game) to run for.
     hrs = 5 # temporarily shorter duration.
@@ -855,7 +855,7 @@ if __name__ == "__main__":
 
     # episodes = 13
     episodes = 13 * 6
-    ten_minutes = 600 # 10 minutes of game time in frames
+    ten_minutes = 60 # 10 minutes of game time in frames
     steps = ten_minutes * 4 # .5 hour of game time
     runsteps = steps * 10 * num_cpu # total timesteps for 5 hours of game time across all cpus
     runsteps
