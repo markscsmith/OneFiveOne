@@ -148,13 +148,6 @@ class TensorboardLoggingCallback(BaseCallback):
                 self.logger.record('reward/average_reward', average_reward)
                 self.logger.record('reward/max_reward', max_reward)
                 self.logger.record('reward/max_items', max_item_points)
-                
-
-
-                    
-                    
-                    
-                    
 
         return True  # Returning True means we will continue training, returning False will stop training
 
@@ -162,13 +155,14 @@ class TensorboardLoggingCallback(BaseCallback):
 class PokeCaughtCallback(BaseCallback):
     def __init__(self, total_timesteps, verbose=0):
         super(PokeCaughtCallback, self).__init__(verbose)
+        self.total_timesteps = total_timesteps
 
         self.timg_render = Renderer()
         self.filename_datetime = datetime.datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
-        self.progress = 0
-        self.total_timesteps = total_timesteps
-        self.progress_bar = tqdm(
-            total=self.total_timesteps, position=0, leave=True)
+        # self.progress = 0
+        # self.total_timesteps = total_timesteps
+        # self.progress_bar = tqdm(
+        #     total=self.total_timesteps, position=0, leave=True)
 
     # def generate_gif_and_actions(self):
     #     actions = self.training_env.get_attr('actions')
@@ -204,8 +198,8 @@ class PokeCaughtCallback(BaseCallback):
         rewards = self.training_env.get_attr('last_score')
         best_env_idx = np.argmax(rewards)
         self.training_env.env_method('render', best_env_idx)
-        self.progress = self.model.num_timesteps
-        self.progress_bar.update(self.progress - self.progress_bar.n)
+        # self.progress = self.model.num_timesteps
+        # self.progress_bar.update(self.total_timesteps - self.progress_bar.n)
         return True
 
 
@@ -509,7 +503,7 @@ class PyBoyEnv(gym.Env):
     def render(self, target_index=None, reset=False):
         if target_index is not None and target_index == self.emunum or reset:
             terminal_size = os.get_terminal_size()
-            terminal_offset = 6
+            terminal_offset = 8
 
             image = self.pyboy.screen.image
             w = 160
@@ -540,10 +534,10 @@ class PyBoyEnv(gym.Env):
             item_score = sum(self.item_points.values())
             if target_index is not None:
                 print(
-                    f"Best: {target_index:2d} 🟢 {self.last_pokemon_count:3d} 👀 {self.last_seen_pokemon_count:3d} 🎬 {self.frames:6d} 🌎 {len(self.visited_xy):3d}:{len(self.player_maps):3d} 🏆 {self.last_score:7.2f} 🎒 {item_score:3d} 🐆 {self.speed_bonus:7.2f}🦶 {self.stationary_frames:3d} X: {self.last_player_x:3d} Y: {self.last_player_y:3d} XB: {self.last_player_x_block:3d} YB: {self.last_player_y_block:3d}, Map: {self.last_player_map:3d} Actions {' '.join(self.actions[-6:])} {len(self.actions)}")
+                    f"🧠: {target_index:2d} 🟢 {self.last_pokemon_count:3d} 👀 {self.last_seen_pokemon_count:3d} 🌎 {len(self.visited_xy):3d}:{len(self.player_maps):3d} 🏆 {self.last_score:7.2f} 🎒 {item_score:3d} 🐆 {self.speed_bonus:7.2f}\n🦶 {self.stationary_frames:3d} [{self.last_player_x:3d},{self.last_player_y:3d},{self.last_player_x_block:3d},{self.last_player_y_block:3d}], 🗺️: {self.last_player_map:3d} Actions {' '.join(self.actions[-6:])} 🎬 {self.frames:6d} {len(self.actions)}")
             if reset:
                 print(
-                    f"Reset: {self.emunum:2d} 🟢 {self.last_pokemon_count:3d} 👀 {self.last_seen_pokemon_count:3d} 🎬 {self.frames:6d} 🌎 {len(self.visited_xy):3d}:{len(self.player_maps):3d}🏆 {self.last_score:7.2f} 🎒 {item_score:3d} 🐆 {self.speed_bonus:7.2f} 🦶 {self.stationary_frames:3d} X: {self.last_player_x:3d} Y: {self.last_player_y:3d} XB: {self.last_player_x_block:3d} YB: {self.last_player_y_block:3d}, Map: {self.last_player_map:3d} Actions {' '.join(self.actions[-6:])} {len(self.actions)}")
+                    f"🛠️: {self.emunum:2d} 🟢 {self.last_pokemon_count:3d} 👀 {self.last_seen_pokemon_count:3d} 🌎 {len(self.visited_xy):3d}:{len(self.player_maps):3d} 🏆 {self.last_score:7.2f} 🎒 {item_score:3d} 🐆 {self.speed_bonus:7.2f}\n🦶 {self.stationary_frames:3d} [{self.last_player_x:3d},{self.last_player_y:3d},{self.last_player_x_block:3d},{self.last_player_y_block:3d}], 🗺️: {self.last_player_map:3d} Actions {' '.join(self.actions[-6:])} 🎬 {self.frames:6d} {len(self.actions)}")
 
     # TODO: build expanding pixel map to show extents of game travelled. (minimap?) Use 3d numpy array to store visited pixels. performance?
     
@@ -702,7 +696,7 @@ def make_env(game_path, emunum, max_frames=500_000, device="cpu"):
     return _init
 
 
-def train_model(env, total_steps, batch_size, episode, file_name, save_path = "ofo", device="cpu"):
+def train_model(env, total_steps, n_steps, batch_size, episode, file_name, save_path = "ofo", device="cpu"):
     # first_layer_size = (24 * 359) + 1
     first_layer_size = 4192 
     policy_kwargs = dict(
@@ -726,7 +720,7 @@ def train_model(env, total_steps, batch_size, episode, file_name, save_path = "o
         run_model = PPO(policy="MlpPolicy",
                         
                         # Reduce n_steps if too large; ensure not less than some minimum like 2048 for sufficient learning per update.
-                        n_steps=batch_size * 4,
+                        n_steps=n_steps,
                         # Reduce batch size if it's too large but ensure a minimum size for stability.
                         batch_size=batch_size,
                         # Adjusted for potentially more stable learning across batches.
@@ -747,7 +741,8 @@ def train_model(env, total_steps, batch_size, episode, file_name, save_path = "o
                         tensorboard_log=tensorboard_log,
                         # vf_coef=0.5,  # Adjusted to balance value function loss importance.
                         )
-        run_model = PPO.load(newest_checkpoint, env=env, tensorboard_log=tensorboard_log)
+        run_model = PPO.load(newest_checkpoint, env=env,)
+                             # tensorboard_log=tensorboard_log)
         print('\ncheckpoint loaded')
 
     # if exists(file_name + '.zip'):
@@ -763,7 +758,7 @@ def train_model(env, total_steps, batch_size, episode, file_name, save_path = "o
         run_model = PPO(policy="MlpPolicy",
                         
                         # Reduce n_steps if too large; ensure not less than some minimum like 2048 for sufficient learning per update.
-                        n_steps=batch_size * 4,
+                        n_steps=n_steps,
                         # Reduce batch size if it's too large but ensure a minimum size for stability.
                         batch_size=batch_size,
                         # Adjusted for potentially more stable learning across batches.
@@ -793,13 +788,14 @@ def train_model(env, total_steps, batch_size, episode, file_name, save_path = "o
     tbcallback = None
 
     checkpoint_callback = CheckpointCallback(
-        save_freq=batch_size, save_path=f"{save_path}_chkpt/{os.uname()[1]}-{time.time()}.zip", name_prefix="poke")
+        save_freq=n_steps, save_path=f"{save_path}_chkpt/{os.uname()[1]}-{time.time()}.zip", name_prefix="poke")
     current_stats = EveryNTimesteps(
-        n_steps=batch_size, callback=PokeCaughtCallback(total_steps))
-    tbcallback = TensorboardLoggingCallback(tensorboard_log)
-    callbacks = [checkpoint_callback, current_stats, tbcallback]
+        n_steps=n_steps, callback=PokeCaughtCallback(total_steps))
+    # tbcallback = TensorboardLoggingCallback(tensorboard_log)
+    # callbacks = [checkpoint_callback, current_stats, tbcallback]
+    callbacks = [checkpoint_callback, current_stats]
     run_model.learn(total_timesteps=total_steps,
-                    progress_bar=False, callback=callbacks)
+                    progress_bar=True, callback=callbacks)
     return run_model
 
 if __name__ == "__main__":
@@ -837,13 +833,13 @@ if __name__ == "__main__":
     num_cpu = multiprocessing.cpu_count()
 
     # hrs = 10  # number of hours (in-game) to run for.
-    hrs = 5 # temporarily shorter duration.
+    # hrs = 5 # temporarily shorter duration.
     # runsteps = int(3200000 * (hrs))
     # runsteps = int(32000 * (hrs))
-    runsteps = int(3600 * (hrs))
+    # runsteps = int(3600 * (hrs))
     # num_cpu = 1
     run_env = None
-    max_frames = PRESS_FRAMES + RELEASE_FRAMES * runsteps
+    # max_frames = PRESS_FRAMES + RELEASE_FRAMES * runsteps
 
     if num_cpu == 1:
         run_env = DummyVecEnv([make_env(args.game_path, 0, device=device)])
@@ -854,14 +850,16 @@ if __name__ == "__main__":
     model_file_name = "model"
 
     # episodes = 13
-    episodes = 13 * 6
-    ten_minutes = 60 # 10 minutes of game time in frames
-    steps = ten_minutes * 4 # .5 hour of game time
-    runsteps = steps * 10 * num_cpu # total timesteps for 5 hours of game time across all cpus
-    runsteps
-    
+    episodes = 13
+
+
+
+    batch_size = 256
+    n_steps = batch_size * 32
+    total_steps = n_steps * 64
+
     for e in range(0, episodes):
-        model = train_model(env=run_env, total_steps=runsteps, batch_size=steps, episode=e, 
+        model = train_model(env=run_env, total_steps=total_steps, n_steps = n_steps, batch_size=batch_size, episode=e, 
                             file_name=model_file_name, save_path=args.output_dir, device=device)
         
         
