@@ -836,8 +836,8 @@ if __name__ == "__main__":
 
 
     batch_size = 256
-    n_steps = batch_size * 32
-    total_steps = n_steps * 64
+    n_steps = batch_size * 16
+    total_steps = n_steps * 32
 
     for e in range(0, episodes):
         model = train_model(env=run_env, total_steps=total_steps, n_steps = n_steps, batch_size = batch_size, episode=e, 
