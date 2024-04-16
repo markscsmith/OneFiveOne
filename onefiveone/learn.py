@@ -11,6 +11,7 @@ import torch
 import torch.nn as nn
 
 import gymnasium as gym
+from gymnasium.spaces import Box, Discrete, MultiDiscrete, MultiBinary, Tuple, Dict
 from stable_baselines3 import PPO
 
 from stable_baselines3.common.callbacks import BaseCallback, EveryNTimesteps, CheckpointCallback
@@ -156,7 +157,6 @@ class PokeCaughtCallback(BaseCallback):
     def __init__(self, total_timesteps, verbose=0):
         super(PokeCaughtCallback, self).__init__(verbose)
         self.total_timesteps = total_timesteps
-
         self.timg_render = Renderer()
         self.filename_datetime = datetime.datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
         # self.progress = 0
@@ -183,6 +183,7 @@ class PokeCaughtCallback(BaseCallback):
     #                     f"{env_num},{caught},{''.join(action)},{reward},{frame},\"{visited}\"\n")
 
     def _on_step(self) -> bool:
+        checkpoint_dir = self.checkpoint_dir
         # Retrieve pokemon_caught from each environment
         # all_pokemon_caught = self.training_env.get_attr('last_pokemon_count')
         # visiteds = self.training_env.get_attr('visited_xy')
@@ -198,6 +199,7 @@ class PokeCaughtCallback(BaseCallback):
         rewards = self.training_env.get_attr('last_score')
         best_env_idx = np.argmax(rewards)
         self.training_env.env_method('render', best_env_idx)
+        
         # self.progress = self.model.num_timesteps
         # self.progress_bar.update(self.total_timesteps - self.progress_bar.n)
         return True
@@ -344,9 +346,9 @@ class PyBoyEnv(gym.Env):
         # else:
         #     self.observation_space = gym.spaces.Box(
         #     low=0, high=255, shape=(size,), dtype=np.float64)
-        self.observation_space = gym.spaces.Box(
+        self.observation_space = Box(
             low=0, high=255, shape=(size,), dtype=np.float32)    
-        self.action_space = gym.spaces.Discrete(8, start=0)
+        self.action_space = Discrete(8, start=0)
         # size = SPRITE_MAP_END - SPRITE_MAP_START + 1
         
         # size = MEM_START MEM_END + 2
@@ -583,11 +585,12 @@ class PyBoyEnv(gym.Env):
         self.last_n_frames[:-1] = self.last_n_frames[1:]
         self.last_n_frames[-1] = screen
         observation = np.append(self.last_n_frames, reward)
+
         # convert observation into float32s
-        # if self.device == "mps":
-        #     observation = observation.astype(np.float32)
-        # else:
-        #     observation = observation.astype(np.float64)
+        if self.device == "mps":
+            observation = observation.astype(np.float32)
+        else:
+            observation = observation.astype(np.float64)
         return observation, reward, terminated, truncated, info
 
     # def get_memory_range(self):
@@ -666,6 +669,12 @@ class PyBoyEnv(gym.Env):
         reward = self.calculate_reward()
         self.last_n_frames = [self.pyboy.memory[SPRITE_MAP_START:SPRITE_MAP_END].copy() for _ in range(self.n)]
         observation = np.append(self.last_n_frames, reward)
+
+        # convert observation into float32s
+        if self.device == "mps":
+            observation = observation.astype(np.float32)
+        else:
+            observation = observation.astype(np.float64)
         # if self.device == "mps":
         #     observation = observation.astype(np.float32)
         # else:
@@ -702,84 +711,57 @@ def train_model(env, total_steps, n_steps, batch_size, episode, file_name, save_
     policy_kwargs = dict(
         # features_extractor_class=CustomFeatureExtractor,
         features_extractor_kwargs={},
-        net_arch=dict(pi=[first_layer_size, first_layer_size // 2, 8], vf=[first_layer_size, first_layer_size // 2, 8]),
+        # net_arch=dict(pi=[first_layer_size, first_layer_size // 2, 8], vf=[first_layer_size, first_layer_size // 2, 8]),
         activation_fn=nn.ReLU,
     )
     # make sure we take care of accidental trailing slashes in the save path which
     # would cause the checkpoint path to be incorrect.
-    checkpoint_path = f"{save_path.rstrip('/')}_chkpt/"
+    checkpoint_path = f"{save_path.rstrip('/')}_chkpt"
 
 
     tensorboard_log = f"{save_path}/tensorboard/{os.uname()[1]}-{time.time()-episode}"
-    checkpoints = glob.glob(f"{checkpoint_path}*.zip/*.zip")
+    checkpoints = glob.glob(f"{checkpoint_path.rstrip('/')}/*.zip")
+    
+
+    run_model = PPO(policy="MlpPolicy",
+                        
+                        # Reduce n_steps if too large; ensure not less than some minimum like 2048 for sufficient learning per update.
+                        n_steps=n_steps,
+                        # Reduce batch size if it's too large but ensure a minimum size for stability.
+                        batch_size=batch_size,
+                        # Adjusted for potentially more stable learning across batches.
+                        n_epochs=3,
+                        # Increased to give more importance to future rewards, can help escape repetitive actions.
+                        gamma=0.9998,
+                        # Adjusted for a better balance between bias and variance in advantage estimation.
+                        gae_lambda=0.998,
+                        learning_rate=learning_rate_schedule,  # Standard starting point for PPO, adjust based on performance.
+                        # learning_rate=0.0002,
+                        env=env,
+                        # Ensure this aligns with the complexities of your environment.
+                        policy_kwargs=policy_kwargs,
+                        verbose=1,
+                        device=device,
+                        # Reduced for less aggressive exploration after initial learning, adjust based on needs.
+                        ent_coef=0.01,
+                        tensorboard_log=tensorboard_log,
+                        # vf_coef=0.5,  # Adjusted to balance value function loss importance.
+                        )
+        
     if len(checkpoints) > 0:
         print(f"Checkpoints found: {checkpoints}")
         # get the newest checkpoint
         newest_checkpoint = max(checkpoints, key=os.path.getctime)
         print(f"Newest checkpoint: {newest_checkpoint}")
-        run_model = PPO(policy="MlpPolicy",
-                        
-                        # Reduce n_steps if too large; ensure not less than some minimum like 2048 for sufficient learning per update.
-                        n_steps=n_steps,
-                        # Reduce batch size if it's too large but ensure a minimum size for stability.
-                        batch_size=batch_size,
-                        # Adjusted for potentially more stable learning across batches.
-                        n_epochs=3,
-                        # Increased to give more importance to future rewards, can help escape repetitive actions.
-                        gamma=0.9998,
-                        # Adjusted for a better balance between bias and variance in advantage estimation.
-                        gae_lambda=0.998,
-                        learning_rate=learning_rate_schedule,  # Standard starting point for PPO, adjust based on performance.
-                        # learning_rate=0.0002,
-                        env=env,
-                        # Ensure this aligns with the complexities of your environment.
-                        policy_kwargs=policy_kwargs,
-                        verbose=1,
-                        device=device,
-                        # Reduced for less aggressive exploration after initial learning, adjust based on needs.
-                        ent_coef=0.01,
-                        tensorboard_log=tensorboard_log,
-                        # vf_coef=0.5,  # Adjusted to balance value function loss importance.
-                        )
-        run_model.load(newest_checkpoint, env=env, print_system_info=False, force_reset=True)
+        run_model.load(newest_checkpoint)
+        
         # run_model = PPO.load(newest_checkpoint, env=env,)
                              # tensorboard_log=tensorboard_log)
         print('\ncheckpoint loaded')
-
-    # if exists(file_name + '.zip'):
-    #     print(f"\nloading checkpoint on {device}")
-    #     run_model = PPO.load(file_name, env=env, tensorboard_log=tensorboard_log, device=device)
-    #     print('\ncheckpoint loaded')
-        # run_model.rollout_buffer.reset()
-        # run_model.tensorboard_log=f"/Volumes/Scratch/ofo/tensorboard/{os.uname()[1]}-{time.time()}",
-
     else:
-        # n_steps = steps * num_cpu
-        
-        run_model = PPO(policy="MlpPolicy",
-                        
-                        # Reduce n_steps if too large; ensure not less than some minimum like 2048 for sufficient learning per update.
-                        n_steps=n_steps,
-                        # Reduce batch size if it's too large but ensure a minimum size for stability.
-                        batch_size=batch_size,
-                        # Adjusted for potentially more stable learning across batches.
-                        n_epochs=3,
-                        # Increased to give more importance to future rewards, can help escape repetitive actions.
-                        gamma=0.9998,
-                        # Adjusted for a better balance between bias and variance in advantage estimation.
-                        gae_lambda=0.998,
-                        learning_rate=learning_rate_schedule,  # Standard starting point for PPO, adjust based on performance.
-                        # learning_rate=0.0002,
-                        env=env,
-                        # Ensure this aligns with the complexities of your environment.
-                        policy_kwargs=policy_kwargs,
-                        verbose=1,
-                        device=device,
-                        # Reduced for less aggressive exploration after initial learning, adjust based on needs.
-                        ent_coef=0.01,
-                        tensorboard_log=tensorboard_log,
-                        # vf_coef=0.5,  # Adjusted to balance value function loss importance.
-                        )
+        print("No checkpoints found.")
+        exit(1)
+
 
     # model_merge_callback = EveryNTimesteps(n_steps=steps * num_cpu * 1024, callback=ModelMergeCallback(args.num_hosts))
     # TODO: Progress callback that collects data from each frame for stats
@@ -788,15 +770,16 @@ def train_model(env, total_steps, n_steps, batch_size, episode, file_name, save_
     current_stats = None
     tbcallback = None
 
-    checkpoint_callback = CheckpointCallback(
-        save_freq=n_steps, save_path=f"{save_path}_chkpt/{os.uname()[1]}-{time.time()}.zip", name_prefix="poke")
+    #checkpoint_callback = CheckpointCallback(
+    #    save_freq=n_steps, save_path=f"{save_path}_chkpt/{os.uname()[1]}-{time.time()}", name_prefix="poke")
     current_stats = EveryNTimesteps(
-        n_steps=n_steps, callback=PokeCaughtCallback(total_steps))
+        n_steps=n_steps, callback=PokeCaughtCallback(total_steps, verbose=1))
     # tbcallback = TensorboardLoggingCallback(tensorboard_log)
     # callbacks = [checkpoint_callback, current_stats, tbcallback]
-    callbacks = [checkpoint_callback, current_stats]
+    callbacks = [current_stats]
     run_model.learn(total_timesteps=total_steps,
                     progress_bar=True, callback=callbacks)
+    run_model.save(f"{checkpoint_path}/{file_name}-{episode}.zip")
     return run_model
 
 if __name__ == "__main__":
@@ -860,7 +843,7 @@ if __name__ == "__main__":
     total_steps = n_steps * 64
 
     for e in range(0, episodes):
-        model = train_model(env=run_env, total_steps=total_steps, n_steps = n_steps, batch_size=batch_size, episode=e, 
+        model = train_model(env=run_env, total_steps=total_steps, n_steps = n_steps, batch_size = batch_size, episode=e, 
                             file_name=model_file_name, save_path=args.output_dir, device=device)
         
         
