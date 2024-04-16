@@ -759,7 +759,6 @@ def train_model(env, total_steps, n_steps, batch_size, episode, file_name, save_
         print('\ncheckpoint loaded')
     else:
         print("No checkpoints found.")
-        exit(1)
 
 
     # model_merge_callback = EveryNTimesteps(n_steps=steps * num_cpu * 1024, callback=ModelMergeCallback(args.num_hosts))
