@@ -652,7 +652,6 @@ class PyBoyEnv(gym.Env):
         else:
             print(
                 f"Error: No state file found for {self.save_state_path}", file=sys.stderr)
-            exit(1)
 
         self.actions = ""
         self.screen_image_arrays = set()
