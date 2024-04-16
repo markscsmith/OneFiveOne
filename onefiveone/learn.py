@@ -183,7 +183,6 @@ class PokeCaughtCallback(BaseCallback):
     #                     f"{env_num},{caught},{''.join(action)},{reward},{frame},\"{visited}\"\n")
 
     def _on_step(self) -> bool:
-        checkpoint_dir = self.checkpoint_dir
         # Retrieve pokemon_caught from each environment
         # all_pokemon_caught = self.training_env.get_attr('last_pokemon_count')
         # visiteds = self.training_env.get_attr('visited_xy')
