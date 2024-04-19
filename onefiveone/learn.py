@@ -159,42 +159,12 @@ class PokeCaughtCallback(BaseCallback):
         self.total_timesteps = total_timesteps
         self.timg_render = Renderer()
         self.filename_datetime = datetime.datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
-        # self.progress = 0
-        # self.total_timesteps = total_timesteps
-        # self.progress_bar = tqdm(
-        #     total=self.total_timesteps, position=0, leave=True)
 
-    # def generate_gif_and_actions(self):
-    #     actions = self.training_env.get_attr('actions')
-    #     rewards = self.training_env.get_attr('last_score')
-    #     frames = self.training_env.get_attr('frames')
-    #     visiteds = self.training_env.get_attr('visited_xy')
-    #     pokemon_caughts = self.training_env.get_attr('last_pokemon_count')
 
-    #     if self.model.num_timesteps % 100000 == 0:
-    #         hostname = os.uname()[1]
-    #         file_name = f"{hostname}"
-    #         # Generate a CSV of data
-    #         # TODO: make path a parameter and use more sensible defaults for non-me users
-    #         with open(f"ofo/{file_name}.csv", "w", encoding="utf-8") as f:
-    #             f.write("env_num,caught,actions,rewards,frames,visiteds\n")
-    #             for env_num, (action, caught, reward, frame, visited) in enumerate(zip(actions, pokemon_caughts, rewards, frames, visiteds)):
-    #                 f.write(
-    #                     f"{env_num},{caught},{''.join(action)},{reward},{frame},\"{visited}\"\n")
+
 
     def _on_step(self) -> bool:
-        # Retrieve pokemon_caught from each environment
-        # all_pokemon_caught = self.training_env.get_attr('last_pokemon_count')
-        # visiteds = self.training_env.get_attr('visited_xy')
 
-        # frames = self.training_env.get_attr('frames')
-        # stationary_frames = self.training_env.get_attr('stationary_frames')
-        # xs = self.training_env.get_attr('last_player_x')
-        # ys = self.training_env.get_attr('last_player_y')
-        # xbs = self.training_env.get_attr('last_player_x_block')
-        # ybs = self.training_env.get_attr('last_player_y_block')
-        # map_ids = self.training_env.get_attr('last_player_map')
-        # actions = self.training_env.get_attr('actions')
         rewards = self.training_env.get_attr('last_score')
         best_env_idx = np.argmax(rewards)
         self.training_env.env_method('render', best_env_idx)
@@ -837,7 +807,7 @@ if __name__ == "__main__":
 
     batch_size = 256
     n_steps = batch_size * 16
-    total_steps = n_steps * 32
+    total_steps = n_steps * 32 * num_cpu
 
     for e in range(0, episodes):
         model = train_model(env=run_env, total_steps=total_steps, n_steps = n_steps, batch_size = batch_size, episode=e, 
