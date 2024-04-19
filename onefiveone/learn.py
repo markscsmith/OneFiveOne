@@ -737,16 +737,16 @@ def train_model(env, total_steps, n_steps, batch_size, episode, file_name, save_
     current_stats = None
     tbcallback = None
 
-    #checkpoint_callback = CheckpointCallback(
-    #    save_freq=n_steps, save_path=f"{save_path}_chkpt/{os.uname()[1]}-{time.time()}", name_prefix="poke")
+    checkpoint_callback = CheckpointCallback(
+        save_freq=n_steps, save_path=f"{save_path}_chkpt/{os.uname()[1]}-{time.time()}", name_prefix="poke")
     current_stats = EveryNTimesteps(
         n_steps=n_steps, callback=PokeCaughtCallback(total_steps, verbose=1))
-    # tbcallback = TensorboardLoggingCallback(tensorboard_log)
-    # callbacks = [checkpoint_callback, current_stats, tbcallback]
-    callbacks = [current_stats]
+    tbcallback = TensorboardLoggingCallback(tensorboard_log)
+    callbacks = [checkpoint_callback, current_stats, tbcallback]
+    # callbacks = [current_stats, tbcallback]
     run_model.learn(total_timesteps=total_steps,
                     progress_bar=True, callback=callbacks)
-    run_model.save(f"{checkpoint_path}/{file_name}-{episode}.zip")
+    # run_model.save(f"{checkpoint_path}/{file_name}-{episode}.zip")
     return run_model
 
 if __name__ == "__main__":
