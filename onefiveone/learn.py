@@ -225,7 +225,7 @@ class PyBoyEnv(gym.Env):
         self.menu_value = None
         self.n = 15 # 15 seconds of frames
         # self.last_n_frames = [self.pyboy.memory[SPRITE_MAP_START:SPRITE_MAP_END].copy() for _ in range(self.n)]
-        self.last_n_frames = [self.pyboy.memory[MEM_START:MEM_END].copy() for _ in range(self.n)]
+        # self.last_n_frames = [self.pyboy.memory[MEM_START:MEM_END].copy() for _ in range(self.n)]
         
         self.renderer = Renderer()
         self.actions = ""
@@ -305,7 +305,7 @@ class PyBoyEnv(gym.Env):
         # Format the datetime as a string suitable for a Unix filename
         self.filename_datetime = current_datetime.strftime("%Y-%m-%d_%H-%M-%S")
         # size = (self.n * 359) + 1
-        size = 45751
+        size = MEM_END - MEM_START + 1
 
         # Define actioqn_space and observation_space
         # self.action_space = gym.spaces.Discrete(256)
@@ -553,9 +553,9 @@ class PyBoyEnv(gym.Env):
                 "items": self.item_points,
                 "speed_bonus": self.speed_bonus,}
         screen = self.pyboy.memory[MEM_START:MEM_END].copy()
-        self.last_n_frames[:-1] = self.last_n_frames[1:]
-        self.last_n_frames[-1] = screen
-        observation = np.append(self.last_n_frames, reward)
+        # self.last_n_frames[:-1] = self.last_n_frames[1:]
+        #self.last_n_frames[-1] = screen
+        observation = np.append(screen, reward)
 
         # convert observation into float32s
         if self.device == "mps":
@@ -637,8 +637,9 @@ class PyBoyEnv(gym.Env):
         self.last_player_x_block = 0
         self.last_player_y_block = 0
         reward = self.calculate_reward()
-        self.last_n_frames = [self.pyboy.memory[MEM_START:MEM_END].copy() for _ in range(self.n)]
-        observation = np.append(self.last_n_frames, reward)
+        # self.last_n_frames = [self.pyboy.memory[MEM_START:MEM_END].copy() for _ in range(self.n)]
+        screen = self.pyboy.memory[MEM_START:MEM_END].copy()
+        observation = np.append(screen, reward)
 
         # convert observation into float32s
         # if self.device == "mps":
@@ -680,9 +681,9 @@ def train_model(env, total_steps, n_steps, batch_size, episode, file_name, save_
     first_layer_size = 4192 
     policy_kwargs = dict(
         # features_extractor_class=CustomFeatureExtractor,
-        features_extractor_kwargs={},
-        # net_arch=dict(pi=[first_layer_size, first_layer_size // 2, 8], vf=[first_layer_size, first_layer_size // 2, 8]),
-        # activation_fn=nn.ReLU,
+        # features_extractor_kwargs={},
+        net_arch=dict(pi=[first_layer_size, first_layer_size // 2, 8], vf=[first_layer_size, first_layer_size // 2, 8]),
+        activation_fn=nn.ReLU,
     )
     # make sure we take care of accidental trailing slashes in the save path which
     # would cause the checkpoint path to be incorrect.
@@ -807,8 +808,8 @@ if __name__ == "__main__":
 
 
 
-    batch_size = 64
-    n_steps = 2048
+    batch_size = 512
+    n_steps = 4096
     total_steps = n_steps * 256
 
     for e in range(0, episodes):
