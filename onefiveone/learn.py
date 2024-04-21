@@ -679,8 +679,8 @@ def train_model(env, total_steps, n_steps, batch_size, episode, file_name, save_
     policy_kwargs = dict(
         # features_extractor_class=CustomFeatureExtractor,
         features_extractor_kwargs={},
-        net_arch=dict(pi=[first_layer_size, first_layer_size // 2, 8], vf=[first_layer_size, first_layer_size // 2, 8]),
-        activation_fn=nn.ReLU,
+        # net_arch=dict(pi=[first_layer_size, first_layer_size // 2, 8], vf=[first_layer_size, first_layer_size // 2, 8]),
+        # activation_fn=nn.ReLU,
     )
     # make sure we take care of accidental trailing slashes in the save path which
     # would cause the checkpoint path to be incorrect.
@@ -698,7 +698,7 @@ def train_model(env, total_steps, n_steps, batch_size, episode, file_name, save_
                         # Reduce batch size if it's too large but ensure a minimum size for stability.
                         batch_size=batch_size,
                         # Adjusted for potentially more stable learning across batches.
-                        n_epochs=13,
+                        n_epochs=3,
                         # Increased to give more importance to future rewards, can help escape repetitive actions.
                         gamma=0.9998,
                         # Adjusted for a better balance between bias and variance in advantage estimation.
@@ -805,9 +805,9 @@ if __name__ == "__main__":
 
 
 
-    batch_size = 256
-    n_steps = batch_size * 16
-    total_steps = n_steps * 32 * num_cpu
+    batch_size = 64
+    n_steps = 2048
+    total_steps = n_steps * num_cpu * 32
 
     for e in range(0, episodes):
         model = train_model(env=run_env, total_steps=total_steps, n_steps = n_steps, batch_size = batch_size, episode=e, 
