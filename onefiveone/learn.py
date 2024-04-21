@@ -223,8 +223,9 @@ class PyBoyEnv(gym.Env):
         self.pyboy = PyBoy(game_path, window="null", cgb=CGB)
         self.game_path = game_path
         self.menu_value = None
-        self.n = 24 # 30 seconds of frames
-        self.last_n_frames = [self.pyboy.memory[MEM_START:MEM_END].copy() for _ in range(self.n)]
+        self.n = 2
+        # self.last_n_frames = [self.pyboy.memory[SPRITE_MAP_START:SPRITE_MAP_END].copy() for _ in range(self.n)]
+        self.last_n_frames = [self.pyboy.screen.ndarray.copy() for _ in range(self.n)]
         
         self.renderer = Renderer()
         self.actions = ""
@@ -303,7 +304,8 @@ class PyBoyEnv(gym.Env):
 
         # Format the datetime as a string suitable for a Unix filename
         self.filename_datetime = current_datetime.strftime("%Y-%m-%d_%H-%M-%S")
-        size = (self.n * (MEM_END - MEM_START)) + 1
+        # size = (self.n * 359) + 1
+        # size = (self.n * 144 * 160 * 3) + 1
 
         # Define actioqn_space and observation_space
         # self.action_space = gym.spaces.Discrete(256)
@@ -315,8 +317,11 @@ class PyBoyEnv(gym.Env):
         # else:
         #     self.observation_space = gym.spaces.Box(
         #     low=0, high=255, shape=(size,), dtype=np.float64)
-        self.observation_space = Box(
-            low=0, high=255, shape=(size,), dtype=np.float32)    
+        # self.observation_space = Box(
+        #     low=0, high=255, shape=(size,), dtype=np.float32)    
+        # self.observation_space = Box(
+        #     low=0, high=255, shape=(144, 160, 3))
+        self.observation_space = Box(low=0, high=255, shape=(144, 160, 4), dtype=np.uint8)
         self.action_space = Discrete(8, start=0)
         # size = SPRITE_MAP_END - SPRITE_MAP_START + 1
         
@@ -550,16 +555,15 @@ class PyBoyEnv(gym.Env):
                 "stationary_frames": self.stationary_frames,
                 "items": self.item_points,
                 "speed_bonus": self.speed_bonus,}
-        screen = self.pyboy.memory[MEM_START:MEM_END].copy()
-        self.last_n_frames[:-1] = self.last_n_frames[1:]
-        self.last_n_frames[-1] = screen
-        observation = np.append(self.last_n_frames, reward)
+        # screen = self.pyboy.memory[SPRITE_MAP_START:SPRITE_MAP_END].copy()
+        screen = self.pyboy.screen.ndarray.copy()
+        observation = screen
 
         # convert observation into float32s
-        if self.device == "mps":
-            observation = observation.astype(np.float32)
-        else:
-            observation = observation.astype(np.float64)
+        # if self.device == "mps":
+        #     observation = observation.astype(np.float32)
+        # else:
+        #     observation = observation.astype(np.float64)
         return observation, reward, terminated, truncated, info
 
     # def get_memory_range(self):
@@ -635,19 +639,20 @@ class PyBoyEnv(gym.Env):
         self.last_player_x_block = 0
         self.last_player_y_block = 0
         reward = self.calculate_reward()
-        self.last_n_frames = [self.pyboy.memory[MEM_START:MEM_END].copy() for _ in range(self.n)]
-        observation = np.append(self.last_n_frames, reward)
+        # self.last_n_frames = [self.pyboy.memory[SPRITE_MAP_START:SPRITE_MAP_END].copy() for _ in range(self.n)]
+        
+        observation = self.pyboy.screen.ndarray.copy()
 
         # convert observation into float32s
         # if self.device == "mps":
-        observation = observation.astype(np.float32)
+        # observation = observation.astype(np.float32)
         # else:
           #  observation = observation.astype(np.float64)
         # if self.device == "mps":
         #     observation = observation.astype(np.float32)
         # else:
         #     observation = observation.astype(np.float64)
-        print("RESET:OS:SHAPE:", observation.shape, seed, file=sys.stderr)
+        # print("RESET:OS:SHAPE:", observation.shape, seed, file=sys.stderr)
         return observation, {"seed": seed}
 
 
@@ -691,7 +696,7 @@ def train_model(env, total_steps, n_steps, batch_size, episode, file_name, save_
     checkpoints = glob.glob(f"{checkpoint_path.rstrip('/')}/*.zip")
     
 
-    run_model = PPO(policy="MlpPolicy",
+    run_model = PPO(policy="CnnPolicy",
                         
                         # Reduce n_steps if too large; ensure not less than some minimum like 2048 for sufficient learning per update.
                         n_steps=n_steps,
@@ -805,8 +810,8 @@ if __name__ == "__main__":
 
 
 
-    batch_size = 64
-    n_steps = 2048
+    batch_size = 512
+    n_steps = 1024
     total_steps = n_steps * 256
 
     for e in range(0, episodes):
