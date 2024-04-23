@@ -425,15 +425,15 @@ class PyBoyEnv(gym.Env):
                 self.player_maps.add(map_id)
                 self.speed_bonus += len(self.player_maps) * speed_bonus_calc
 
-        if self.last_player_x == px and self.last_player_y == py and self.last_player_x_block == pbx and self.last_player_y_block == pby and self.last_player_map == map_id:
-            self.stationary_frames += 1
-        else:
-            self.stationary_frames = 0
-            self.last_player_x = px
-            self.last_player_y = py
-            self.last_player_x_block = pbx
-            self.last_player_y_block = pby
-            self.last_player_map = map_id
+        # if self.last_player_x == px and self.last_player_y == py and self.last_player_x_block == pbx and self.last_player_y_block == pby and self.last_player_map == map_id:
+        #     self.stationary_frames += 1
+        # else:
+        #     self.stationary_frames = 0
+        #     self.last_player_x = px
+        #     self.last_player_y = py
+        #     self.last_player_x_block = pbx
+        #     self.last_player_y_block = pby
+        #     self.last_player_map = map_id
 
         # convert binary chunks into a single string
         chunk_id = f"{px}:{py}:{pbx}:{pby}:{map_id}"
@@ -468,7 +468,7 @@ class PyBoyEnv(gym.Env):
         reward = reward + (reward * (pokemon_caught * 2) + (pokemon_seen)) // 150 + sum(self.item_points.values()) * 10
             
         
-        reward -= (reward * (self.stationary_frames / (self.frames + 1))) 
+        # reward -= (reward * (self.stationary_frames / (self.frames + 1))) 
         reward += self.speed_bonus
 
         return reward
@@ -703,7 +703,7 @@ def train_model(env, total_steps, n_steps, batch_size, episode, file_name, save_
                         # Adjusted for potentially more stable learning across batches.
                         n_epochs=3,
                         # Increased to give more importance to future rewards, can help escape repetitive actions.
-                        gamma=0.998,
+                        gamma=0.9998,
                         # Adjusted for a better balance between bias and variance in advantage estimation.
                         gae_lambda=0.998,
                         learning_rate=learning_rate_schedule,  # Standard starting point for PPO, adjust based on performance.
