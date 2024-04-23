@@ -425,15 +425,11 @@ class PyBoyEnv(gym.Env):
                 self.player_maps.add(map_id)
                 self.speed_bonus += len(self.player_maps) * speed_bonus_calc
 
-        # if self.last_player_x == px and self.last_player_y == py and self.last_player_x_block == pbx and self.last_player_y_block == pby and self.last_player_map == map_id:
-        #     self.stationary_frames += 1
-        # else:
-        #     self.stationary_frames = 0
-        #     self.last_player_x = px
-        #     self.last_player_y = py
-        #     self.last_player_x_block = pbx
-        #     self.last_player_y_block = pby
-        #     self.last_player_map = map_id
+#        if self.last_player_x == px and self.last_player_y == py and self.last_player_x_block == pbx and self.last_player_y_block == pby and self.last_player_map == map_id:
+#            self.stationary_frames += 1
+        
+        # self.stationary_frames = 0
+
 
         # convert binary chunks into a single string
         chunk_id = f"{px}:{py}:{pbx}:{pby}:{map_id}"
@@ -471,6 +467,12 @@ class PyBoyEnv(gym.Env):
         # reward -= (reward * (self.stationary_frames / (self.frames + 1))) 
         reward += self.speed_bonus
 
+        self.last_player_x = px
+        self.last_player_y = py
+        self.last_player_x_block = pbx
+        self.last_player_y_block = pby
+        self.last_player_map = map_id
+        
         return reward
 
     def render(self, target_index=None, reset=False):
