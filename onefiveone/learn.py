@@ -395,7 +395,7 @@ class PyBoyEnv(gym.Env):
             last_items = [0] * len(item_counts)
         
         
-        item_diff = [item_counts[i] - last_items[i] for i in range(len(item_counts))]
+        item_diff = [np.abs(item_counts[i] - last_items[i]) for i in range(len(item_counts))]
         self.last_items = item_counts
 
         # create tuple of item type and points
