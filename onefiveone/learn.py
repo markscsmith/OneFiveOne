@@ -763,8 +763,6 @@ if __name__ == "__main__":
         else device
     )
     device = "cuda" if torch.cuda.is_available() else device
-    # temporarily set to CPU
-    device = "cpu"
     
     
     import argparse
