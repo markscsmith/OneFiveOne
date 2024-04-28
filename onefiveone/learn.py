@@ -311,14 +311,11 @@ class PyBoyEnv(gym.Env):
         # self.action_space = gym.spaces.Discrete(256)
         # self.action_space = gym.spaces.Box(low=0, high=1, shape=(12,), dtype=np.float32)
         # self.action_space = gym.spaces.Box(low=0, high=1, shape=(8,), dtype=np.float32)
-        # if self.device == "mps":
-        #     self.observation_space = gym.spaces.Box(
-        #     low=0, high=255, shape=(size,), dtype=np.float32)    
-        # else:
-        #     self.observation_space = gym.spaces.Box(
-        #     low=0, high=255, shape=(size,), dtype=np.float64)
-        self.observation_space = Box(
-            low=0, high=255, shape=(size,), dtype=np.uint8)    
+
+        self.observation_space = gym.spaces.Box(
+            low=0, high=255, shape=(size,), dtype=np.float32)    
+
+    
         self.action_space = Discrete(8, start=0)
         # size = SPRITE_MAP_END - SPRITE_MAP_START + 1
         
@@ -560,10 +557,10 @@ class PyBoyEnv(gym.Env):
         observation = np.append(screen, reward)
 
         # convert observation into float32s
-        if self.device == "mps":
-            observation = observation.astype(np.float32)
-        else:
-            observation = observation.astype(np.float64)
+        # if self.device == "mps":
+        #     observation = observation.astype(np.float32)
+        # else:
+        #     observation = observation.astype(np.float64)
         return observation, reward, terminated, truncated, info
 
     # def get_memory_range(self):
@@ -645,7 +642,7 @@ class PyBoyEnv(gym.Env):
 
         # convert observation into float32s
         # if self.device == "mps":
-        observation = observation.astype(np.float32)
+        # observation = observation.astype(np.uint8)
         # else:
           #  observation = observation.astype(np.float64)
         # if self.device == "mps":
@@ -703,7 +700,7 @@ def train_model(env, total_steps, n_steps, batch_size, episode, file_name, save_
                         # Reduce batch size if it's too large but ensure a minimum size for stability.
                         batch_size=batch_size,
                         # Adjusted for potentially more stable learning across batches.
-                        n_epochs=3,
+                        n_epochs=13,
                         # Increased to give more importance to future rewards, can help escape repetitive actions.
                         gamma=0.9998,
                         # Adjusted for a better balance between bias and variance in advantage estimation.
