@@ -716,7 +716,6 @@ def train_model(env, total_steps, n_steps, batch_size, episode, file_name, save_
         # get the newest checkpoint
         newest_checkpoint = max(checkpoints, key=os.path.getctime)
         print(f"Newest checkpoint: {newest_checkpoint}")
-        run_model.
         run_model.load(newest_checkpoint)
         
         # run_model = PPO.load(newest_checkpoint, env=env,)
