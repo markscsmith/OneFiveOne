@@ -43,7 +43,7 @@ LOG_FREQ = 1000
 PRESS_FRAMES = 8
 RELEASE_FRAMES = 16
 
-CGB = True
+CGB = False
 
 class PokeCart():
     def __init__(self, cart_data) -> None:
@@ -422,12 +422,6 @@ class PyBoyEnv(gym.Env):
                 self.player_maps.add(map_id)
                 self.speed_bonus += len(self.player_maps) * speed_bonus_calc
 
-#        if self.last_player_x == px and self.last_player_y == py and self.last_player_x_block == pbx and self.last_player_y_block == pby and self.last_player_map == map_id:
-#            self.stationary_frames += 1
-        
-        # self.stationary_frames = 0
-
-
         # convert binary chunks into a single string
         chunk_id = f"{px}:{py}:{pbx}:{pby}:{map_id}"
         self.visited_xy.add(chunk_id)
@@ -690,17 +684,16 @@ def train_model(env, total_steps, n_steps, batch_size, episode, file_name, save_
 
 
     tensorboard_log = f"{save_path}/tensorboard/{os.uname()[1]}-{time.time()-episode}"
-    checkpoints = glob.glob(f"{checkpoint_path.rstrip('/')}/*.zip")
+    
     
 
     run_model = PPO(policy="MlpPolicy",
-                        
                         # Reduce n_steps if too large; ensure not less than some minimum like 2048 for sufficient learning per update.
                         n_steps=n_steps,
                         # Reduce batch size if it's too large but ensure a minimum size for stability.
                         batch_size=batch_size,
                         # Adjusted for potentially more stable learning across batches.
-                        n_epochs=13,
+                        n_epochs=3,
                         # Increased to give more importance to future rewards, can help escape repetitive actions.
                         gamma=0.9998,
                         # Adjusted for a better balance between bias and variance in advantage estimation.
@@ -717,12 +710,13 @@ def train_model(env, total_steps, n_steps, batch_size, episode, file_name, save_
                         tensorboard_log=tensorboard_log,
                         # vf_coef=0.5,  # Adjusted to balance value function loss importance.
                         )
-        
+    checkpoints = glob.glob(f"{checkpoint_path.rstrip('/')}/*.zip")
     if len(checkpoints) > 0:
         print(f"Checkpoints found: {checkpoints}")
         # get the newest checkpoint
         newest_checkpoint = max(checkpoints, key=os.path.getctime)
         print(f"Newest checkpoint: {newest_checkpoint}")
+        run_model.
         run_model.load(newest_checkpoint)
         
         # run_model = PPO.load(newest_checkpoint, env=env,)
