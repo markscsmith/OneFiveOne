@@ -710,7 +710,7 @@ def train_model(env, total_steps, n_steps, batch_size, episode, file_name, save_
                         tensorboard_log=tensorboard_log,
                         # vf_coef=0.5,  # Adjusted to balance value function loss importance.
                         )
-    checkpoints = glob.glob(f"{checkpoint_path.rstrip('/')}/*.zip")
+    checkpoints = glob.glob(f"{checkpoint_path.rstrip('/')}/*/*.zip")
     if len(checkpoints) > 0:
         print(f"Checkpoints found: {checkpoints}")
         # get the newest checkpoint
