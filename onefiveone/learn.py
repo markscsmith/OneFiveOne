@@ -3,7 +3,7 @@ import time
 import os
 import datetime
 import hashlib
-from os.path import exists
+import multiprocessing
 
 # Compute and AI libs
 import numpy as np
@@ -11,19 +11,19 @@ import torch
 import torch.nn as nn
 
 import gymnasium as gym
-from gymnasium.spaces import Box, Discrete, MultiDiscrete, MultiBinary, Tuple, Dict
+from gymnasium.spaces import Box, Discrete
 from stable_baselines3 import PPO
 
-from stable_baselines3.common.callbacks import BaseCallback, EveryNTimesteps, CheckpointCallback
+from stable_baselines3.common.callbacks import (
+    BaseCallback,
+    EveryNTimesteps,
+    CheckpointCallback,
+)
 from stable_baselines3.common.policies import ActorCriticPolicy
-
-# multiprocessing environment for parallel training
-import multiprocessing
 from stable_baselines3.common.env_util import SubprocVecEnv, DummyVecEnv
 
 # Emulator libs
 from pyboy import PyBoy
-from pyboy.utils import WindowEvent
 
 # Output libs
 from timg import Renderer, Ansi24HblockMethod
@@ -45,7 +45,8 @@ RELEASE_FRAMES = 16
 
 CGB = False
 
-class PokeCart():
+
+class PokeCart:
     def __init__(self, cart_data) -> None:
         # calculate checksum of cart_data
         self.cart_data = cart_data
@@ -53,13 +54,15 @@ class PokeCart():
 
     def identify_cart(self):
         # identify cart
-        carts = {"a6924ce1f9ad2228e1c6580779b23878":  "POKEMONG.GBC",
-                 "9f2922b235a5eeb78d65594e82ef5dde":  "PMCRYSTA.GBC",
-                 # TODO: Add Pokemon Yellow logic to keep Pikachu happy. 🌩️🐭  Address is 0xD46F    1    Pikachu's happiness per https://datacrystal.tcrf.net/wiki/Pokémon_Yellow/RAM_map
-                 "d9290db87b1f0a23b89f99ee4469e34b":  "POKEMONY.GBC",
-                 "50927e843568814f7ed45ec4f944bd8b":  "POKEMONB.GBC",
-                 "3e098020b56c807393cc2ebae5e1857a":  "POKEMONS.GBC",
-                 "3d45c1ee9abd5738df46d2bdda8b57dc":  "POKEMONR.GBC", }
+        carts = {
+            "a6924ce1f9ad2228e1c6580779b23878": "POKEMONG.GBC",
+            "9f2922b235a5eeb78d65594e82ef5dde": "PMCRYSTA.GBC",
+            # TODO: Add Pokemon Yellow logic to keep Pikachu happy. 🌩️🐭  Address is 0xD46F    1    Pikachu's happiness per https://datacrystal.tcrf.net/wiki/Pokémon_Yellow/RAM_map
+            "d9290db87b1f0a23b89f99ee4469e34b": "POKEMONY.GBC",
+            "50927e843568814f7ed45ec4f944bd8b": "POKEMONB.GBC",
+            "3e098020b56c807393cc2ebae5e1857a": "POKEMONS.GBC",
+            "3d45c1ee9abd5738df46d2bdda8b57dc": "POKEMONR.GBC",
+        }
         if self.checksum in carts:
             return carts[self.checksum]
         else:
@@ -92,7 +95,9 @@ def learning_rate_schedule(progress):
     rate = 0.0003
     variation = 0.2 * rate * progress
     # new_rate = rate + np.abs(variation * np.sin(progress * np.pi * 20)) # all positive
-    new_rate = rate + variation * np.sin(progress * np.pi * 20) # positive and negative adjustments
+    new_rate = rate + variation * np.sin(
+        progress * np.pi * 20
+    )  # positive and negative adjustments
     # rate = (rate + rate * progress) / 2
     return new_rate
     # return  0.0
@@ -117,38 +122,45 @@ class TensorboardLoggingCallback(BaseCallback):
         # Note: self.n_calls is incremented after this method is called.
         if self.n_calls % self.log_freq == 0:
             # Log scalar value (here a random variable)
-            rewards = self.locals['rewards']
-            infos = self.locals['infos']
+            rewards = self.locals["rewards"]
+            infos = self.locals["infos"]
             max_item_points = 0
             for _, info in sorted(enumerate(infos)):
                 # TODO: ADD POKEMON CAUGHT TO INFO
-                if all(key in info for key in ['actions', 'emunum', 'reward', 'frames']):
-                    actions = info['actions']
-                    emunum = info['emunum']
-                    reward = info['reward']
-                    frames = info['frames']
-                    caught = info['pokemon_caught']
+                if all(
+                    key in info for key in ["actions", "emunum", "reward", "frames"]
+                ):
+                    actions = info["actions"]
+                    emunum = info["emunum"]
+                    reward = info["reward"]
+                    frames = info["frames"]
+                    caught = info["pokemon_caught"]
 
-                    
-                    seen = info['pokemon_seen']
+                    seen = info["pokemon_seen"]
                     # TODO: pad emunumber with 0s to match number of digits in possible emunum
                     self.logger.record(
-                        f"actions/{emunum}", f"{actions[-self.log_freq:-self.log_freq].lower()}{actions[-self.log_freq:]}:rew={reward}:fra={frames}:caught={caught}:seen={seen}")
+                        f"actions/{emunum}",
+                        f"{actions[-self.log_freq:-self.log_freq].lower()}{actions[-self.log_freq:]}:rew={reward}:fra={frames}:caught={caught}:seen={seen}",
+                    )
                     self.logger.record(f"caught/{emunum}", f"{caught}")
                     self.logger.record(f"seen/{emunum}", f"{seen}")
                     self.logger.record(f"reward/{emunum}", f"{reward}")
-                    self.logger.record(f"visited/{emunum}", f"{len(info['visited_xy'])}")
+                    self.logger.record(
+                        f"visited/{emunum}", f"{len(info['visited_xy'])}"
+                    )
                     self.logger.record(f"items/{emunum}", f"{info['items']}")
-                    self.logger.record(f"speed_bonus/{emunum}", f"{info['speed_bonus']}")
-                    max_item_points = max(max_item_points, sum(info['items'].values()))
+                    self.logger.record(
+                        f"speed_bonus/{emunum}", f"{info['speed_bonus']}"
+                    )
+                    max_item_points = max(max_item_points, sum(info["items"].values()))
 
             # todo: record each progress/reward separately like I do the actions?
             if len(rewards) > 0:  # Check if rewards list is not empty
                 average_reward = sum(rewards) / len(rewards)
                 max_reward = max(rewards)
-                self.logger.record('reward/average_reward', average_reward)
-                self.logger.record('reward/max_reward', max_reward)
-                self.logger.record('reward/max_items', max_item_points)
+                self.logger.record("reward/average_reward", average_reward)
+                self.logger.record("reward/max_reward", max_reward)
+                self.logger.record("reward/max_items", max_item_points)
 
         return True  # Returning True means we will continue training, returning False will stop training
 
@@ -160,15 +172,11 @@ class PokeCaughtCallback(BaseCallback):
         self.timg_render = Renderer()
         self.filename_datetime = datetime.datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
 
-
-
-
     def _on_step(self) -> bool:
-
-        rewards = self.training_env.get_attr('last_score')
+        rewards = self.training_env.get_attr("last_score")
         best_env_idx = np.argmax(rewards)
-        self.training_env.env_method('render', best_env_idx)
-        
+        self.training_env.env_method("render", best_env_idx)
+
         # self.progress = self.model.num_timesteps
         # self.progress_bar.update(self.total_timesteps - self.progress_bar.n)
         return True
@@ -218,15 +226,23 @@ def add_string_overlay(
 
 
 class PyBoyEnv(gym.Env):
-    def __init__(self, game_path, emunum, save_state_path=None, max_frames=500_000, device="cpu", **kwargs):
+    def __init__(
+        self,
+        game_path,
+        emunum,
+        save_state_path=None,
+        max_frames=500_000,
+        device="cpu",
+        **kwargs,
+    ):
         super(PyBoyEnv, self).__init__()
         self.pyboy = PyBoy(game_path, window="null", cgb=CGB)
         self.game_path = game_path
         self.menu_value = None
-        self.n = 15 # 15 seconds of frames
+        self.n = 15  # 15 seconds of frames
         # self.last_n_frames = [self.pyboy.memory[SPRITE_MAP_START:SPRITE_MAP_END].copy() for _ in range(self.n)]
         # self.last_n_frames = [self.pyboy.memory[MEM_START:MEM_END].copy() for _ in range(self.n)]
-        
+
         self.renderer = Renderer()
         self.actions = ""
         self.screen_images = []
@@ -277,24 +293,34 @@ class PyBoyEnv(gym.Env):
         self.last_memory_update_frame = 0
         self.current_memory = None
 
-        self.buttons = {
-            0: (WindowEvent.PASS, "-"),
-            1: (WindowEvent.PRESS_ARROW_UP, "U"),
-            2: (WindowEvent.PRESS_ARROW_DOWN, "D"),
-            3: (WindowEvent.PRESS_ARROW_LEFT, "L"),
-            4: (WindowEvent.PRESS_ARROW_RIGHT, "R"),
-            5: (WindowEvent.PRESS_BUTTON_A, "A"),
-            6: (WindowEvent.PRESS_BUTTON_B, "B"),
-            7: (WindowEvent.PRESS_BUTTON_START, "S"),
-            8: (WindowEvent.PASS, "."),
-            9: (WindowEvent.RELEASE_ARROW_UP, "u"),
-            10: (WindowEvent.RELEASE_ARROW_DOWN, "d"),
-            11: (WindowEvent.RELEASE_ARROW_LEFT, "l"),
-            12: (WindowEvent.RELEASE_ARROW_RIGHT, "r"),
-            13: (WindowEvent.RELEASE_BUTTON_A, "a"),
-            14: (WindowEvent.RELEASE_BUTTON_B, "b"),
-            15: (WindowEvent.RELEASE_BUTTON_START, "s"),
+        # self.buttons = {
+        #     0: (utils.WindowEvent.PASS, "-"),
+        #     1: (utils.WindowEvent.PRESS_ARROW_UP, "U"),
+        #     2: (utils.WindowEvent.PRESS_ARROW_DOWN, "D"),
+        #     3: (utils.WindowEvent.PRESS_ARROW_LEFT, "L"),
+        #     4: (utils.WindowEvent.PRESS_ARROW_RIGHT, "R"),
+        #     5: (utils.WindowEvent.PRESS_BUTTON_A, "A"),
+        #     6: (utils.WindowEvent.PRESS_BUTTON_B, "B"),
+        #     7: (utils.WindowEvent.PRESS_BUTTON_START, "S"),
+        #     8: (utils.WindowEvent.PASS, "."),
+        #     9: (utils.WindowEvent.RELEASE_ARROW_UP, "u"),
+        #     10: (utils.WindowEvent.RELEASE_ARROW_DOWN, "d"),
+        #     11: (utils.WindowEvent.RELEASE_ARROW_LEFT, "l"),
+        #     12: (utils.WindowEvent.RELEASE_ARROW_RIGHT, "r"),
+        #     13: (utils.WindowEvent.RELEASE_BUTTON_A, "a"),
+        #     14: (utils.WindowEvent.RELEASE_BUTTON_B, "b"),
+        #     15: (utils.WindowEvent.RELEASE_BUTTON_START, "s"),
+        # }
 
+        self.buttons = {
+            0: ("", "-"),
+            1: ("up", "U"),
+            2: ("down", "D"),
+            3: ("left", "L"),
+            4: ("right", "R"),
+            5: ("a", "A"),
+            6: ("b", "B"),
+            7: ("start", "S"),
         }
 
         self.buttons_names = "UDLRABS!_udlrabs.-"
@@ -312,15 +338,12 @@ class PyBoyEnv(gym.Env):
         # self.action_space = gym.spaces.Box(low=0, high=1, shape=(12,), dtype=np.float32)
         # self.action_space = gym.spaces.Box(low=0, high=1, shape=(8,), dtype=np.float32)
 
-        self.observation_space = gym.spaces.Box(
-            low=0, high=255, shape=(size,), dtype=np.float32)    
+        self.observation_space = Box(low=0, high=255, shape=(size,), dtype=np.float32)
 
-    
         self.action_space = Discrete(8, start=0)
         # size = SPRITE_MAP_END - SPRITE_MAP_START + 1
-        
+
         # size = MEM_START MEM_END + 2
-        
 
     def generate_image(self):
         return self.pyboy.screen.ndarray
@@ -328,12 +351,11 @@ class PyBoyEnv(gym.Env):
     def generate_screen_ndarray(self):
         return self.pyboy.screen.ndarray
 
-    
     def calculate_reward(self):
         # calculate total bits from the memory values
         # current_memory = self.pyboy.memory[MEM_START: MEM_END + 1]
-        
-        offset = self.cart.cart_offset() # + MEM_START
+
+        offset = self.cart.cart_offset()  # + MEM_START
         caught_pokemon_start = self.caught_pokemon_start
         caught_pokemon_end = self.caught_pokemon_end
         seen_pokemon_start = self.seen_pokemon_start
@@ -348,57 +370,71 @@ class PyBoyEnv(gym.Env):
         last_stored_item_total = self.last_stored_item_total
 
         # prioritize pulling items from storage, collecting items, and using items from inventory.
-        if carried_item_total != last_carried_item_total and last_stored_item_total <= stored_item_total:
-            self.speed_bonus += np.abs(carried_item_total - last_carried_item_total) * 10
-    
+        if (
+            carried_item_total != last_carried_item_total
+            and last_stored_item_total <= stored_item_total
+        ):
+            self.speed_bonus += (
+                np.abs(carried_item_total - last_carried_item_total) * 10
+            )
 
         self.last_stored_item_total = stored_item_total
         self.last_carried_item_total = carried_item_total
-        
+
         last_total_items = self.last_total_items
         if carried_item_total + stored_item_total != last_total_items:
-            self.speed_bonus += np.abs((carried_item_total + stored_item_total) - last_total_items) * 10
+            self.speed_bonus += (
+                np.abs((carried_item_total + stored_item_total) - last_total_items) * 10
+            )
             self.last_total_items = carried_item_total + stored_item_total
 
         speed_bonus_calc = (self.max_frames - self.frames) / (self.max_frames + 1)
-        
 
         if caught_pokemon_start < caught_pokemon_end:
-            pokemon_caught = np.sum([bin(byte).count('1') for byte in curr_pyboy.memory[caught_pokemon_start: caught_pokemon_end]])
+            pokemon_caught = np.sum(
+                [
+                    bin(byte).count("1")
+                    for byte in curr_pyboy.memory[
+                        caught_pokemon_start:caught_pokemon_end
+                    ]
+                ]
+            )
         else:
             pokemon_caught = 0
 
         if seen_pokemon_start < seen_pokemon_end:
-            pokemon_seen = np.sum([bin(byte).count('1') for byte in curr_pyboy.memory[seen_pokemon_start: seen_pokemon_end]])
-            
+            pokemon_seen = np.sum(
+                [
+                    bin(byte).count("1")
+                    for byte in curr_pyboy.memory[seen_pokemon_start:seen_pokemon_end]
+                ]
+            )
+
         else:
             pokemon_seen = 0
 
         # self.pokedex = {i: bin(values).count('1') for i, values in enumerate(current_memory[item_start: item_end]) if item_start < item_end}
 
-
-        items = curr_pyboy.memory[item_start: item_end]
+        items = curr_pyboy.memory[item_start:item_end]
         # extract every 2 indexes from the list
         item_counts = items[1::2]
         item_types = items[0::2]
         # item_types = [items[i] for i in range(0, len(items), 2)]
         # item_counts = [items[i] for i in range(1, len(items), 2)]
-        
-        
 
         # calculate points of items based on the number of items added per step
         last_items = self.last_items
         if len(last_items) == 0:
             last_items = [0] * len(item_counts)
-        
-        
-        item_diff = [np.abs(item_counts[i] - last_items[i]) for i in range(len(item_counts))]
+
+        item_diff = [
+            np.abs(item_counts[i] - last_items[i]) for i in range(len(item_counts))
+        ]
         self.last_items = item_counts
 
         # create tuple of item type and points
         new_item_points = zip(item_types, item_diff)
         # print(f"ITEMS: {items}")
-        
 
         for item, points in new_item_points:
             if item == 0 or item == 255:
@@ -409,7 +445,6 @@ class PyBoyEnv(gym.Env):
             else:
                 self.item_points[item] += points
                 self.speed_bonus += points * 10
-
 
         px = curr_pyboy.memory[self.player_x_mem]
         py = curr_pyboy.memory[self.player_y_mem]
@@ -434,28 +469,31 @@ class PyBoyEnv(gym.Env):
             # Give a backtrack bonus and reset the explored list
             self.backtrack_bonus += len(self.visited_xy)
             self.visited_xy = set()
-        reward = (len(self.player_maps) * 100 + (self.backtrack_bonus + len(self.visited_xy)) // 10) // 10
-
+        reward = (
+            len(self.player_maps) * 100
+            + (self.backtrack_bonus + len(self.visited_xy)) // 10
+        ) // 10
 
         last_poke = self.last_pokemon_count
         last_poke_seen = self.last_seen_pokemon_count
         if pokemon_caught > last_poke:
             self.last_pokemon_count = pokemon_caught
-            self.speed_bonus +=  reward * (speed_bonus_calc)
-        
+            self.speed_bonus += reward * (speed_bonus_calc)
+
         if pokemon_seen > last_poke_seen:
             self.last_seen_pokemon_count = pokemon_seen
-            self.speed_bonus +=  reward  // 2 * (speed_bonus_calc) 
-
-        
+            self.speed_bonus += reward // 2 * (speed_bonus_calc)
 
         self.last_pokemon_count = pokemon_caught
         self.last_seen_pokemon_count = pokemon_seen
-        
-        reward = reward + (reward * (pokemon_caught * 2) + (pokemon_seen)) // 150 + sum(self.item_points.values()) * 10
-            
-        
-        # reward -= (reward * (self.stationary_frames / (self.frames + 1))) 
+
+        reward = (
+            reward
+            + (reward * (pokemon_caught * 2) + (pokemon_seen)) // 150
+            + sum(self.item_points.values()) * 10
+        )
+
+        # reward -= (reward * (self.stationary_frames / (self.frames + 1)))
         reward += self.speed_bonus
 
         self.last_player_x = px
@@ -463,7 +501,7 @@ class PyBoyEnv(gym.Env):
         self.last_player_x_block = pbx
         self.last_player_y_block = pby
         self.last_player_map = map_id
-        
+
         return reward
 
     def render(self, target_index=None, reset=False):
@@ -476,8 +514,9 @@ class PyBoyEnv(gym.Env):
             h = 144
             if terminal_size.columns != w or terminal_size.lines < h / 2:
                 image_aspect_ratio = w / h
-                terminal_aspect_ratio = terminal_size.columns / \
-                    (terminal_size.lines - terminal_offset)
+                terminal_aspect_ratio = terminal_size.columns / (
+                    terminal_size.lines - terminal_offset
+                )
 
                 if image_aspect_ratio > terminal_aspect_ratio:
                     new_width = int(w / image_aspect_ratio)
@@ -494,35 +533,43 @@ class PyBoyEnv(gym.Env):
                 image = replacer
 
             self.renderer.load_image(image)
-            self.renderer.resize(terminal_size.columns,
-                                 terminal_size.lines * 2 - terminal_offset)
+            self.renderer.resize(
+                terminal_size.columns, terminal_size.lines * 2 - terminal_offset
+            )
             self.renderer.render(Ansi24HblockMethod)
             item_score = sum(self.item_points.values())
             if target_index is not None:
                 print(
-                    f"🧠: {target_index:2d} 🟢 {self.last_pokemon_count:3d} 👀 {self.last_seen_pokemon_count:3d} 🌎 {len(self.visited_xy):3d}:{len(self.player_maps):3d} 🏆 {self.last_score:7.2f} 🎒 {item_score:3d} 🐆 {self.speed_bonus:7.2f}\n [{self.last_player_x:3d},{self.last_player_y:3d},{self.last_player_x_block:3d},{self.last_player_y_block:3d}], 🗺️: {self.last_player_map:3d} Actions {' '.join(self.actions[-6:])} 🎬 {self.frames:6d} {len(self.actions)}")
+                    f"🧠: {target_index:2d} 🟢 {self.last_pokemon_count:3d} 👀 {self.last_seen_pokemon_count:3d} 🌎 {len(self.visited_xy):3d}:{len(self.player_maps):3d} 🏆 {self.last_score:7.2f} 🎒 {item_score:3d} 🐆 {self.speed_bonus:7.2f}\n [{self.last_player_x:3d},{self.last_player_y:3d},{self.last_player_x_block:3d},{self.last_player_y_block:3d}], 🗺️: {self.last_player_map:3d} Actions {' '.join(self.actions[-6:])} 🎬 {self.frames:6d} {len(self.actions)}"
+                )
             if reset:
                 print(
-                    f"🛠️: {self.emunum:2d} 🟢 {self.last_pokemon_count:3d} 👀 {self.last_seen_pokemon_count:3d} 🌎 {len(self.visited_xy):3d}:{len(self.player_maps):3d} 🏆 {self.last_score:7.2f} 🎒 {item_score:3d} 🐆 {self.speed_bonus:7.2f}\n [{self.last_player_x:3d},{self.last_player_y:3d},{self.last_player_x_block:3d},{self.last_player_y_block:3d}], 🗺️: {self.last_player_map:3d} Actions {' '.join(self.actions[-6:])} 🎬 {self.frames:6d} {len(self.actions)}")
+                    f"🛠️: {self.emunum:2d} 🟢 {self.last_pokemon_count:3d} 👀 {self.last_seen_pokemon_count:3d} 🌎 {len(self.visited_xy):3d}:{len(self.player_maps):3d} 🏆 {self.last_score:7.2f} 🎒 {item_score:3d} 🐆 {self.speed_bonus:7.2f}\n [{self.last_player_x:3d},{self.last_player_y:3d},{self.last_player_x_block:3d},{self.last_player_y_block:3d}], 🗺️: {self.last_player_map:3d} Actions {' '.join(self.actions[-6:])} 🎬 {self.frames:6d} {len(self.actions)}"
+                )
 
     # TODO: build expanding pixel map to show extents of game travelled. (minimap?) Use 3d numpy array to store visited pixels. performance?
-    
+
     def step(self, action):
-        self.frames = self.pyboy.frame_count
-        button_1, button_name_1 = self.buttons[action]
-        button_2, _ = self.buttons[action + 8]
-        self.pyboy.send_input(button_1)
-        for _ in range(PRESS_FRAMES):
-            self.pyboy.tick()
-        #for _ in range(ticks):
-        self.pyboy.send_input(button_2)
-        for _ in range(RELEASE_FRAMES):
-            self.pyboy.tick()
+        # self.frames = self.pyboy.frame_count
+        # button_1, button_name_1 = self.buttons[action]
+        # button_2, _ = self.buttons[action + 8]
+        # self.pyboy.send_input(button_1)
+        # for _ in range(PRESS_FRAMES):
+        #     self.pyboy.tick()
+        # # for _ in range(ticks):
+
+        # for _ in range(RELEASE_FRAMES):
+        #     self.pyboy.tick()
+        button = self.buttons[action]
+        if action != 0:
+            self.pyboy.button(button[0])
+
+        self.pyboy.tick()
         # if it's the same button it's held.  If it's a different button it's a different button.
-        # In theory this means it'll figure out how to hold buttons down and how to not 
+        # In theory this means it'll figure out how to hold buttons down and how to not
         # press buttons when it's not useful to do so
-        self.actions = f"{self.actions}{button_name_1}"
-        #self.actions = self.actions + (f"{button_name_1}")
+        self.actions = f"{self.actions}{button[1]}"
+        # self.actions = self.actions + (f"{button_name_1}")
         # Grab less frames to append if we're standing still.
 
         reward = round(self.calculate_reward(), 3)
@@ -535,24 +582,26 @@ class PyBoyEnv(gym.Env):
         # else:
         terminated = False
 
-        info = {"reward": reward,
-                "actions": self.actions[LOG_FREQ:],
-                "emunum": self.emunum,
-                "frames": self.frames,
-                "pokemon_caught": self.last_pokemon_count,
-                "pokemon_seen": self.last_seen_pokemon_count, 
-                "visited_xy": self.visited_xy,
-                "stationary_frames": self.stationary_frames,
-                "items": self.item_points,
-                "speed_bonus": self.speed_bonus,}
+        info = {
+            "reward": reward,
+            "actions": self.actions[LOG_FREQ:],
+            "emunum": self.emunum,
+            "frames": self.frames,
+            "pokemon_caught": self.last_pokemon_count,
+            "pokemon_seen": self.last_seen_pokemon_count,
+            "visited_xy": self.visited_xy,
+            "stationary_frames": self.stationary_frames,
+            "items": self.item_points,
+            "speed_bonus": self.speed_bonus,
+        }
         screen = self.pyboy.memory[MEM_START:MEM_END].copy()
         # self.last_n_frames[:-1] = self.last_n_frames[1:]
-        #self.last_n_frames[-1] = screen
+        # self.last_n_frames[-1] = screen
         observation = np.append(screen, reward)
 
         # convert observation into float32s
         # if self.device == "mps":
-        #     observation = observation.astype(np.float32)
+        observation = observation.astype(np.float32)
         # else:
         #     observation = observation.astype(np.float64)
         return observation, reward, terminated, truncated, info
@@ -560,7 +609,6 @@ class PyBoyEnv(gym.Env):
     # def get_memory_range(self):
     #     memory_values = self.pyboy.memory[MEM_START: MEM_END + 1]
     #     return memory_values
-    
 
     # def get_reward_memory_range(self):
     #     freq = 24
@@ -574,14 +622,12 @@ class PyBoyEnv(gym.Env):
 
     #     # FIXME TODO: Workaround for Pokemon Blue bug where the number of pokemon caught shoots up to 4 before any pokemon are seen or caught.
 
-
     #         self.current_memory[self.player_x_mem] = self.pyboy.memory[self.player_x_mem + MEM_START]
     #         self.current_memory[self.player_y_mem] = self.pyboy.memory[self.player_y_mem + MEM_START]
     #         self.current_memory[self.player_x_block_mem] = self.pyboy.memory[self.player_x_block_mem + MEM_START]
     #         self.current_memory[self.player_x_block_mem] = self.pyboy.memory[self.player_y_block_mem + MEM_START]
     #         self.current_memory[self.player_map_mem] = self.pyboy.memory[self.player_map_mem + MEM_START]
     #     return self.current_memory
-    
 
     def reset(self, seed=0, **kwargs):
         # reward = self.calculate_reward()
@@ -608,14 +654,20 @@ class PyBoyEnv(gym.Env):
         self.last_player_y_block = 0
         self.menu_value = 0
         self.pokedex = {}
-        self.pyboy = PyBoy(self.game_path, window="null", cgb=CGB, )
+        self.pyboy = PyBoy(
+            self.game_path,
+            window="null",
+            cgb=CGB,
+        )
         # self.last_n_frames = [self.pyboy.screen.ndarray] * self.n
 
         if self.save_state_path is not None:
             self.pyboy.load_state(open(self.save_state_path, "rb"))
         else:
             print(
-                f"Error: No state file found for {self.save_state_path}", file=sys.stderr)
+                f"Error: No state file found for {self.save_state_path}",
+                file=sys.stderr,
+            )
 
         self.actions = ""
         self.screen_image_arrays = set()
@@ -633,12 +685,13 @@ class PyBoyEnv(gym.Env):
         # self.last_n_frames = [self.pyboy.memory[MEM_START:MEM_END].copy() for _ in range(self.n)]
         screen = self.pyboy.memory[MEM_START:MEM_END].copy()
         observation = np.append(screen, reward)
+        observation = observation.astype(np.float32)
 
         # convert observation into float32s
         # if self.device == "mps":
         # observation = observation.astype(np.uint8)
         # else:
-          #  observation = observation.astype(np.float64)
+        #  observation = observation.astype(np.float64)
         # if self.device == "mps":
         #     observation = observation.astype(np.float32)
         # else:
@@ -651,65 +704,80 @@ def make_env(game_path, emunum, max_frames=500_000, device="cpu"):
     def _init():
         if os.path.exists(game_path + ".state"):
             print(f"Loading state {game_path}.state")
-            
-            
+
             if CGB:
                 ext = ".state"
             else:
                 ext = ".ogb_state"
-                
-                
-            new_env = PyBoyEnv(game_path, emunum=emunum, save_state_path=game_path + ext, max_frames=max_frames, device=device)
+
+            new_env = PyBoyEnv(
+                game_path,
+                emunum=emunum,
+                save_state_path=game_path + ext,
+                max_frames=max_frames,
+                device=device,
+            )
             new_env.pyboy.load_state(open(game_path + ext, "rb"))
         else:
             print(f"Error: No state file found for {game_path}.state")
             exit(1)
 
         return new_env
+
     return _init
 
 
-def train_model(env, total_steps, n_steps, batch_size, episode, file_name, save_path = "ofo", device="cpu"):
+def train_model(
+    env,
+    total_steps,
+    n_steps,
+    batch_size,
+    episode,
+    file_name,
+    save_path="ofo",
+    device="cpu",
+):
     # first_layer_size = (24 * 359) + 1
-    first_layer_size = 4192 
+    first_layer_size = 4192
     policy_kwargs = dict(
         # features_extractor_class=CustomFeatureExtractor,
         # features_extractor_kwargs={},
-        net_arch=dict(pi=[first_layer_size, first_layer_size // 2, 8], vf=[first_layer_size, first_layer_size // 2, 8]),
+        net_arch=dict(
+            pi=[first_layer_size, first_layer_size // 2, 8],
+            vf=[first_layer_size, first_layer_size // 2, 8],
+        ),
         activation_fn=nn.ReLU,
     )
     # make sure we take care of accidental trailing slashes in the save path which
     # would cause the checkpoint path to be incorrect.
     checkpoint_path = f"{save_path.rstrip('/')}_chkpt"
 
-
     tensorboard_log = f"{save_path}/tensorboard/{os.uname()[1]}-{time.time()-episode}"
-    
-    
 
-    run_model = PPO(policy="MlpPolicy",
-                        # Reduce n_steps if too large; ensure not less than some minimum like 2048 for sufficient learning per update.
-                        n_steps=n_steps,
-                        # Reduce batch size if it's too large but ensure a minimum size for stability.
-                        batch_size=batch_size,
-                        # Adjusted for potentially more stable learning across batches.
-                        n_epochs=3,
-                        # Increased to give more importance to future rewards, can help escape repetitive actions.
-                        gamma=0.9998,
-                        # Adjusted for a better balance between bias and variance in advantage estimation.
-                        gae_lambda=0.998,
-                        learning_rate=learning_rate_schedule,  # Standard starting point for PPO, adjust based on performance.
-                        # learning_rate=0.0002,
-                        env=env,
-                        # Ensure this aligns with the complexities of your environment.
-                        policy_kwargs=policy_kwargs,
-                        verbose=1,
-                        device=device,
-                        # Reduced for less aggressive exploration after initial learning, adjust based on needs.
-                        ent_coef=0.01,
-                        tensorboard_log=tensorboard_log,
-                        # vf_coef=0.5,  # Adjusted to balance value function loss importance.
-                        )
+    run_model = PPO(
+        policy="MlpPolicy",
+        # Reduce n_steps if too large; ensure not less than some minimum like 2048 for sufficient learning per update.
+        n_steps=n_steps,
+        # Reduce batch size if it's too large but ensure a minimum size for stability.
+        batch_size=batch_size,
+        # Adjusted for potentially more stable learning across batches.
+        n_epochs=3,
+        # Increased to give more importance to future rewards, can help escape repetitive actions.
+        gamma=0.9998,
+        # Adjusted for a better balance between bias and variance in advantage estimation.
+        gae_lambda=0.998,
+        learning_rate=learning_rate_schedule,  # Standard starting point for PPO, adjust based on performance.
+        # learning_rate=0.0002,
+        env=env,
+        # Ensure this aligns with the complexities of your environment.
+        policy_kwargs=policy_kwargs,
+        verbose=1,
+        device=device,
+        # Reduced for less aggressive exploration after initial learning, adjust based on needs.
+        ent_coef=0.01,
+        tensorboard_log=tensorboard_log,
+        # vf_coef=0.5,  # Adjusted to balance value function loss importance.
+    )
     checkpoints = glob.glob(f"{checkpoint_path.rstrip('/')}/*/*.zip")
     if len(checkpoints) > 0:
         print(f"Checkpoints found: {checkpoints}")
@@ -717,13 +785,12 @@ def train_model(env, total_steps, n_steps, batch_size, episode, file_name, save_
         newest_checkpoint = max(checkpoints, key=os.path.getctime)
         print(f"Newest checkpoint: {newest_checkpoint}")
         run_model.load(newest_checkpoint)
-        
+
         # run_model = PPO.load(newest_checkpoint, env=env,)
-                             # tensorboard_log=tensorboard_log)
-        print('\ncheckpoint loaded')
+        # tensorboard_log=tensorboard_log)
+        print("\ncheckpoint loaded")
     else:
         print("No checkpoints found.")
-
 
     # model_merge_callback = EveryNTimesteps(n_steps=steps * num_cpu * 1024, callback=ModelMergeCallback(args.num_hosts))
     # TODO: Progress callback that collects data from each frame for stats
@@ -733,16 +800,20 @@ def train_model(env, total_steps, n_steps, batch_size, episode, file_name, save_
     tbcallback = None
 
     checkpoint_callback = CheckpointCallback(
-        save_freq=n_steps, save_path=f"{save_path}_chkpt/{os.uname()[1]}-{time.time()}", name_prefix="poke")
+        save_freq=n_steps,
+        save_path=f"{save_path}_chkpt/{os.uname()[1]}-{time.time()}",
+        name_prefix="poke",
+    )
     current_stats = EveryNTimesteps(
-        n_steps=n_steps, callback=PokeCaughtCallback(total_steps, verbose=1))
+        n_steps=n_steps, callback=PokeCaughtCallback(total_steps, verbose=1)
+    )
     tbcallback = TensorboardLoggingCallback(tensorboard_log)
     callbacks = [checkpoint_callback, current_stats, tbcallback]
     # callbacks = [current_stats, tbcallback]
-    run_model.learn(total_timesteps=total_steps,
-                    progress_bar=True, callback=callbacks)
+    run_model.learn(total_timesteps=total_steps, progress_bar=True, callback=callbacks)
     # run_model.save(f"{checkpoint_path}/{file_name}-{episode}.zip")
     return run_model
+
 
 if __name__ == "__main__":
     # TODO: make path a parameter and use more sensible defaults for non-me users
@@ -753,9 +824,9 @@ if __name__ == "__main__":
         else device
     )
     device = "cuda" if torch.cuda.is_available() else device
-    
-    
+
     import argparse
+
     parser = argparse.ArgumentParser()
     # TODO: Investigate Pokemon Blue caught = 4 before you have a pokedex. Is this a bug in the game?  Is it a bug in the emulator?  Is it a bug in the memory address? Seems to work fine on Red,
     # only happens during looking at starter pokemon in Oak's lab.
@@ -765,8 +836,7 @@ if __name__ == "__main__":
     # TODO: make sure the output indicates what is being done and why. e.g. "No directory specified.  Checking current directory for .gb files. Found 3 files. Using the newest one: PokemonYellow.gb"
     # TODO: be "quiet" when parameters are passed and work as expected, but "chatty" when the parameter is skipped and the application is doing "defaulty" things.
     # TODO: DIRECTORY CLEANUP INCLUDING LOGROTATINON.
-    parser.add_argument("--game_path", type=str,
-                        default="/home/mscs/PokemonYellow.gb")
+    parser.add_argument("--game_path", type=str, default="/home/mscs/PokemonYellow.gb")
     # TODO: fix multi-host model merge.  Can we train across multiple instances of the same cart? Can we train across DIFFERENT pokemon carts?
     # TODO: Expirement: If we can train on DIFFERENT pokemon carts, can we train on multiple GB games at a time and build a generally good base "gameboy game" model for training specific games?
 
@@ -783,29 +853,37 @@ if __name__ == "__main__":
     # runsteps = int(3200000 * (hrs))
     # runsteps = int(32000 * (hrs))
     # runsteps = int(3600 * (hrs))
-    # num_cpu = 1
+
     run_env = None
     # max_frames = PRESS_FRAMES + RELEASE_FRAMES * runsteps
 
     if num_cpu == 1:
         run_env = DummyVecEnv([make_env(args.game_path, 0, device=device)])
     else:
-        run_env = SubprocVecEnv([make_env(args.game_path,
-                                      emunum, device=device) for emunum in range(num_cpu)])
+        run_env = SubprocVecEnv(
+            [
+                make_env(args.game_path, emunum, device=device)
+                for emunum in range(num_cpu)
+            ]
+        )
 
     model_file_name = "model"
 
     # episodes = 13
     episodes = 13
 
-
-
     batch_size = 512
     n_steps = 4096
     total_steps = n_steps * 256
 
     for e in range(0, episodes):
-        model = train_model(env=run_env, total_steps=total_steps * e, n_steps = n_steps, batch_size = batch_size, episode=e, 
-                            file_name=model_file_name, save_path=args.output_dir, device=device)
-        
-        
+        model = train_model(
+            env=run_env,
+            total_steps=total_steps * e,
+            n_steps=n_steps,
+            batch_size=batch_size,
+            episode=e,
+            file_name=model_file_name,
+            save_path=args.output_dir,
+            device=device,
+        )
