@@ -8,10 +8,11 @@ Pillow
 pyboy>=2.0.0
 scipy
 Shimmy
-stable-baselines3[extra]==2.2.1
+stable-baselines3==2.2.1
 tensorboard
 tensorflow
 timg
 torch
 torchvision
 tqdm
+rich

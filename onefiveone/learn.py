@@ -171,14 +171,15 @@ class PokeCaughtCallback(BaseCallback):
         self.total_timesteps = total_timesteps
         self.timg_render = Renderer()
         self.filename_datetime = datetime.datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
+        
 
     def _on_step(self) -> bool:
         rewards = self.training_env.get_attr("last_score")
         best_env_idx = np.argmax(rewards)
-        self.training_env.env_method("render", best_env_idx)
+        image = self.training_env.env_method("render", best_env_idx)
+
 
         # self.progress = self.model.num_timesteps
-        # self.progress_bar.update(self.total_timesteps - self.progress_bar.n)
         return True
 
 
@@ -292,7 +293,8 @@ class PyBoyEnv(gym.Env):
 
         self.last_memory_update_frame = 0
         self.current_memory = None
-
+        self.progress_frames = self.max_frames * (PRESS_FRAMES + RELEASE_FRAMES)
+        self.progress_bar = tqdm(total=self.progress_frames , desc="Training")
         # self.buttons = {
         #     0: (utils.WindowEvent.PASS, "-"),
         #     1: (utils.WindowEvent.PRESS_ARROW_UP, "U"),
@@ -504,6 +506,7 @@ class PyBoyEnv(gym.Env):
 
         return reward
 
+    # TODO: Refactor so returns image instead of immediately rendering so PokeCaughtCallback can render instead.
     def render(self, target_index=None, reset=False):
         if target_index is not None and target_index == self.emunum or reset:
             terminal_size = os.get_terminal_size()
@@ -543,10 +546,12 @@ class PyBoyEnv(gym.Env):
                 print(
                     f"🧠: {target_index:2d} 🟢 {self.last_pokemon_count:3d} 👀 {self.last_seen_pokemon_count:3d} 🌎 {len(self.visited_xy):3d}:{len(self.player_maps):3d} 🏆 {self.last_score:7.2f} 🎒 {item_score:3d} 🐆 {self.speed_bonus:7.2f}\n [{self.last_player_x:3d},{self.last_player_y:3d},{self.last_player_x_block:3d},{self.last_player_y_block:3d}], 🗺️: {self.last_player_map:3d} Actions {' '.join(self.actions[-6:])} 🎬 {self.frames:6d} {len(self.actions)}"
                 )
+                self.progress_bar.update(self.pyboy.frame_count)
             if reset:
                 print(
                     f"🛠️: {self.emunum:2d} 🟢 {self.last_pokemon_count:3d} 👀 {self.last_seen_pokemon_count:3d} 🌎 {len(self.visited_xy):3d}:{len(self.player_maps):3d} 🏆 {self.last_score:7.2f} 🎒 {item_score:3d} 🐆 {self.speed_bonus:7.2f}\n [{self.last_player_x:3d},{self.last_player_y:3d},{self.last_player_x_block:3d},{self.last_player_y_block:3d}], 🗺️: {self.last_player_map:3d} Actions {' '.join(self.actions[-6:])} 🎬 {self.frames:6d} {len(self.actions)}"
                 )
+                self.progress_bar.update(self.pyboy.frame_count)
 
     # TODO: build expanding pixel map to show extents of game travelled. (minimap?) Use 3d numpy array to store visited pixels. performance?
 
@@ -563,9 +568,14 @@ class PyBoyEnv(gym.Env):
         #     self.pyboy.tick()
         button = self.buttons[action]
         if action != 0:
-            self.pyboy.button(button[0])
+            self.pyboy.button_press(button[0])
+        for _ in range(PRESS_FRAMES):
+            self.pyboy.tick()
+        if action != 0:
+            self.pyboy.button_release(button[0])
+        for _ in range(RELEASE_FRAMES):
+            self.pyboy.tick()
 
-        self.pyboy.tick()
         # if it's the same button it's held.  If it's a different button it's a different button.
         # In theory this means it'll figure out how to hold buttons down and how to not
         # press buttons when it's not useful to do so
@@ -801,7 +811,7 @@ def train_model(
     tbcallback = None
 
     checkpoint_callback = CheckpointCallback(
-        save_freq=n_steps,
+        save_freq=total_steps // 2,
         save_path=f"{save_path}_chkpt/{os.uname()[1]}-{time.time()}",
         name_prefix="poke",
     )
@@ -811,7 +821,7 @@ def train_model(
     tbcallback = TensorboardLoggingCallback(tensorboard_log)
     callbacks = [checkpoint_callback, current_stats, tbcallback]
     # callbacks = [current_stats, tbcallback]
-    run_model.learn(total_timesteps=total_steps, progress_bar=True, callback=callbacks)
+    run_model.learn(total_timesteps=total_steps, callback=callbacks, progress_bar=False)
     # run_model.save(f"{checkpoint_path}/{file_name}-{episode}.zip")
     return run_model
 
@@ -858,24 +868,26 @@ if __name__ == "__main__":
     run_env = None
     # max_frames = PRESS_FRAMES + RELEASE_FRAMES * runsteps
 
+        # episodes = 13
+    episodes = 13
+
+    batch_size = 512
+    n_steps = 4096
+    total_steps = n_steps * 256
+
+
     if num_cpu == 1:
         run_env = DummyVecEnv([make_env(args.game_path, 0, device=device)])
     else:
         run_env = SubprocVecEnv(
             [
-                make_env(args.game_path, emunum, device=device)
+                make_env(args.game_path, emunum, device=device, max_frames=total_steps)
                 for emunum in range(num_cpu)
             ]
         )
 
     model_file_name = "model"
 
-    # episodes = 13
-    episodes = 13
-
-    batch_size = 512
-    n_steps = 4096
-    total_steps = n_steps * 256
 
     for e in range(0, episodes):
         model = train_model(
