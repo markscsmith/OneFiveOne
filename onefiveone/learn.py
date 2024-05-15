@@ -28,7 +28,7 @@ from pyboy import PyBoy
 # Output libs
 from timg import Renderer, Ansi24HblockMethod
 from PIL import Image, ImageDraw, ImageFont
-from tqdm.rich import tqdm
+from tqdm import tqdm
 import glob
 
 # Memory ranges to read in Pokemon Red/Blue (+ Yellow?)
