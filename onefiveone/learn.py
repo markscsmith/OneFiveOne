@@ -581,7 +581,7 @@ class PyBoyEnv(gym.Env):
         #     self.pyboy.tick()
         button = self.buttons[action]
         if action != 0:
-            self.pyboy.button(button[0])
+            self.pyboy.button_press(button[0])
         for _ in range(PRESS_FRAMES):
             self.pyboy.tick()
         if action != 0:
