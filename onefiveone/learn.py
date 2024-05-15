@@ -294,7 +294,7 @@ class PyBoyEnv(gym.Env):
         self.last_memory_update_frame = 0
         self.current_memory = None
         self.progress_frames = self.max_frames * (PRESS_FRAMES + RELEASE_FRAMES)
-        self.progress_bar = tqdm(total=self.progress_frames, desc="Training", )
+        
         # self.buttons = {
         #     0: (utils.WindowEvent.PASS, "-"),
         #     1: (utils.WindowEvent.PRESS_ARROW_UP, "U"),
@@ -554,17 +554,17 @@ class PyBoyEnv(gym.Env):
                 print(
                     f"🧠: {target_index:2d} 🟢 {self.last_pokemon_count:3d} 👀 {self.last_seen_pokemon_count:3d} 🌎 {len(self.visited_xy):3d}:{len(self.player_maps):3d} 🏆 {self.last_score:7.2f} 🎒 {item_score:3d} 🐆 {self.speed_bonus:7.2f}\n [{self.last_player_x:3d},{self.last_player_y:3d},{self.last_player_x_block:3d},{self.last_player_y_block:3d}], 🗺️: {self.last_player_map:3d} Actions {' '.join(self.actions[-6:])} 🎬 {self.frames:6d} {game_time_string} {len(self.actions)}"
                 )
-                self.progress_bar.update(fc)
+                
             if reset:
                 print(
                     f"🛠️: {self.emunum:2d} 🟢 {self.last_pokemon_count:3d} 👀 {self.last_seen_pokemon_count:3d} 🌎 {len(self.visited_xy):3d}:{len(self.player_maps):3d} 🏆 {self.last_score:7.2f} 🎒 {item_score:3d} 🐆 {self.speed_bonus:7.2f}\n [{self.last_player_x:3d},{self.last_player_y:3d},{self.last_player_x_block:3d},{self.last_player_y_block:3d}], 🗺️: {self.last_player_map:3d} Actions {' '.join(self.actions[-6:])} 🎬 {self.frames:6d} {len(self.actions)}"
                 )
-                self.progress_bar.update(fc)
+                
 
     # TODO: build expanding pixel map to show extents of game travelled. (minimap?) Use 3d numpy array to store visited pixels. performance?
 
     def step(self, action):
-        self.progress_bar.update(self.pyboy.frame_count)
+        
         # self.frames = self.pyboy.frame_count
         # button_1, button_name_1 = self.buttons[action]
         # button_2, _ = self.buttons[action + 8]
@@ -830,7 +830,7 @@ def train_model(
     tbcallback = TensorboardLoggingCallback(tensorboard_log)
     callbacks = [checkpoint_callback, current_stats, tbcallback]
     # callbacks = [current_stats, tbcallback]
-    run_model.learn(total_timesteps=total_steps, callback=callbacks, progress_bar=False)
+    run_model.learn(total_timesteps=total_steps, callback=callbacks, progress_bar=True)
     # run_model.save(f"{checkpoint_path}/{file_name}-{episode}.zip")
     return run_model
 
