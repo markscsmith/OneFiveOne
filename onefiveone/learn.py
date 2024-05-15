@@ -830,7 +830,7 @@ def train_model(
         name_prefix="poke",
     )
     current_stats = EveryNTimesteps(
-        n_steps=n_steps, callback=PokeCaughtCallback(total_steps, multiplier=n_steps, verbose=1)
+        n_steps=n_steps // num_cpu, callback=PokeCaughtCallback(total_steps, multiplier=n_steps // num_cpu, verbose=1)
     )
     tbcallback = TensorboardLoggingCallback(tensorboard_log)
     callbacks = [checkpoint_callback, current_stats, tbcallback]
