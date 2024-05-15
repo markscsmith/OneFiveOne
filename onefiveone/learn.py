@@ -830,7 +830,7 @@ def train_model(
         name_prefix="poke",
     )
 
-    update_freq = 2048 * 2
+    update_freq = num_cpu * 256
     current_stats = EveryNTimesteps(
         n_steps=update_freq, callback=PokeCaughtCallback(total_steps, multiplier=update_freq, verbose=1)
     )
