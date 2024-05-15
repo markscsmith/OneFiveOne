@@ -539,8 +539,7 @@ class PyBoyEnv(gym.Env):
             self.renderer.resize(
                 terminal_size.columns, terminal_size.lines * 2 + 1 - terminal_offset
             )
-            print()
-            self.renderer.render(Ansi24HblockMethod)
+            
             item_score = sum(self.item_points.values())
             fc = self.pyboy.frame_count
             game_seconds = fc // 24
@@ -549,16 +548,20 @@ class PyBoyEnv(gym.Env):
             # use the proper clock face for the hours:
             clock_faces = "🕛🕐🕑🕒🕓🕔🕕🕖🕗🕘🕙🕚"
             game_time_string = f"{clock_faces[game_hours % 12]} {game_hours:02d}:{game_minutes % 60:02d}:{game_seconds % 60:02d}"
+            print()
+            self.renderer.render(Ansi24HblockMethod)
+
             if target_index is not None:
-                
+
                 print(
                     f"🧠: {target_index:2d} 🟢 {self.last_pokemon_count:3d} 👀 {self.last_seen_pokemon_count:3d} 🌎 {len(self.visited_xy):3d}:{len(self.player_maps):3d} 🏆 {self.last_score:7.2f} 🎒 {item_score:3d} 🐆 {self.speed_bonus:7.2f}\n [{self.last_player_x:3d},{self.last_player_y:3d},{self.last_player_x_block:3d},{self.last_player_y_block:3d}], 🗺️: {self.last_player_map:3d} Actions {' '.join(self.actions[-6:])} 🎬 {self.frames:6d} {game_time_string} {len(self.actions)}"
                 )
-                
+
             if reset:
                 print(
                     f"🛠️: {self.emunum:2d} 🟢 {self.last_pokemon_count:3d} 👀 {self.last_seen_pokemon_count:3d} 🌎 {len(self.visited_xy):3d}:{len(self.player_maps):3d} 🏆 {self.last_score:7.2f} 🎒 {item_score:3d} 🐆 {self.speed_bonus:7.2f}\n [{self.last_player_x:3d},{self.last_player_y:3d},{self.last_player_x_block:3d},{self.last_player_y_block:3d}], 🗺️: {self.last_player_map:3d} Actions {' '.join(self.actions[-6:])} 🎬 {self.frames:6d} {len(self.actions)}"
                 )
+            
                 
 
     # TODO: build expanding pixel map to show extents of game travelled. (minimap?) Use 3d numpy array to store visited pixels. performance?
