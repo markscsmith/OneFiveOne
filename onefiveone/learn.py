@@ -40,8 +40,8 @@ SPRITE_MAP_END = 0xC507
 
 LOG_FREQ = 1000
 
-PRESS_FRAMES = 1
-RELEASE_FRAMES = 0
+PRESS_FRAMES = 5
+RELEASE_FRAMES = 5
 
 CGB = False
 NUM_CPU = multiprocessing.cpu_count()
@@ -582,11 +582,11 @@ class PyBoyEnv(gym.Env):
         button = self.buttons[action]
         if action != 0:
             self.pyboy.button(button[0])
-        # for _ in range(PRESS_FRAMES):
-        #     self.pyboy.tick()
-        # if action != 0:
-        #     self.pyboy.button_release(button[0])
-        # for _ in range(RELEASE_FRAMES):
+        for _ in range(PRESS_FRAMES):
+            self.pyboy.tick()
+        if action != 0:
+            self.pyboy.button_release(button[0])
+        for _ in range(RELEASE_FRAMES):
             self.pyboy.tick()
 
         # if it's the same button it's held.  If it's a different button it's a different button.
