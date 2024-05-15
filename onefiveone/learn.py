@@ -40,8 +40,8 @@ SPRITE_MAP_END = 0xC507
 
 LOG_FREQ = 1000
 
-PRESS_FRAMES = 8
-RELEASE_FRAMES = 16
+PRESS_FRAMES = 1
+RELEASE_FRAMES = 0
 
 CGB = False
 NUM_CPU = multiprocessing.cpu_count()
@@ -550,7 +550,7 @@ class PyBoyEnv(gym.Env):
             
             item_score = sum(self.item_points.values())
             fc = self.pyboy.frame_count
-            game_seconds = fc // (PRESS_FRAMES + RELEASE_FRAMES)
+            game_seconds = fc // 60
             game_minutes = game_seconds // 60
             game_hours = game_minutes // 60
             # use the proper clock face for the hours:
@@ -581,12 +581,12 @@ class PyBoyEnv(gym.Env):
         #     self.pyboy.tick()
         button = self.buttons[action]
         if action != 0:
-            self.pyboy.button_press(button[0])
-        for _ in range(PRESS_FRAMES):
-            self.pyboy.tick()
-        if action != 0:
-            self.pyboy.button_release(button[0])
-        for _ in range(RELEASE_FRAMES):
+            self.pyboy.button(button[0])
+        # for _ in range(PRESS_FRAMES):
+        #     self.pyboy.tick()
+        # if action != 0:
+        #     self.pyboy.button_release(button[0])
+        # for _ in range(RELEASE_FRAMES):
             self.pyboy.tick()
 
         # if it's the same button it's held.  If it's a different button it's a different button.
