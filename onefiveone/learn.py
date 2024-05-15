@@ -243,7 +243,7 @@ class PyBoyEnv(gym.Env):
         self.n = 15  # 15 seconds of frames
         # self.last_n_frames = [self.pyboy.memory[SPRITE_MAP_START:SPRITE_MAP_END].copy() for _ in range(self.n)]
         # self.last_n_frames = [self.pyboy.memory[MEM_START:MEM_END].copy() for _ in range(self.n)]
-
+        self.progress_bar = tqdm(total=max_frames, desc="Frames", leave=True)
         self.renderer = Renderer()
         self.actions = ""
         self.screen_images = []
@@ -510,7 +510,7 @@ class PyBoyEnv(gym.Env):
     def render(self, target_index=None, reset=False):
         if target_index is not None and target_index == self.emunum or reset:
             terminal_size = os.get_terminal_size()
-            terminal_offset = 10
+            terminal_offset = 7
 
             image = self.pyboy.screen.image
             w = 160
@@ -527,22 +527,22 @@ class PyBoyEnv(gym.Env):
                     new_width = int(w * image_aspect_ratio)
                 else:
                     new_width = w
-
-                new_height = h
-
+                
+                height_offset = new_width - w
+                new_height = h + height_offset
                 replacer = Image.new("RGB", (new_width, new_height), (0, 0, 0))
                 # in center of image
-                replacer.paste(image, ((new_width - image.width) // 2, 0))
+                replacer.paste(image, ((new_width - image.width) // 2, height_offset // 2))
                 image = replacer
 
             self.renderer.load_image(image)
             self.renderer.resize(
-                terminal_size.columns, terminal_size.lines * 2 + 1 - terminal_offset
+                terminal_size.columns, terminal_size.lines * 2 - terminal_offset
             )
             
             item_score = sum(self.item_points.values())
             fc = self.pyboy.frame_count
-            game_seconds = fc // 24
+            game_seconds = fc // (PRESS_FRAMES + RELEASE_FRAMES)
             game_minutes = game_seconds // 60
             game_hours = game_minutes // 60
             # use the proper clock face for the hours:
@@ -550,7 +550,6 @@ class PyBoyEnv(gym.Env):
             game_time_string = f"{clock_faces[game_hours % 12]} {game_hours:02d}:{game_minutes % 60:02d}:{game_seconds % 60:02d}"
             image_string = self.renderer.to_string(Ansi24HblockMethod)
             if target_index is not None:
-                
                 print(
                     f"{image_string}🧠: {target_index:2d} 🟢 {self.last_pokemon_count:3d} 👀 {self.last_seen_pokemon_count:3d} 🌎 {len(self.visited_xy):3d}:{len(self.player_maps):3d} 🏆 {self.last_score:7.2f} 🎒 {item_score:3d} 🐆 {self.speed_bonus:7.2f}\n [{self.last_player_x:3d},{self.last_player_y:3d},{self.last_player_x_block:3d},{self.last_player_y_block:3d}], 🗺️: {self.last_player_map:3d} Actions {' '.join(self.actions[-6:])} 🎬 {self.frames:6d} {game_time_string} {len(self.actions)}"
                 )
@@ -559,6 +558,7 @@ class PyBoyEnv(gym.Env):
                 print(
                     f"{image_string}🛠️: {self.emunum:2d} 🟢 {self.last_pokemon_count:3d} 👀 {self.last_seen_pokemon_count:3d} 🌎 {len(self.visited_xy):3d}:{len(self.player_maps):3d} 🏆 {self.last_score:7.2f} 🎒 {item_score:3d} 🐆 {self.speed_bonus:7.2f}\n [{self.last_player_x:3d},{self.last_player_y:3d},{self.last_player_x_block:3d},{self.last_player_y_block:3d}], 🗺️: {self.last_player_map:3d} Actions {' '.join(self.actions[-6:])} 🎬 {self.frames:6d} {len(self.actions)}"
                 )
+            self.progress_bar.update(fc)
                 
 
     # TODO: build expanding pixel map to show extents of game travelled. (minimap?) Use 3d numpy array to store visited pixels. performance?
@@ -624,6 +624,7 @@ class PyBoyEnv(gym.Env):
         observation = observation.astype(np.float32)
         # else:
         #     observation = observation.astype(np.float64)
+        
         return observation, reward, terminated, truncated, info
 
     # def get_memory_range(self):
@@ -830,7 +831,7 @@ def train_model(
     tbcallback = TensorboardLoggingCallback(tensorboard_log)
     callbacks = [checkpoint_callback, current_stats, tbcallback]
     # callbacks = [current_stats, tbcallback]
-    run_model.learn(total_timesteps=total_steps, callback=callbacks, progress_bar=True)
+    run_model.learn(total_timesteps=total_steps, callback=callbacks, progress_bar=False)
     # run_model.save(f"{checkpoint_path}/{file_name}-{episode}.zip")
     return run_model
 
@@ -897,7 +898,7 @@ if __name__ == "__main__":
 
     model_file_name = "model"
 
-    for e in range(0, episodes):
+    for e in range(1, episodes):
         model = train_model(
             env=run_env,
             total_steps=total_steps * e,
