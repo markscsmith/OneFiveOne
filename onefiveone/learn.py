@@ -28,7 +28,7 @@ from pyboy import PyBoy
 # Output libs
 from timg import Renderer, Ansi24HblockMethod
 from PIL import Image, ImageDraw, ImageFont
-from tqdm import tqdm
+from tqdm.rich import tqdm
 import glob
 
 # Memory ranges to read in Pokemon Red/Blue (+ Yellow?)
@@ -44,6 +44,7 @@ PRESS_FRAMES = 8
 RELEASE_FRAMES = 16
 
 CGB = False
+NUM_CPU = multiprocessing.cpu_count()
 
 
 class PokeCart:
@@ -166,18 +167,25 @@ class TensorboardLoggingCallback(BaseCallback):
 
 
 class PokeCaughtCallback(BaseCallback):
-    def __init__(self, total_timesteps, verbose=0):
+    def __init__(self, total_timesteps, multiplier=1, verbose=0):
         super(PokeCaughtCallback, self).__init__(verbose)
         self.total_timesteps = total_timesteps
         self.timg_render = Renderer()
         self.filename_datetime = datetime.datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
+        self.progress_bar = tqdm(total=total_timesteps, desc="Frames", leave=True)
+        self.multiplier = multiplier
         
 
     def _on_step(self) -> bool:
         rewards = self.training_env.get_attr("last_score")
-        best_env_idx = np.argmax(rewards)
-        image = self.training_env.env_method("render", best_env_idx)
+        
+        best_env_idx = rewards.index(max(rewards))
+        render_string = self.training_env.env_method("render", best_env_idx)[best_env_idx]
 
+        # render_string = self.training_env.env_method("render", best_env_idx)
+        # sys.stdout.write(render_string)
+        print(render_string)
+        self.progress_bar.update(self.multiplier)
 
         # self.progress = self.model.num_timesteps
         return True
@@ -243,7 +251,7 @@ class PyBoyEnv(gym.Env):
         self.n = 15  # 15 seconds of frames
         # self.last_n_frames = [self.pyboy.memory[SPRITE_MAP_START:SPRITE_MAP_END].copy() for _ in range(self.n)]
         # self.last_n_frames = [self.pyboy.memory[MEM_START:MEM_END].copy() for _ in range(self.n)]
-        self.progress_bar = tqdm(total=max_frames, desc="Frames", leave=True)
+        
         self.renderer = Renderer()
         self.actions = ""
         self.screen_images = []
@@ -550,15 +558,11 @@ class PyBoyEnv(gym.Env):
             game_time_string = f"{clock_faces[game_hours % 12]} {game_hours:02d}:{game_minutes % 60:02d}:{game_seconds % 60:02d}"
             image_string = self.renderer.to_string(Ansi24HblockMethod)
             if target_index is not None:
-                print(
-                    f"{image_string}🧠: {target_index:2d} 🟢 {self.last_pokemon_count:3d} 👀 {self.last_seen_pokemon_count:3d} 🌎 {len(self.visited_xy):3d}:{len(self.player_maps):3d} 🏆 {self.last_score:7.2f} 🎒 {item_score:3d} 🐆 {self.speed_bonus:7.2f}\n [{self.last_player_x:3d},{self.last_player_y:3d},{self.last_player_x_block:3d},{self.last_player_y_block:3d}], 🗺️: {self.last_player_map:3d} Actions {' '.join(self.actions[-6:])} 🎬 {self.frames:6d} {game_time_string} {len(self.actions)}"
-                )
-
-            if reset:
-                print(
-                    f"{image_string}🛠️: {self.emunum:2d} 🟢 {self.last_pokemon_count:3d} 👀 {self.last_seen_pokemon_count:3d} 🌎 {len(self.visited_xy):3d}:{len(self.player_maps):3d} 🏆 {self.last_score:7.2f} 🎒 {item_score:3d} 🐆 {self.speed_bonus:7.2f}\n [{self.last_player_x:3d},{self.last_player_y:3d},{self.last_player_x_block:3d},{self.last_player_y_block:3d}], 🗺️: {self.last_player_map:3d} Actions {' '.join(self.actions[-6:])} 🎬 {self.frames:6d} {len(self.actions)}"
-                )
-            self.progress_bar.update(fc)
+                render_string = f"{image_string}🧠: {target_index:2d} 🟢 {self.last_pokemon_count:3d} 👀 {self.last_seen_pokemon_count:3d} 🌎 {len(self.visited_xy):3d}:{len(self.player_maps):3d} 🏆 {self.last_score:7.2f} 🎒 {item_score:3d} 🐆 {self.speed_bonus:7.2f}\n [{self.last_player_x:3d},{self.last_player_y:3d},{self.last_player_x_block:3d},{self.last_player_y_block:3d}], 🗺️: {self.last_player_map:3d} Actions {' '.join(self.actions[-6:])} 🎬 {self.frames:6d} {game_time_string} {len(self.actions)}"
+            else:
+                render_string = f"{image_string}🛠️: {self.emunum:2d} 🟢 {self.last_pokemon_count:3d} 👀 {self.last_seen_pokemon_count:3d} 🌎 {len(self.visited_xy):3d}:{len(self.player_maps):3d} 🏆 {self.last_score:7.2f} 🎒 {item_score:3d} 🐆 {self.speed_bonus:7.2f}\n [{self.last_player_x:3d},{self.last_player_y:3d},{self.last_player_x_block:3d},{self.last_player_y_block:3d}], 🗺️: {self.last_player_map:3d} Actions {' '.join(self.actions[-6:])} 🎬 {self.frames:6d} {len(self.actions)}"
+                
+            return render_string
                 
 
     # TODO: build expanding pixel map to show extents of game travelled. (minimap?) Use 3d numpy array to store visited pixels. performance?
@@ -826,7 +830,7 @@ def train_model(
         name_prefix="poke",
     )
     current_stats = EveryNTimesteps(
-        n_steps=n_steps, callback=PokeCaughtCallback(total_steps, verbose=1)
+        n_steps=n_steps, callback=PokeCaughtCallback(total_steps, multiplier=n_steps, verbose=1)
     )
     tbcallback = TensorboardLoggingCallback(tensorboard_log)
     callbacks = [checkpoint_callback, current_stats, tbcallback]
@@ -867,7 +871,7 @@ if __name__ == "__main__":
     parser.add_argument("--num_hosts", type=int, default=1)
     args = parser.parse_args()
 
-    num_cpu = multiprocessing.cpu_count()
+    num_cpu = NUM_CPU
 
     # hrs = 10  # number of hours (in-game) to run for.
     # hrs = 5 # temporarily shorter duration.
