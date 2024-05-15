@@ -889,7 +889,7 @@ if __name__ == "__main__":
 
     batch_size = 512
     n_steps = 4096
-    total_steps = n_steps * 256
+    total_steps = n_steps * 1024
 
 
     if num_cpu == 1:
