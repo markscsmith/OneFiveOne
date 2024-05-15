@@ -907,7 +907,7 @@ if __name__ == "__main__":
     for e in range(1, episodes):
         model = train_model(
             env=run_env,
-            total_steps=total_steps * e,
+            total_steps=total_steps,
             n_steps=n_steps,
             batch_size=batch_size,
             episode=e,
