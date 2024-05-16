@@ -825,10 +825,13 @@ def train_model(
     tbcallback = None
 
 # TODO checkpoints not being saved
+    checkpoint_file_path = f"{checkpoint_path.rstrip('/')}/{os.uname()[1]}-{time.time()}/"
+    print(f"Checkpoint path: {checkpoint_file_path}")
     checkpoint_callback = CheckpointCallback(
         save_freq=total_steps // 16,
-        save_path=f"{checkpoint_path.rstrip('/')}/{os.uname()[1]}-{time.time()}/",
+        save_path=f"{checkpoint_file_path}",
         name_prefix="poke",
+        verbose=2,
     )
 
     update_freq = num_cpu * 256
