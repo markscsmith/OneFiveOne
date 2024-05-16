@@ -828,7 +828,8 @@ def train_model(
     checkpoint_file_path = f"{checkpoint_path.rstrip('/')}/{os.uname()[1]}-{time.time()}/"
     print(f"Checkpoint path: {checkpoint_file_path}")
     checkpoint_callback = CheckpointCallback(
-        save_freq=total_steps // 16,
+        # save_freq=total_steps // 16,
+        save_freq=2048,
         save_path=f"{checkpoint_file_path}",
         name_prefix="poke",
         verbose=2,
