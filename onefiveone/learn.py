@@ -172,7 +172,7 @@ class PokeCaughtCallback(BaseCallback):
         self.total_timesteps = total_timesteps
         self.timg_render = Renderer()
         self.filename_datetime = datetime.datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
-        self.progress_bar = tqdm(total=total_timesteps, desc="Frames", leave=True)
+        self.progress_bar = tqdm(total=total_timesteps, desc="Frames", leave=False)
         self.multiplier = multiplier
         
 
