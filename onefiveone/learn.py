@@ -824,8 +824,9 @@ def train_model(
     current_stats = None
     tbcallback = None
 
+# TODO checkpoints not being saved
     checkpoint_callback = CheckpointCallback(
-        save_freq=total_steps // 2,
+        save_freq=total_steps // 16,
         save_path=f"{save_path}_chkpt/{os.uname()[1]}-{time.time()}",
         name_prefix="poke",
     )
