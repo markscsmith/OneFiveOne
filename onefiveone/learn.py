@@ -174,11 +174,11 @@ class PokeCaughtCallback(BaseCallback):
         self.filename_datetime = datetime.datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
         self.progress_bar = tqdm(total=total_timesteps, desc="Frames", leave=False)
         self.multiplier = multiplier
-        
+
 
     def _on_step(self) -> bool:
         rewards = self.training_env.get_attr("last_score")
-        
+
         best_env_idx = rewards.index(max(rewards))
         render_string = self.training_env.env_method("render", best_env_idx)[best_env_idx]
 
@@ -251,7 +251,7 @@ class PyBoyEnv(gym.Env):
         self.n = 15  # 15 seconds of frames
         # self.last_n_frames = [self.pyboy.memory[SPRITE_MAP_START:SPRITE_MAP_END].copy() for _ in range(self.n)]
         # self.last_n_frames = [self.pyboy.memory[MEM_START:MEM_END].copy() for _ in range(self.n)]
-        
+
         self.renderer = Renderer()
         self.actions = ""
         self.screen_images = []
@@ -535,7 +535,7 @@ class PyBoyEnv(gym.Env):
                     new_width = int(w * image_aspect_ratio)
                 else:
                     new_width = w
-                
+
                 height_offset = new_width - w
                 new_height = h + height_offset
                 replacer = Image.new("RGB", (new_width, new_height), (0, 0, 0))
@@ -547,7 +547,7 @@ class PyBoyEnv(gym.Env):
             self.renderer.resize(
                 terminal_size.columns, terminal_size.lines * 2 - terminal_offset
             )
-            
+
             item_score = sum(self.item_points.values())
             fc = self.pyboy.frame_count
             game_seconds = fc // 60
@@ -561,14 +561,14 @@ class PyBoyEnv(gym.Env):
                 render_string = f"{image_string}🧠: {target_index:2d} 🟢 {self.last_pokemon_count:3d} 👀 {self.last_seen_pokemon_count:3d} 🌎 {len(self.visited_xy):3d}:{len(self.player_maps):3d} 🏆 {self.last_score:7.2f} 🎒 {item_score:3d} 🐆 {self.speed_bonus:7.2f}\n [{self.last_player_x:3d},{self.last_player_y:3d},{self.last_player_x_block:3d},{self.last_player_y_block:3d}], 🗺️: {self.last_player_map:3d} Actions {' '.join(self.actions[-6:])} 🎬 {self.frames:6d} {game_time_string} {len(self.actions)}"
             else:
                 render_string = f"{image_string}🛠️: {self.emunum:2d} 🟢 {self.last_pokemon_count:3d} 👀 {self.last_seen_pokemon_count:3d} 🌎 {len(self.visited_xy):3d}:{len(self.player_maps):3d} 🏆 {self.last_score:7.2f} 🎒 {item_score:3d} 🐆 {self.speed_bonus:7.2f}\n [{self.last_player_x:3d},{self.last_player_y:3d},{self.last_player_x_block:3d},{self.last_player_y_block:3d}], 🗺️: {self.last_player_map:3d} Actions {' '.join(self.actions[-6:])} 🎬 {self.frames:6d} {len(self.actions)}"
-                
+
             return render_string
-                
+
 
     # TODO: build expanding pixel map to show extents of game travelled. (minimap?) Use 3d numpy array to store visited pixels. performance?
 
     def step(self, action):
-        
+
         # self.frames = self.pyboy.frame_count
         # button_1, button_name_1 = self.buttons[action]
         # button_2, _ = self.buttons[action + 8]
@@ -608,7 +608,7 @@ class PyBoyEnv(gym.Env):
 
         info = {
             "reward": reward,
-            "actions": self.actions[LOG_FREQ:],
+            "actions": self.actions,
             "emunum": self.emunum,
             "frames": self.frames,
             "pokemon_caught": self.last_pokemon_count,
@@ -628,31 +628,8 @@ class PyBoyEnv(gym.Env):
         observation = observation.astype(np.float32)
         # else:
         #     observation = observation.astype(np.float64)
-        
+
         return observation, reward, terminated, truncated, info
-
-    # def get_memory_range(self):
-    #     memory_values = self.pyboy.memory[MEM_START: MEM_END + 1]
-    #     return memory_values
-
-    # def get_reward_memory_range(self):
-    #     freq = 24
-    #     # self.current_memory = self.get_memory_range()
-    #     if self.last_memory_update_frame <= self.frames - 24 or self.last_memory_update_frame == 0:
-    #         self.last_memory_update_frame = self.frames
-    #         self.current_memory = self.get_memory_range()
-    #     else:
-    #         self.current_memory[self.caught_pokemon_start:self.caught_pokemon_end] = self.pyboy.memory[self.caught_pokemon_start + MEM_START: self.caught_pokemon_end + MEM_START]
-    #         self.current_memory[self.seen_pokemmon_start:self.seen_pokemmon_end] = self.pyboy.memory[self.seen_pokemmon_start + MEM_START: self.seen_pokemmon_end + MEM_START]
-
-    #     # FIXME TODO: Workaround for Pokemon Blue bug where the number of pokemon caught shoots up to 4 before any pokemon are seen or caught.
-
-    #         self.current_memory[self.player_x_mem] = self.pyboy.memory[self.player_x_mem + MEM_START]
-    #         self.current_memory[self.player_y_mem] = self.pyboy.memory[self.player_y_mem + MEM_START]
-    #         self.current_memory[self.player_x_block_mem] = self.pyboy.memory[self.player_x_block_mem + MEM_START]
-    #         self.current_memory[self.player_x_block_mem] = self.pyboy.memory[self.player_y_block_mem + MEM_START]
-    #         self.current_memory[self.player_map_mem] = self.pyboy.memory[self.player_map_mem + MEM_START]
-    #     return self.current_memory
 
     def reset(self, seed=0, **kwargs):
         # reward = self.calculate_reward()
