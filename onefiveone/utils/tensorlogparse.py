@@ -102,14 +102,11 @@ if __name__ == "__main__":
     args = parser.parse_args()
 
     if args.log_dir and os.path.isdir(args.log_dir):
-        log_dirs = glob.glob(args.log_dir.strip('/') + "/**", recursive=True)
-        for log_dir in log_dirs:
-            print(f"Processing log directory: {log_dir}")
-            if os.path.isdir(log_dir):
-                # Find all tfevents files in the subdirectories
-                tfevents_files = glob.glob(os.path.join(log_dir, '**/*.tfevents.*'), recursive=True)
-                for tfevents_file in tfevents_files:
-                    data = extract_tensorboard_data(tfevents_file)
-                    print_tensorboard_data(data)
+        print(f"Processing log directory: {args.log_dir}")
+        # Find all tfevents files in the subdirectories
+        tfevents_files = glob.glob(os.path.join(args.log_dir, '**/*.tfevents.*'), recursive=True)
+        for tfevents_file in tfevents_files:
+            data = extract_tensorboard_data(tfevents_file)
+            print_tensorboard_data(data)
     else:
         print(f"The directory {args.log_dir} does not exist.")
