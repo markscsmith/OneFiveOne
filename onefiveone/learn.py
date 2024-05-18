@@ -141,7 +141,7 @@ class TensorboardLoggingCallback(BaseCallback):
                     # TODO: pad emunumber with 0s to match number of digits in possible emunum
                     self.logger.record(
                         f"actions/{emunum}",
-                        f"{actions[-self.log_freq:-self.log_freq].lower()}{actions[-self.log_freq:]}:rew={reward}:fra={frames}:caught={caught}:seen={seen}",
+                        f"{actions}:rew={reward}:fra={frames}:caught={caught}:seen={seen}",
                     )
                     self.logger.record(f"caught/{emunum}", f"{caught}")
                     self.logger.record(f"seen/{emunum}", f"{seen}")
