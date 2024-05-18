@@ -105,7 +105,10 @@ if __name__ == "__main__":
         log_dirs = glob.glob(os.path.join(args.log_dir.strip('/'), '/*/PPO*/'), recursive=True)
         for log_dir in log_dirs:
             if os.path.isdir(log_dir):
-                data = extract_tensorboard_data(log_dir)
-                print_tensorboard_data(data)
+                # Find all tfevents files in the subdirectories
+                tfevents_files = glob.glob(os.path.join(log_dir, '**/*.tfevents.*'), recursive=True)
+                for tfevents_file in tfevents_files:
+                    data = extract_tensorboard_data(tfevents_file)
+                    print_tensorboard_data(data)
     else:
         print(f"The directory {args.log_dir} does not exist.")
