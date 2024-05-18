@@ -102,7 +102,7 @@ if __name__ == "__main__":
     args = parser.parse_args()
 
     if args.log_dir and os.path.isdir(args.log_dir):
-        log_dirs = glob.glob(os.path.join(args.log_dir.strip('/'), '/*/*'), recursive=True)
+        log_dirs = glob.glob(os.path.join(args.log_dir.strip('/'), '/*/PPO*/'), recursive=True)
         for log_dir in log_dirs:
             if os.path.isdir(log_dir):
                 data = extract_tensorboard_data(log_dir)
