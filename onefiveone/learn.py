@@ -481,7 +481,7 @@ class PyBoyEnv(gym.Env):
             self.visited_xy = set()
         reward = (
             len(self.player_maps) * 100
-            + (self.backtrack_bonus + len(self.visited_xy)) // 10
+            + (self.backtrack_bonus + len(self.visited_xy)) // 1000
         ) // 10
 
         last_poke = self.last_pokemon_count
