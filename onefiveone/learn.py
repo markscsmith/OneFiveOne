@@ -581,13 +581,16 @@ class PyBoyEnv(gym.Env):
         #     self.pyboy.tick()
         button = self.buttons[action]
         if action != 0:
-            self.pyboy.button_press(button[0])
-        for _ in range(PRESS_FRAMES):
-            self.pyboy.tick()
-        if action != 0:
-            self.pyboy.button_release(button[0])
-        for _ in range(RELEASE_FRAMES):
-            self.pyboy.tick()
+            self.pyboy.button(button[0])
+        self.pyboy.tick()
+        # if action != 0:
+        #     self.pyboy.button_press(button[0])
+        # for _ in range(PRESS_FRAMES):
+        #     self.pyboy.tick()
+        # if action != 0:
+        #     self.pyboy.button_release(button[0])
+        # for _ in range(RELEASE_FRAMES):
+        #    self.pyboy.tick()
 
         # if it's the same button it's held.  If it's a different button it's a different button.
         # In theory this means it'll figure out how to hold buttons down and how to not
