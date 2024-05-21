@@ -801,11 +801,8 @@ def train_model(
     # TODO: Progress callback that collects data from each frame for stats
 
     # wiill this eliminate the progress bar left hanging out?
-    del checkpoint_callback
-    del current_stats
-    del tbcallback
 
-# TODO checkpoints not being saved
+    # TODO checkpoints not being saved
     checkpoint_file_path = f"{checkpoint_path.rstrip('/')}/{os.uname()[1]}-{time.time()}/"
     print(f"Checkpoint path: {checkpoint_file_path}")
     checkpoint_callback = CheckpointCallback(
@@ -824,6 +821,11 @@ def train_model(
     # callbacks = [current_stats, tbcallback]
     run_model.learn(total_timesteps=total_steps, callback=callbacks, progress_bar=False)
     # run_model.save(f"{checkpoint_path}/{file_name}-{episode}.zip")
+    
+    del checkpoint_callback
+    del current_stats
+    del tbcallback
+
     return run_model
 
 
