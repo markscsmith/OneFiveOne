@@ -870,11 +870,12 @@ if __name__ == "__main__":
     run_env = None
     # max_frames = PRESS_FRAMES + RELEASE_FRAMES * runsteps
 
-    episodes = 29
+        # episodes = 13
+    episodes = 13
 
     batch_size = 512
     n_steps = 4096
-    total_steps = n_steps * 512
+    total_steps = n_steps * 1024 * 6
 
 
     if num_cpu == 1:
