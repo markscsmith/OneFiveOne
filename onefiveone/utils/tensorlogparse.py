@@ -7,6 +7,45 @@ import tensorflow as tf
 from tensorboard.backend.event_processing import event_accumulator
 from typing import Dict, List, Tuple
 import glob
+from tqdm import tqdm
+from pyboy import PyBoy
+
+CGB = False
+
+def emulate_game(action_chunk, game_path="PokemonRed.gb"):
+    pb = PyBoy(game_path, cgb=CGB) #, window="null")
+    buttons = {
+            0: ("", "-"),
+            1: ("up", "U"),
+            2: ("down", "D"),
+            3: ("left", "L"),
+            4: ("right", "R"),
+            5: ("a", "A"),
+            6: ("b", "B"),
+            7: ("start", "S"),
+    }
+
+    # create a new dict based on button map with the second value in the tuple as the key
+    # and the first value as the value
+    button_map = {v[1]:v[0]  for k, v in buttons.items()}
+    if CGB:
+        ext = ".state"
+    else:
+        ext = ".ogb_state"
+    save_state_path = f"{game_path}{ext}"
+    pb.load_state(open(save_state_path, "rb"))
+    pb.set_emulation_speed(0)
+    print("action_check", len(action_chunk))
+    env, step, actions, rew, caught, seen = action_chunk
+    for action in tqdm(actions):
+        if button_map[action] == "":
+            pass
+        else:
+            pb.button(button_map[action])
+        pb.tick()
+    pb.stop()
+    del pb
+        
 
 
 def extract_tensorboard_data(log_dir: str) -> Dict[str, Dict[str, List[Tuple[float, int, any]]]]:
@@ -48,15 +87,16 @@ def extract_tensorboard_data(log_dir: str) -> Dict[str, Dict[str, List[Tuple[flo
         'tensors': tensor_data,
     }
 
-def print_tensorboard_data(data: Dict[str, Dict[str, List[Tuple[float, int, any]]]]) -> None:
+def extract_action_data(data: Dict[str, Dict[str, List[Tuple[float, int, any]]]]) -> None:
     actions = {}
     # Print scalar data
-    if data['scalars']:
-        print("\nScalars:")
-        for tag, values in data['scalars'].items():
-            print(f"\nTag: {tag}")
-            for wall_time, step, value in values:
-                print(f"  Step: {step}, Value: {value}")
+    # if data['scalars']:
+        # print("\nScalars:")
+        # for tag, values in data['scalars'].items():
+            # print(f"\nTag: {tag}")
+            # for wall_time, step, value in values:
+                
+                # print(f"  Step: {step}, Value: {value}")
     # # Print histogram data
     # if data['histograms']:
     #     print("\nHistograms:")
@@ -79,6 +119,7 @@ def print_tensorboard_data(data: Dict[str, Dict[str, List[Tuple[float, int, any]
     #         for wall_time, step, encoded_audio_string in values:
     #             #print(f"  Step: {step}, Encoded Audio String: [data]")
     # Print tensor data
+    actions_event = []
     if data['tensors']:
         #print("\nTensors:")
         for tag, values in data['tensors'].items():
@@ -90,16 +131,23 @@ def print_tensorboard_data(data: Dict[str, Dict[str, List[Tuple[float, int, any]
                     actions[str(tag)].append((step, tensor_proto))
                 #print(f"  Step: {step}, Tensor Proto: {tensor_proto}")
     for env_num, env_actions in actions.items():
-        print(f"\nEnvironment {env_num}")
+        # print(f"\nEnvironment {env_num}")
         for step, tensor_proto in env_actions:
-            print(f"  Step: {step},")
+            # print(f"  Step: {step},")
             for proto in tensor_proto.string_val:
-                print(f"Tensor Proto: {proto.decode('utf-8')}")
+                button_press, reward, _, caught, seen = proto.decode('utf-8').split(":")
+                action_blob = (env_num, step, button_press, reward, caught, seen)
+                actions_event.append(action_blob)
+                # print(f"{env_num} {step} {button_press[-10:]} {reward} {caught} {seen}")
+    return actions_event
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description='Extract and print TensorBoard data.')
     parser.add_argument('--log_dir', type=str, help='Path to the TensorBoard log directory')
+    # allow rom to be passed in 
+    parser.add_argument('--rom', type=str, help='Path to the game ROM file')
     args = parser.parse_args()
+    to_emulate = []
 
     if args.log_dir and os.path.isdir(args.log_dir):
         print(f"Processing log directory: {args.log_dir}")
@@ -107,6 +155,26 @@ if __name__ == "__main__":
         tfevents_files = glob.glob(os.path.join(args.log_dir, '**/*.tfevents.*'), recursive=True)
         for tfevents_file in tfevents_files:
             data = extract_tensorboard_data(tfevents_file)
-            print_tensorboard_data(data)
+            action_data = extract_action_data(data)
+            # print the action data from the item with the highest reward:
+            # Sort the action data by the 'rew' field in descending order
+            sorted_action_data = sorted(action_data, key=lambda x: float(x[3].split("=")[-1]), reverse=True)
+
+            # Print the action data from the item with the highest reward
+            if sorted_action_data:
+                highest_reward = sorted_action_data[0]
+                to_emulate.append(highest_reward)
+                print("\nAction with the highest reward:")
+                print(highest_reward[0])
+                print(highest_reward[1])
+                print("Actions:", highest_reward[2][-10:])
+                print(highest_reward[3])
+                print(highest_reward[4])
+            else:
+                print("No action data found.")            
+        to_emulate = sorted(to_emulate, key=lambda x: float(x[3].split("=")[-1]), reverse=True)
+        for item in to_emulate:
+            print(item)
+            emulate_game(item, args.rom)
     else:
         print(f"The directory {args.log_dir} does not exist.")

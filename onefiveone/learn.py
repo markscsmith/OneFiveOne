@@ -354,7 +354,6 @@ class PyBoyEnv(gym.Env):
         # size = SPRITE_MAP_END - SPRITE_MAP_START + 1
 
         # size = MEM_START MEM_END + 2
-
     def generate_image(self):
         return self.pyboy.screen.ndarray
 
@@ -871,12 +870,11 @@ if __name__ == "__main__":
     run_env = None
     # max_frames = PRESS_FRAMES + RELEASE_FRAMES * runsteps
 
-        # episodes = 13
-    episodes = 13
+    episodes = 29
 
     batch_size = 512
     n_steps = 4096
-    total_steps = n_steps * 1024
+    total_steps = n_steps * 512
 
 
     if num_cpu == 1:
