@@ -172,7 +172,7 @@ class PokeCaughtCallback(BaseCallback):
         self.total_timesteps = total_timesteps
         self.timg_render = Renderer()
         self.filename_datetime = datetime.datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
-        self.progress_bar = tqdm(total=total_timesteps, desc="Frames", leave=False)
+        self.progress_bar = tqdm(total=total_timesteps, desc="Frames", leave=False, dynamic_ncols=True)
         self.multiplier = multiplier
 
 
@@ -800,9 +800,10 @@ def train_model(
     # model_merge_callback = EveryNTimesteps(n_steps=steps * num_cpu * 1024, callback=ModelMergeCallback(args.num_hosts))
     # TODO: Progress callback that collects data from each frame for stats
 
-    checkpoint_callback = None
-    current_stats = None
-    tbcallback = None
+    # wiill this eliminate the progress bar left hanging out?
+    del checkpoint_callback
+    del current_stats
+    del tbcallback
 
 # TODO checkpoints not being saved
     checkpoint_file_path = f"{checkpoint_path.rstrip('/')}/{os.uname()[1]}-{time.time()}/"
