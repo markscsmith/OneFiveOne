@@ -51,6 +51,7 @@ class PokeCart:
     def __init__(self, cart_data) -> None:
         # calculate checksum of cart_data
         self.cart_data = cart_data
+        self.offset = None
         self.checksum = hashlib.md5(cart_data).hexdigest()
         self.carts = {
             "a6924ce1f9ad2228e1c6580779b23878": ("POKEMONG.GBC", 0),
@@ -75,11 +76,14 @@ class PokeCart:
     def cart_offset(self):
         # Pokemon Yellow has offset -1 vs blue and green
         # TODO: Pokemon Gold Silver and Crystal
-        if self.identify_cart() is not None:
-            return self.carts[self.checksum][1]
-        else:
-            print("Unknown cart:", self.checksum)
-            return 0
+        if self.offset is not None:
+            return self.offset
+        elif self.identify_cart() is not None:
+            self.offset = self.carts[self.checksum][1]
+            return self.offset
+        print("Unknown cart:", self.checksum)
+        self.offset = 0
+        return self.offset
 
 
 def learning_rate_schedule(progress):
