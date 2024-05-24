@@ -454,7 +454,7 @@ class PyBoyEnv(gym.Env):
         seen_pokdex = []
         
         caught_pokedex =  "".join([
-                bin(byte)[2:]
+                bin(byte)
                 for byte in curr_pyboy.memory[
                     caught_pokemon_start:caught_pokemon_end
                 ]
@@ -467,7 +467,7 @@ class PyBoyEnv(gym.Env):
     
     
         seen_pokdex =  "".join([
-                bin(byte)[2:]
+                bin(byte)
                 for byte in curr_pyboy.memory[seen_pokemon_start:seen_pokemon_end]
             ])
         pokemon_seen = np.sum(
