@@ -397,7 +397,7 @@ class PyBoyEnv(gym.Env):
             )
             self.last_total_items = carried_item_total + stored_item_total
 
-        speed_bonus_calc = (self.max_frames - self.frames) / (self.max_frames + 1)
+        speed_bonus_calc = (self.max_frames - self.frames) // (self.max_frames + 1)
 
         if caught_pokemon_start < caught_pokemon_end:
             pokemon_caught = np.sum(
