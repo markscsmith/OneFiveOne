@@ -876,7 +876,7 @@ if __name__ == "__main__":
     batch_size = 512
     n_steps = 4096
     # total_steps = n_steps * 1024 * 6
-    total_steps = 1728000 # 8 hours * 60 minutes * 60 seconds * 60 frames per second
+    total_steps = 1728000 * 32 # 8 hours * 60 minutes * 60 seconds * 60 frames per second
 
 
     if num_cpu == 1:
