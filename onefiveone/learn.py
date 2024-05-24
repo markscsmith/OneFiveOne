@@ -65,6 +65,7 @@ class PokeCart:
             "3d45c1ee9abd5738df46d2bdda8b57dc": "POKEMONR.GBC",
         }
         if self.checksum in carts:
+            print("Identified cart:", carts[self.checksum])
             return carts[self.checksum]
         else:
             print("Unknown cart:", self.checksum)
