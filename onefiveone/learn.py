@@ -139,7 +139,6 @@ class TensorboardLoggingCallback(BaseCallback):
                     seen = info["pokemon_seen"]
                     pokedex = info["pokedex"]
 
-
                     # TODO: pad emunumber with 0s to match number of digits in possible emunum
                     self.logger.record(
                         f"actions/{emunum}",
@@ -175,15 +174,18 @@ class PokeCaughtCallback(BaseCallback):
         self.total_timesteps = total_timesteps
         self.timg_render = Renderer()
         self.filename_datetime = datetime.datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
-        self.progress_bar = tqdm(total=total_timesteps, desc="Frames", leave=False, dynamic_ncols=True)
+        self.progress_bar = tqdm(
+            total=total_timesteps, desc="Frames", leave=False, dynamic_ncols=True
+        )
         self.multiplier = multiplier
-
 
     def _on_step(self) -> bool:
         rewards = self.training_env.get_attr("last_score")
 
         best_env_idx = rewards.index(max(rewards))
-        render_string = self.training_env.env_method("render", best_env_idx)[best_env_idx]
+        render_string = self.training_env.env_method("render", best_env_idx)[
+            best_env_idx
+        ]
 
         # render_string = self.training_env.env_method("render", best_env_idx)
         # sys.stdout.write(render_string)
@@ -306,7 +308,7 @@ class PyBoyEnv(gym.Env):
         self.last_memory_update_frame = 0
         self.current_memory = None
         self.progress_frames = self.max_frames * (PRESS_FRAMES + RELEASE_FRAMES)
-        
+
         # self.buttons = {
         #     0: (utils.WindowEvent.PASS, "-"),
         #     1: (utils.WindowEvent.PRESS_ARROW_UP, "U"),
@@ -358,6 +360,7 @@ class PyBoyEnv(gym.Env):
         # size = SPRITE_MAP_END - SPRITE_MAP_START + 1
 
         # size = MEM_START MEM_END + 2
+
     def generate_image(self):
         return self.pyboy.screen.ndarray
 
@@ -449,32 +452,23 @@ class PyBoyEnv(gym.Env):
         chunk_id = f"{px}:{py}:{pbx}:{pby}:{map_id}"
         self.visited_xy.add(chunk_id)
 
-        # 000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
-
         caught_pokedex = []
         seen_pokdex = []
-        
-        caught_pokedex =  "".join([
+
+        caught_pokedex = "".join(
+            [
                 bin(byte)[2:].zfill(8)
-                for byte in curr_pyboy.memory[
-                    caught_pokemon_start:caught_pokemon_end
-                ]
-            ])
-        
-        pokemon_caught = np.sum(
-           caught_pokedex.count("1")
+                for byte in curr_pyboy.memory[caught_pokemon_start:caught_pokemon_end]
+            ]
         )
-        
-    
-    
-        seen_pokdex =  "".join([
+        pokemon_caught = np.sum(caught_pokedex.count("1"))
+        seen_pokdex = "".join(
+            [
                 bin(byte)[2:].zfill(8)
                 for byte in curr_pyboy.memory[seen_pokemon_start:seen_pokemon_end]
-            ])
-        pokemon_seen = np.sum(
-           seen_pokdex.count("1")
+            ]
         )
-        
+        pokemon_seen = np.sum(seen_pokdex.count("1"))
 
         last_poke = self.last_pokemon_count
         last_poke_seen = self.last_seen_pokemon_count
@@ -486,11 +480,9 @@ class PyBoyEnv(gym.Env):
                 for i in range(151)
             ]
             self.pokedex = pokedex
-            
+
         if pokemon_seen == 0:
             pokemon_caught = 0
-        
-
 
         if pokemon_caught > self.last_pokemon_count:
             # Give a backtrack bonus and reset the explored list
@@ -555,7 +547,9 @@ class PyBoyEnv(gym.Env):
                 new_height = h + height_offset
                 replacer = Image.new("RGB", (new_width, new_height), (0, 0, 0))
                 # in center of image
-                replacer.paste(image, ((new_width - image.width) // 2, height_offset // 2))
+                replacer.paste(
+                    image, ((new_width - image.width) // 2, height_offset // 2)
+                )
                 image = replacer
 
             self.renderer.load_image(image)
@@ -579,11 +573,9 @@ class PyBoyEnv(gym.Env):
 
             return render_string
 
-
     # TODO: build expanding pixel map to show extents of game travelled. (minimap?) Use 3d numpy array to store visited pixels. performance?
 
     def step(self, action):
-
         # self.frames = self.pyboy.frame_count
         # button_1, button_name_1 = self.buttons[action]
         # button_2, _ = self.buttons[action + 8]
@@ -602,7 +594,7 @@ class PyBoyEnv(gym.Env):
         if action != 0:
             self.pyboy.button_release(button[0])
         for _ in range(RELEASE_FRAMES):
-           self.pyboy.tick()
+            self.pyboy.tick()
 
         # if it's the same button it's held.  If it's a different button it's a different button.
         # In theory this means it'll figure out how to hold buttons down and how to not
@@ -632,7 +624,7 @@ class PyBoyEnv(gym.Env):
             "stationary_frames": self.stationary_frames,
             "items": self.item_points,
             "speed_bonus": self.speed_bonus,
-            "pokedex": self.pokedex
+            "pokedex": self.pokedex,
         }
         screen = self.pyboy.memory[MEM_START:MEM_END].copy()
         # self.last_n_frames[:-1] = self.last_n_frames[1:]
@@ -816,7 +808,9 @@ def train_model(
     # wiill this eliminate the progress bar left hanging out?
 
     # TODO checkpoints not being saved
-    checkpoint_file_path = f"{checkpoint_path.rstrip('/')}/{os.uname()[1]}-{time.time()}/"
+    checkpoint_file_path = (
+        f"{checkpoint_path.rstrip('/')}/{os.uname()[1]}-{time.time()}/"
+    )
     print(f"Checkpoint path: {checkpoint_file_path}")
     checkpoint_callback = CheckpointCallback(
         save_freq=total_steps // 64,
@@ -827,14 +821,15 @@ def train_model(
 
     update_freq = num_cpu * 256
     current_stats = EveryNTimesteps(
-        n_steps=update_freq, callback=PokeCaughtCallback(total_steps, multiplier=update_freq, verbose=1)
+        n_steps=update_freq,
+        callback=PokeCaughtCallback(total_steps, multiplier=update_freq, verbose=1),
     )
     tbcallback = TensorboardLoggingCallback(tensorboard_log)
     callbacks = [checkpoint_callback, current_stats, tbcallback]
     # callbacks = [current_stats, tbcallback]
     run_model.learn(total_timesteps=total_steps, callback=callbacks, progress_bar=False)
     # run_model.save(f"{checkpoint_path}/{file_name}-{episode}.zip")
-    
+
     del checkpoint_callback
     del current_stats
     del tbcallback
@@ -884,14 +879,15 @@ if __name__ == "__main__":
     run_env = None
     # max_frames = PRESS_FRAMES + RELEASE_FRAMES * runsteps
 
-        # episodes = 13
+    # episodes = 13
     episodes = 13
 
     batch_size = 512
     n_steps = 4096
     # total_steps = n_steps * 1024 * 6
-    total_steps = 1728000 * 32 // (PRESS_FRAMES + RELEASE_FRAMES) # 8 hours * 60 minutes * 60 seconds * 60 frames per second * 32 // (PRESS_FRAMES + RELEASE_FRAMES)
-
+    total_steps = (
+        1728000 * 32 // (PRESS_FRAMES + RELEASE_FRAMES)
+    )  # 8 hours * 60 minutes * 60 seconds * 60 frames per second * 32 // (PRESS_FRAMES + RELEASE_FRAMES)
 
     if num_cpu == 1:
         run_env = DummyVecEnv([make_env(args.game_path, 0, device=device)])
