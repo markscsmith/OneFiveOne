@@ -527,7 +527,7 @@ class PyBoyEnv(gym.Env):
 
         reward = (
             reward
-            + (100 * (pokemon_caught * 2) + (pokemon_seen))
+            + (100 * ((pokemon_caught * 2) + pokemon_seen))
             + sum(self.item_points.values()) * 10
         )
         self.speed_bonus = int(self.speed_bonus)
