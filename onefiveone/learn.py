@@ -460,7 +460,7 @@ class PyBoyEnv(gym.Env):
                     caught_pokemon_start:caught_pokemon_end
                 ]
             ])
-        print("CAUGHT DEX:", len(caught_pokedex), caught_pokedex)
+        
         pokemon_caught = np.sum(
            caught_pokedex.count("1")
         )
@@ -474,7 +474,7 @@ class PyBoyEnv(gym.Env):
         pokemon_seen = np.sum(
            seen_pokdex.count("1")
         )
-        print("SEEN DEX:", len(seen_pokdex), seen_pokdex)
+        
 
         last_poke = self.last_pokemon_count
         last_poke_seen = self.last_seen_pokemon_count
