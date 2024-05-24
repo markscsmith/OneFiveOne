@@ -5,13 +5,14 @@ numba
 numpy
 pandas
 Pillow
-pyboy
+pyboy>=2.0.0
 scipy
 Shimmy
-stable-baselines3
+stable-baselines3==2.2.1
 tensorboard
 tensorflow
 timg
 torch
-torchaudio
 torchvision
+tqdm
+rich
