@@ -52,21 +52,22 @@ class PokeCart:
         # calculate checksum of cart_data
         self.cart_data = cart_data
         self.checksum = hashlib.md5(cart_data).hexdigest()
+        self.carts = {
+            "a6924ce1f9ad2228e1c6580779b23878": ("POKEMONG.GBC", 0),
+            "9f2922b235a5eeb78d65594e82ef5dde": ("PMCRYSTA.GBC", 0),
+            # TODO: Add Pokemon Yellow logic to keep Pikachu happy. 🌩️🐭  Address is 0xD46F    1    Pikachu's happiness per https://datacrystal.tcrf.net/wiki/Pokémon_Yellow/RAM_map
+            "d9290db87b1f0a23b89f99ee4469e34b": ("POKEMONY.GBC", -1),
+            "50927e843568814f7ed45ec4f944bd8b": ("POKEMONB.GBC", 0),
+            "3e098020b56c807393cc2ebae5e1857a": ("POKEMONS.GBC", 0),
+            "3d45c1ee9abd5738df46d2bdda8b57dc": ("POKEMONR.GBC", 0),
+        }
 
     def identify_cart(self):
         # identify cart
-        carts = {
-            "a6924ce1f9ad2228e1c6580779b23878": "POKEMONG.GBC",
-            "9f2922b235a5eeb78d65594e82ef5dde": "PMCRYSTA.GBC",
-            # TODO: Add Pokemon Yellow logic to keep Pikachu happy. 🌩️🐭  Address is 0xD46F    1    Pikachu's happiness per https://datacrystal.tcrf.net/wiki/Pokémon_Yellow/RAM_map
-            "d9290db87b1f0a23b89f99ee4469e34b": "POKEMONY.GBC",
-            "50927e843568814f7ed45ec4f944bd8b": "POKEMONB.GBC",
-            "3e098020b56c807393cc2ebae5e1857a": "POKEMONS.GBC",
-            "3d45c1ee9abd5738df46d2bdda8b57dc": "POKEMONR.GBC",
-        }
-        if self.checksum in carts:
-            print(f"Identified cart: {carts[self.checksum]} with offset {self.cart_offset()}")
-            return carts[self.checksum]
+
+        if self.checksum in self.carts:
+            print(f"Identified cart: {self.carts[self.checksum]} with offset {self.carts[self.checksum][1]}")
+            return self.carts[self.checksum][0]
         else:
             print(f"Unknown cart: {self.checksum}")
             return None
@@ -74,21 +75,11 @@ class PokeCart:
     def cart_offset(self):
         # Pokemon Yellow has offset -1 vs blue and green
         # TODO: Pokemon Gold Silver and Crystal
-        carts = {
-            "POKEMONR.GBC": 0,
-            "POKEMONB.GBC": 0,
-            # I now suddenly understand what was meant by this comment from https://datacrystal.tcrf.net/wiki/Pokémon_Yellow/RAM_map: "The RAM map for this game has an offset of -1 from the one on Red and Blue."
-            # I think I tried this before, but I didn't grok it at the time due to other memory read glitches and bugs I introduced
-            "POKEMONY.GBC": 0 - 1,
-            "POKEMONG.GBC": 0,
-            "PMCRYSTA.GBC": 0,
-            "POKEMONS.GBC": 0,
-        }
-        if self.identify_cart() in carts:
-            return carts[self.identify_cart()]
+        if self.identify_cart() is not None:
+            return self.carts[self.checksum][1]
         else:
             print("Unknown cart:", self.checksum)
-            return 0x00000000
+            return 0
 
 
 def learning_rate_schedule(progress):
