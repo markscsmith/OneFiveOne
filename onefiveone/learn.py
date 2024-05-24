@@ -265,9 +265,9 @@ class PyBoyEnv(gym.Env):
         offset = self.cart.cart_offset()
         # End needs to have +8 to include the last byte
         self.caught_pokemon_start = 0xD2F7 + offset
-        self.caught_pokemon_end = 0xD309 + 8 + offset
+        self.caught_pokemon_end = 0xD309 + 1 + offset
         self.seen_pokemon_start = 0xD30A + offset
-        self.seen_pokemon_end = 0xD31C + 8 + offset
+        self.seen_pokemon_end = 0xD31C + 1 + offset
         self.player_x_mem = 0xD361 + offset
         self.player_y_mem = 0xD362 + offset
         self.player_x_block_mem = 0xD363 + offset
