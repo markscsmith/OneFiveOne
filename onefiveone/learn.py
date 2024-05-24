@@ -461,7 +461,7 @@ class PyBoyEnv(gym.Env):
             ])
         print("CAUGHT DEX:", len(caught_pokedex), caught_pokedex)
         pokemon_caught = np.sum(
-           caught_pokedex
+           caught_pokedex.count("1")
         )
         
     
@@ -471,7 +471,7 @@ class PyBoyEnv(gym.Env):
                 for byte in curr_pyboy.memory[seen_pokemon_start:seen_pokemon_end]
             ])
         pokemon_seen = np.sum(
-           seen_pokdex
+           seen_pokdex.count("1")
         )
         print("SEEN DEX:", len(seen_pokdex), seen_pokdex)
 
