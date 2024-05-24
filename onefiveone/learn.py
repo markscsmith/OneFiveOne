@@ -65,10 +65,10 @@ class PokeCart:
             "3d45c1ee9abd5738df46d2bdda8b57dc": "POKEMONR.GBC",
         }
         if self.checksum in carts:
-            print("Identified cart:", carts[self.checksum])
+            print(f"Identified cart: {carts[self.checksum]} with offset {self.cart_offset()}")
             return carts[self.checksum]
         else:
-            print("Unknown cart:", self.checksum)
+            print(f"Unknown cart: {self.checksum}")
             return None
 
     def cart_offset(self):
