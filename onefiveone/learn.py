@@ -136,8 +136,10 @@ class TensorboardLoggingCallback(BaseCallback):
                     reward = info["reward"]
                     frames = info["frames"]
                     caught = info["pokemon_caught"]
-
                     seen = info["pokemon_seen"]
+                    pokedex = info["pokedex"]
+
+
                     # TODO: pad emunumber with 0s to match number of digits in possible emunum
                     self.logger.record(
                         f"actions/{emunum}",
@@ -154,6 +156,7 @@ class TensorboardLoggingCallback(BaseCallback):
                         f"speed_bonus/{emunum}", f"{info['speed_bonus']}"
                     )
                     max_item_points = max(max_item_points, sum(info["items"].values()))
+                    self.logger.record(f"pokedex/{emunum}", f"{pokedex}")
 
             # todo: record each progress/reward separately like I do the actions?
             if len(rewards) > 0:  # Check if rewards list is not empty
@@ -398,31 +401,41 @@ class PyBoyEnv(gym.Env):
             self.last_total_items = carried_item_total + stored_item_total
 
         speed_bonus_calc = (self.max_frames - self.frames) / (self.max_frames + 1)
-
+        caught_pokedex = []
+        seen_pokdex = []
         if caught_pokemon_start < caught_pokemon_end:
-            pokemon_caught = np.sum(
-                [
+            caught_pokedex =  [
                     bin(byte).count("1")
                     for byte in curr_pyboy.memory[
                         caught_pokemon_start:caught_pokemon_end
                     ]
                 ]
+            pokemon_caught = np.sum(
+               caught_pokedex
             )
         else:
             pokemon_caught = 0
 
         if seen_pokemon_start < seen_pokemon_end:
-            pokemon_seen = np.sum(
-                [
+            seen_pokdex =  [
                     bin(byte).count("1")
                     for byte in curr_pyboy.memory[seen_pokemon_start:seen_pokemon_end]
                 ]
+            pokemon_seen = np.sum(
+               seen_pokdex
             )
 
         else:
             pokemon_seen = 0
-
-        # self.pokedex = {i: bin(values).count('1') for i, values in enumerate(current_memory[item_start: item_end]) if item_start < item_end}
+        if len(seen_pokdex) > 0 or len(caught_pokedex) > 0:
+            # pokemon number 1-151 and then an S if seen and a C if caught, otherwise a -
+            pokedex = [
+                f"{i+1}{'C' if caught_pokedex[i] == 1 else 'S' if seen_pokdex[i] == 1 else '-' if seen_pokdex[i] == 1 else '?'}"
+                for i in range(151)
+            ]
+            self.pokedex = pokedex
+            
+        
 
         items = curr_pyboy.memory[item_start:item_end]
         # extract every 2 indexes from the list
@@ -616,6 +629,7 @@ class PyBoyEnv(gym.Env):
             "stationary_frames": self.stationary_frames,
             "items": self.item_points,
             "speed_bonus": self.speed_bonus,
+            "pokedex": self.pokedex
         }
         screen = self.pyboy.memory[MEM_START:MEM_END].copy()
         # self.last_n_frames[:-1] = self.last_n_frames[1:]
