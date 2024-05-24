@@ -472,14 +472,22 @@ class PyBoyEnv(gym.Env):
 
         last_poke = self.last_pokemon_count
         last_poke_seen = self.last_seen_pokemon_count
-
+        
         if pokemon_caught > last_poke or pokemon_seen > last_poke_seen:
             # pokemon number 1-151 and then an S if seen and a C if caught, otherwise a -
-            pokedex = [
-                f"{i+1}{'C' if caught_pokedex[i] == '1' else 'S' if seen_pokdex[i] == '1' else '-'}"
-                for i in range(151)
-            ]
-            self.pokedex = pokedex
+            # pokedex = [
+            #     f"{i+1}{'C' if caught_pokedex[i] == '1' else 'S' if seen_pokdex[i] == '1' else '-'}"
+            #     for i in range(151)
+            # ]
+            pokedex = {}
+            for i in range(0, 151):
+                if caught_pokedex[i] == "1":
+                    pokedex[i] = "C"
+                elif seen_pokdex[i] == "1":
+                    pokedex[i] = "S"
+                else:
+                    pokedex[i] = "-"
+                self.pokedex = pokedex
 
         if pokemon_seen == 0:
             pokemon_caught = 0
