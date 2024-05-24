@@ -401,41 +401,6 @@ class PyBoyEnv(gym.Env):
             self.last_total_items = carried_item_total + stored_item_total
 
         speed_bonus_calc = (self.max_frames - self.frames) / (self.max_frames + 1)
-        caught_pokedex = []
-        seen_pokdex = []
-        if caught_pokemon_start < caught_pokemon_end:
-            caught_pokedex =  [
-                    bin(byte).count("1")
-                    for byte in curr_pyboy.memory[
-                        caught_pokemon_start:caught_pokemon_end
-                    ]
-                ]
-            pokemon_caught = np.sum(
-               caught_pokedex
-            )
-        else:
-            pokemon_caught = 0
-
-        if seen_pokemon_start < seen_pokemon_end:
-            seen_pokdex =  [
-                    bin(byte).count("1")
-                    for byte in curr_pyboy.memory[seen_pokemon_start:seen_pokemon_end]
-                ]
-            pokemon_seen = np.sum(
-               seen_pokdex
-            )
-
-        else:
-            pokemon_seen = 0
-        if len(seen_pokdex) > 0 or len(caught_pokedex) > 0:
-            # pokemon number 1-151 and then an S if seen and a C if caught, otherwise a -
-            pokedex = [
-                f"{i+1}{'C' if caught_pokedex[i] == 1 else 'S' if seen_pokdex[i] == 1 else '-' if seen_pokdex[i] == 1 else '?'}"
-                for i in range(151)
-            ]
-            self.pokedex = pokedex
-            
-        
 
         items = curr_pyboy.memory[item_start:item_end]
         # extract every 2 indexes from the list
@@ -484,8 +449,44 @@ class PyBoyEnv(gym.Env):
         self.visited_xy.add(chunk_id)
 
         self.last_pokemon_count = pokemon_caught
+
+        caught_pokedex = []
+        seen_pokdex = []
+        
+        caught_pokedex =  [
+                bin(byte).count("1")
+                for byte in curr_pyboy.memory[
+                    caught_pokemon_start:caught_pokemon_end
+                ]
+            ]
+        pokemon_caught = np.sum(
+           caught_pokedex
+        )
+    
+    
+        seen_pokdex =  [
+                bin(byte).count("1")
+                for byte in curr_pyboy.memory[seen_pokemon_start:seen_pokemon_end]
+            ]
+        pokemon_seen = np.sum(
+           seen_pokdex
+        )
+
+        last_poke = self.last_pokemon_count
+        last_poke_seen = self.last_seen_pokemon_count
+
+        if pokemon_caught > last_poke or pokemon_seen > last_poke_seen:
+            # pokemon number 1-151 and then an S if seen and a C if caught, otherwise a -
+            pokedex = [
+                f"{i+1}{'C' if caught_pokedex[i] == 1 else 'S' if seen_pokdex[i] == 1 else '-' if seen_pokdex[i] == 1 else '?'}"
+                for i in range(151)
+            ]
+            self.pokedex = pokedex
+            
         if pokemon_seen == 0:
             pokemon_caught = 0
+        
+
 
         if pokemon_caught > self.last_pokemon_count:
             # Give a backtrack bonus and reset the explored list
@@ -496,8 +497,6 @@ class PyBoyEnv(gym.Env):
             + (self.backtrack_bonus + len(self.visited_xy)) // 1000
         ) // 10
 
-        last_poke = self.last_pokemon_count
-        last_poke_seen = self.last_seen_pokemon_count
         if pokemon_caught > last_poke:
             self.last_pokemon_count = pokemon_caught
             self.speed_bonus += reward * (speed_bonus_calc)
