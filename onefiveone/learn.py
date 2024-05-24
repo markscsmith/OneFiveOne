@@ -453,12 +453,12 @@ class PyBoyEnv(gym.Env):
         caught_pokedex = []
         seen_pokdex = []
         
-        caught_pokedex =  [
-                bin(byte).count("1")
+        caught_pokedex =  "".join([
+                bin(byte)[2:]
                 for byte in curr_pyboy.memory[
                     caught_pokemon_start:caught_pokemon_end
                 ]
-            ]
+            ])
         print("CAUGHT DEX:", len(caught_pokedex), caught_pokedex)
         pokemon_caught = np.sum(
            caught_pokedex
@@ -466,10 +466,10 @@ class PyBoyEnv(gym.Env):
         
     
     
-        seen_pokdex =  [
-                bin(byte).count("1")
+        seen_pokdex =  "".join([
+                bin(byte)[2:]
                 for byte in curr_pyboy.memory[seen_pokemon_start:seen_pokemon_end]
-            ]
+            ])
         pokemon_seen = np.sum(
            seen_pokdex
         )
@@ -481,7 +481,7 @@ class PyBoyEnv(gym.Env):
         if pokemon_caught > last_poke or pokemon_seen > last_poke_seen:
             # pokemon number 1-151 and then an S if seen and a C if caught, otherwise a -
             pokedex = [
-                f"{i+1}{'C' if caught_pokedex[i] == 1 else 'S' if seen_pokdex[i] == 1 else '-' if seen_pokdex[i] == 1 else '?'}"
+                f"{i+1}{'C' if caught_pokedex[i] == '1' else 'S' if seen_pokdex[i] == '1' else '-'}"
                 for i in range(151)
             ]
             self.pokedex = pokedex
