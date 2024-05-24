@@ -404,7 +404,7 @@ class PyBoyEnv(gym.Env):
             )
             self.last_total_items = carried_item_total + stored_item_total
 
-        speed_bonus_calc = (self.max_frames - self.frames) / (self.max_frames + 1)
+        speed_bonus_calc = (self.max_frames - self.frames) // (self.max_frames + 1)
 
         items = curr_pyboy.memory[item_start:item_end]
         # extract every 2 indexes from the list
@@ -517,7 +517,7 @@ class PyBoyEnv(gym.Env):
             + (reward * (pokemon_caught * 2) + (pokemon_seen)) // 150
             + sum(self.item_points.values()) * 10
         )
-
+        self.speed_bonus = int(self.speed_bonus)
         # reward -= (reward * (self.stationary_frames / (self.frames + 1)))
         reward += self.speed_bonus
 
