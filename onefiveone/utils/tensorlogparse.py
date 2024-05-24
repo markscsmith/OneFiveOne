@@ -11,6 +11,8 @@ from tqdm import tqdm
 from pyboy import PyBoy
 
 CGB = False
+PRESS_FRAMES = 5
+RELEASE_FRAMES = 10
 
 def emulate_game(action_chunk, game_path="PokemonRed.gb"):
     pb = PyBoy(game_path, cgb=CGB) #, window="null")
@@ -38,14 +40,18 @@ def emulate_game(action_chunk, game_path="PokemonRed.gb"):
     print("action_check", len(action_chunk))
     env, step, actions, rew, caught, seen = action_chunk
     for action in tqdm(actions):
-        if button_map[action] == "":
-            pass
-        else:
-            pb.button(button_map[action])
-        pb.tick()
+
+        button = button_map[action]
+        if action != 0:
+            pb.button_press(button)
+        for _ in range(PRESS_FRAMES):
+            pb.tick()
+        if action != 0:
+            pb.button_release(button)
+        for _ in range(RELEASE_FRAMES):
+            pb.tick()
     pb.stop()
     del pb
-        
 
 
 def extract_tensorboard_data(log_dir: str) -> Dict[str, Dict[str, List[Tuple[float, int, any]]]]:
