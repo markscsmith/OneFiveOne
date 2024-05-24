@@ -597,7 +597,7 @@ class PyBoyEnv(gym.Env):
     # TODO: build expanding pixel map to show extents of game travelled. (minimap?) Use 3d numpy array to store visited pixels. performance?
 
     def step(self, action):
-        # self.frames = self.pyboy.frame_count
+        self.frames = self.pyboy.frame_count
         # button_1, button_name_1 = self.buttons[action]
         # button_2, _ = self.buttons[action + 8]
         # self.pyboy.send_input(button_1)
