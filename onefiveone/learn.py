@@ -448,7 +448,7 @@ class PyBoyEnv(gym.Env):
         chunk_id = f"{px}:{py}:{pbx}:{pby}:{map_id}"
         self.visited_xy.add(chunk_id)
 
-        self.last_pokemon_count = pokemon_caught
+        
 
         caught_pokedex = []
         seen_pokdex = []
@@ -462,6 +462,7 @@ class PyBoyEnv(gym.Env):
         pokemon_caught = np.sum(
            caught_pokedex
         )
+        
     
     
         seen_pokdex =  [
