@@ -138,6 +138,7 @@ class TensorboardLoggingCallback(BaseCallback):
                     caught = info["pokemon_caught"]
                     seen = info["pokemon_seen"]
                     pokedex = info["pokedex"]
+                    seen_and_capture_events = info["seen_and_capture_events"]
 
                     # TODO: pad emunumber with 0s to match number of digits in possible emunum
                     self.logger.record(
@@ -156,6 +157,7 @@ class TensorboardLoggingCallback(BaseCallback):
                     )
                     max_item_points = max(max_item_points, sum(info["items"].values()))
                     self.logger.record(f"pokedex/{emunum}", f"{pokedex}")
+                    self.logger.record(f"seen_and_capture/{emunum}", f"{seen_and_capture_events}")
 
             # todo: record each progress/reward separately like I do the actions?
             if len(rewards) > 0:  # Check if rewards list is not empty
@@ -297,11 +299,13 @@ class PyBoyEnv(gym.Env):
         self.backtrack_bonus = 0
         self.item_points = {}
         self.last_items = []
-        self.pokedex = {}
+        self.pokedex = "-" * 151
         self.last_total_items = 0
         self.last_carried_item_total = 0
         self.last_stored_item_total = 0
         self.device = device
+
+        self.seen_and_capture_events = {}
 
         self.speed_bonus = 0
 
@@ -479,7 +483,7 @@ class PyBoyEnv(gym.Env):
             #     f"{i+1}{'C' if caught_pokedex[i] == '1' else 'S' if seen_pokdex[i] == '1' else '-'}"
             #     for i in range(151)
             # ]
-            pokedex = {}
+            pokedex = self.pokedex
             for i in range(0, 151):
                 if caught_pokedex[i] == "1":
                     pokedex[i] = "C"
@@ -487,6 +491,14 @@ class PyBoyEnv(gym.Env):
                     pokedex[i] = "S"
                 else:
                     pokedex[i] = "-"
+            if self.pokedex != pokedex:
+                # find the index of differences
+                diff = [i for i in range(151) if pokedex[i] != self.pokedex[i]]
+                for i in diff:
+                    if pokedex[i] == "C":
+                        self.seen_and_capture_events[i] = f"C:{self.frames}"
+                    elif pokedex[i] == "S":
+                        self.seen_and_capture_events[i] = f"S:{self.frames}"
                 self.pokedex = pokedex
 
         if pokemon_seen == 0:
@@ -633,6 +645,7 @@ class PyBoyEnv(gym.Env):
             "items": self.item_points,
             "speed_bonus": self.speed_bonus,
             "pokedex": self.pokedex,
+            "seen_and_capture_events": self.seen_and_capture_events,
         }
         screen = self.pyboy.memory[MEM_START:MEM_END].copy()
         # self.last_n_frames[:-1] = self.last_n_frames[1:]
@@ -671,7 +684,7 @@ class PyBoyEnv(gym.Env):
         self.last_player_x_block = 0
         self.last_player_y_block = 0
         self.menu_value = 0
-        self.pokedex = {}
+        self.pokedex = "-" * 151
         self.pyboy = PyBoy(
             self.game_path,
             window="null",
