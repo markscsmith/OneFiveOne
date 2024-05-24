@@ -263,10 +263,11 @@ class PyBoyEnv(gym.Env):
         self.max_frames = max_frames
         self.cart = PokeCart(open(game_path, "rb").read())
         offset = self.cart.cart_offset()
+        # End needs to have +8 to include the last byte
         self.caught_pokemon_start = 0xD2F7 + offset
-        self.caught_pokemon_end = 0xD309 + offset
+        self.caught_pokemon_end = 0xD309 + 8 + offset
         self.seen_pokemon_start = 0xD30A + offset
-        self.seen_pokemon_end = 0xD31C + offset
+        self.seen_pokemon_end = 0xD31C + 8 + offset
         self.player_x_mem = 0xD361 + offset
         self.player_y_mem = 0xD362 + offset
         self.player_x_block_mem = 0xD363 + offset
@@ -448,7 +449,7 @@ class PyBoyEnv(gym.Env):
         chunk_id = f"{px}:{py}:{pbx}:{pby}:{map_id}"
         self.visited_xy.add(chunk_id)
 
-        
+        # 000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
 
         caught_pokedex = []
         seen_pokdex = []
