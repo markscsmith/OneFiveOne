@@ -483,7 +483,7 @@ class PyBoyEnv(gym.Env):
             #     f"{i+1}{'C' if caught_pokedex[i] == '1' else 'S' if seen_pokdex[i] == '1' else '-'}"
             #     for i in range(151)
             # ]
-            pokedex = self.pokedex
+            pokedex = self.pokedex.split("")
             for i in range(0, 151):
                 if caught_pokedex[i] == "1":
                     pokedex[i] = "C"
@@ -491,7 +491,7 @@ class PyBoyEnv(gym.Env):
                     pokedex[i] = "S"
                 else:
                     pokedex[i] = "-"
-            if self.pokedex != pokedex:
+            if self.pokedex.split("") != pokedex:
                 # find the index of differences
                 diff = [i for i in range(151) if pokedex[i] != self.pokedex[i]]
                 for i in diff:
@@ -499,7 +499,7 @@ class PyBoyEnv(gym.Env):
                         self.seen_and_capture_events[i] = f"C:{self.frames}"
                     elif pokedex[i] == "S":
                         self.seen_and_capture_events[i] = f"S:{self.frames}"
-                self.pokedex = pokedex
+                self.pokedex = "".join(pokedex)
 
         if pokemon_seen == 0:
             pokemon_caught = 0
