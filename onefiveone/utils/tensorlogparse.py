@@ -27,7 +27,14 @@ def emulate_game(action_chunk, game_path="PokemonRed.gb"):
         6: ("b", "B"),
         7: ("start", "S"),
     }
-
+    if game_path == "PokemonYellow.gb":
+        offset = -1
+    else:
+        offset = 0
+    caught_pokemon_start = 0xD2F7 + offset
+    caught_pokemon_end = 0xD309 + 1 + offset
+    seen_pokemon_start = 0xD30A + offset
+    seen_pokemon_end = 0xD31C + 1 + offset
     # create a new dict based on button map with the second value in the tuple as the key
     # and the first value as the value
     button_map = {v[1]: v[0] for k, v in buttons.items()}
@@ -41,15 +48,75 @@ def emulate_game(action_chunk, game_path="PokemonRed.gb"):
     print("action_check", len(action_chunk))
     env, step, actions, rew, caught, seen = action_chunk
     for action in tqdm(actions):
+        
         button = button_map[action]
-        if action != 0:
+        if action != "-":
             pb.button_press(button)
         for _ in range(PRESS_FRAMES):
             pb.tick()
-        if action != 0:
+        if action != "-":
             pb.button_release(button)
         for _ in range(RELEASE_FRAMES):
             pb.tick()
+        
+        caught_pokedex = []
+        seen_pokdex = []
+
+        # TODO: Squirtle and Charmander show up at the wrong index
+        # charmander is at 0 instead of 3 (Pokedex 4 - 1 for zero index) and squirtle is at 3 instead of 6 (Pokedex 7 - 1 for zero index)
+        # 10000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+        # 10010000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+        # 39045 L -------------------------------------------------------------------------------------------------------------------------------------------------------
+        # [72, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
+        # [8, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
+
+        caught_pokedex = "".join(
+            [
+                f"{bin(byte)[2:]:<8s}".replace(' ', '0')
+                for byte in pb.memory[caught_pokemon_start:caught_pokemon_end]
+            ]
+        )
+        
+        seen_pokdex = "".join(
+            [
+                f"{bin(byte)[2:]:<8s}".replace(' ', '0')
+                for byte in pb.memory[seen_pokemon_start:seen_pokemon_end]
+            ]
+        )
+        pokedex = ["-" for _ in range(151)]
+        print(caught_pokedex)
+        print(seen_pokdex)
+        # for pokemon in range(1, 152):
+        #     i = pokemon - 1 # 0 based indexing in data
+        #     bin_num = i // 8
+        #     bit = i % 8
+        #     caught_bin = caught_pokedex[bin_num]
+        #     print(pokemon, caught_bin, caught_bin[bit], caught_pokedex)
+        #     seen_bin = seen_pokdex[bin_num]
+        #     if caught_bin[bit] == "1" and seen_bin[bit] == "1":
+        #         pokedex[i] = "C"
+        #     elif caught_bin[bit] == "1":
+        #         pokedex[i] = "?"
+        #     elif seen_bin[bit] == "1":
+        #         pokedex[i] = "S"
+        #     else:
+        #         pokedex[i] = "-"    
+        
+            # if caught_pokedex[i] == "1" and seen_pokdex[i] == "1":
+            #     pokedex[i] = "C"
+            # elif caught_pokedex[i] == "1":
+            #     pokedex[i] = "?"
+            # elif seen_pokdex[i] == "1":
+            #     pokedex[i] = "S"
+            # else:
+            #     pokedex[i] = "-"
+        print(pb.frame_count, action, "".join(pokedex))
+        print(pb.memory[seen_pokemon_start:seen_pokemon_end])
+        print(pb.memory[caught_pokemon_start:caught_pokemon_end])
+        if pb.frame_count > 22695 and pb.frame_count < 24700:
+            pb.set_emulation_speed(1)
+        else:
+            pb.set_emulation_speed(0)
     pb.stop()
     del pb
 
