@@ -14,9 +14,8 @@ CGB = False
 PRESS_FRAMES = 5
 RELEASE_FRAMES = 10
 
-
 def emulate_game(action_chunk, game_path="PokemonRed.gb"):
-    pb = PyBoy(game_path, cgb=CGB)  # , window="null")
+    pb = PyBoy(game_path, window_type="headless")
     buttons = {
         0: ("", "-"),
         1: ("up", "U"),
@@ -27,28 +26,45 @@ def emulate_game(action_chunk, game_path="PokemonRed.gb"):
         6: ("b", "B"),
         7: ("start", "S"),
     }
-    if game_path == "PokemonYellow.gb":
-        offset = -1
-    else:
-        offset = 0
+    
+    offset = -1 if game_path == "PokemonYellow.gb" else 0
+    
     caught_pokemon_start = 0xD2F7 + offset
     caught_pokemon_end = 0xD309 + 1 + offset
     seen_pokemon_start = 0xD30A + offset
     seen_pokemon_end = 0xD31C + 1 + offset
-    # create a new dict based on button map with the second value in the tuple as the key
-    # and the first value as the value
+    
     button_map = {v[1]: v[0] for k, v in buttons.items()}
-    if CGB:
-        ext = ".state"
-    else:
-        ext = ".ogb_state"
+    ext = ".state" if CGB else ".ogb_state"
     save_state_path = f"{game_path}{ext}"
+    
     pb.load_state(open(save_state_path, "rb"))
     pb.set_emulation_speed(0)
+    
     print("action_check", len(action_chunk))
     env, step, actions, rew, caught, seen = action_chunk
-    for action in tqdm(actions):
+    
+    def get_pokedex_status_string(data_seen, data_owned):
+        def get_status(data, poke_num):
+            byte_index = poke_num // 8
+            bit_index = poke_num % 8
+            return (data[byte_index] >> bit_index) & 1
         
+        status_string = ""
+        for poke_num in range(151):
+            seen = get_status(data_seen, poke_num)
+            owned = get_status(data_owned, poke_num)
+            if owned and seen:
+                status_string += 'O'
+            elif seen:
+                status_string += 'S'
+            elif owned:
+                status_string += '?'
+            else:
+                status_string += '-'
+        return status_string
+    
+    for action in tqdm(actions):
         button = button_map[action]
         if action != "-":
             pb.button_press(button)
@@ -59,64 +75,16 @@ def emulate_game(action_chunk, game_path="PokemonRed.gb"):
         for _ in range(RELEASE_FRAMES):
             pb.tick()
         
-        caught_pokedex = []
-        seen_pokdex = []
-
-        # TODO: Squirtle and Charmander show up at the wrong index
-        # charmander is at 0 instead of 3 (Pokedex 4 - 1 for zero index) and squirtle is at 3 instead of 6 (Pokedex 7 - 1 for zero index)
-        # 10000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
-        # 10010000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
-        # 39045 L -------------------------------------------------------------------------------------------------------------------------------------------------------
-        # [72, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
-        # [8, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
-
-        caught_pokedex = "".join(
-            [
-                f"{bin(byte)[2:]:<8s}".replace(' ', '0')
-                for byte in pb.memory[caught_pokemon_start:caught_pokemon_end]
-            ]
-        )
+        caught_pokedex = list(pb.memory[caught_pokemon_start:caught_pokemon_end])
+        seen_pokedex = list(pb.memory[seen_pokemon_start:seen_pokemon_end])
         
-        seen_pokdex = "".join(
-            [
-                f"{bin(byte)[2:]:<8s}".replace(' ', '0')
-                for byte in pb.memory[seen_pokemon_start:seen_pokemon_end]
-            ]
-        )
-        pokedex = ["-" for _ in range(151)]
-        print(caught_pokedex)
-        print(seen_pokdex)
-        # for pokemon in range(1, 152):
-        #     i = pokemon - 1 # 0 based indexing in data
-        #     bin_num = i // 8
-        #     bit = i % 8
-        #     caught_bin = caught_pokedex[bin_num]
-        #     print(pokemon, caught_bin, caught_bin[bit], caught_pokedex)
-        #     seen_bin = seen_pokdex[bin_num]
-        #     if caught_bin[bit] == "1" and seen_bin[bit] == "1":
-        #         pokedex[i] = "C"
-        #     elif caught_bin[bit] == "1":
-        #         pokedex[i] = "?"
-        #     elif seen_bin[bit] == "1":
-        #         pokedex[i] = "S"
-        #     else:
-        #         pokedex[i] = "-"    
+        pokedex_status_string = get_pokedex_status_string(seen_pokedex, caught_pokedex)
         
-            # if caught_pokedex[i] == "1" and seen_pokdex[i] == "1":
-            #     pokedex[i] = "C"
-            # elif caught_pokedex[i] == "1":
-            #     pokedex[i] = "?"
-            # elif seen_pokdex[i] == "1":
-            #     pokedex[i] = "S"
-            # else:
-            #     pokedex[i] = "-"
-        print(pb.frame_count, action, "".join(pokedex))
-        print(pb.memory[seen_pokemon_start:seen_pokemon_end])
-        print(pb.memory[caught_pokemon_start:caught_pokemon_end])
-        if pb.frame_count > 22695 and pb.frame_count < 24700:
-            pb.set_emulation_speed(1)
-        else:
-            pb.set_emulation_speed(0)
+        print("Caught Pokédex:", caught_pokedex)
+        print("Seen Pokédex:", seen_pokedex)
+        print("Pokédex Status String:", pokedex_status_string)
+        print(pb.frame_count, action, pokedex_status_string)
+    
     pb.stop()
     del pb
 
