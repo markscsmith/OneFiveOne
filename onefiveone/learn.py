@@ -251,6 +251,7 @@ class PyBoyEnv(gym.Env):
         self.pyboy = PyBoy(game_path, window="null", cgb=CGB)
         self.game_path = game_path
         self.menu_value = None
+        self.pokedex_status_string = "-" * 151 # 151 pokemon in gen 1
         self.n = 15  # 15 seconds of frames
         # self.last_n_frames = [self.pyboy.memory[SPRITE_MAP_START:SPRITE_MAP_END].copy() for _ in range(self.n)]
         # self.last_n_frames = [self.pyboy.memory[MEM_START:MEM_END].copy() for _ in range(self.n)]
@@ -366,6 +367,28 @@ class PyBoyEnv(gym.Env):
 
     def generate_screen_ndarray(self):
         return self.pyboy.screen.ndarray
+    
+    
+    def get_pokedex_status_string(self, data_seen, data_owned):
+        def get_status(data, poke_num):
+            byte_index = poke_num // 8
+            bit_index = poke_num % 8
+            return (data[byte_index] >> bit_index) & 1
+        
+        status_string = ""
+        for poke_num in range(151):
+            seen = get_status(data_seen, poke_num)
+            owned = get_status(data_owned, poke_num)
+            if owned and seen:
+                status_string += 'O'
+            elif seen:
+                status_string += 'S'
+            elif owned:
+                status_string += '?'
+            else:
+                status_string += '-'
+        return status_string
+        
 
     def calculate_reward(self):
         # calculate total bits from the memory values
@@ -451,52 +474,16 @@ class PyBoyEnv(gym.Env):
         # convert binary chunks into a single string
         chunk_id = f"{px}:{py}:{pbx}:{pby}:{map_id}"
         self.visited_xy.add(chunk_id)
-
-        caught_pokedex = []
-        seen_pokdex = []
-
-        caught_pokedex = "".join(
-            [
-                bin(byte)[2:].zfill(8)
-                for byte in curr_pyboy.memory[caught_pokemon_start:caught_pokemon_end]
-            ]
-        )
-        pokemon_caught = np.sum(caught_pokedex.count("1"))
-        seen_pokdex = "".join(
-            [
-                bin(byte)[2:].zfill(8)
-                for byte in curr_pyboy.memory[seen_pokemon_start:seen_pokemon_end]
-            ]
-        )
-        pokemon_seen = np.sum(seen_pokdex.count("1"))
+        
+        caught_pokedex = list(self.pyboy.memory[caught_pokemon_start:caught_pokemon_end])
+        seen_pokedex = list(self.pyboy[seen_pokemon_start:seen_pokemon_end])
+        
+        self.pokedex_status_string = self.get_pokedex_status_string(seen_pokedex, caught_pokedex)
+        pokemon_seen = sum(seen_pokedex)
+        pokemon_caught = sum(caught_pokedex)
 
         last_poke = self.last_pokemon_count
         last_poke_seen = self.last_seen_pokemon_count
-        
-        if pokemon_caught > last_poke or pokemon_seen > last_poke_seen:
-            # pokemon number 1-151 and then an S if seen and a C if caught, otherwise a -
-            # pokedex = [
-            #     f"{i+1}{'C' if caught_pokedex[i] == '1' else 'S' if seen_pokdex[i] == '1' else '-'}"
-            #     for i in range(151)
-            # ]
-            pokedex = list(self.pokedex)
-            for i in range(0, 151):
-                if caught_pokedex[i] == "1":
-                    pokedex[i] = "C"
-                elif seen_pokdex[i] == "1":
-                    pokedex[i] = "S"
-                else:
-                    pokedex[i] = "-"
-            pokedex = "".join(pokedex)
-            if self.pokedex != pokedex:
-                # find the index of differences
-                diff = [i for i in range(151) if pokedex[i] != self.pokedex[i]]
-                for i in diff:
-                    if pokedex[i] == "C":
-                        self.seen_and_capture_events[i] = f"C:{self.frames}"
-                    elif pokedex[i] == "S":
-                        self.seen_and_capture_events[i] = f"S:{self.frames}"
-                self.pokedex = pokedex
 
         if pokemon_seen == 0:
             pokemon_caught = 0
@@ -643,6 +630,7 @@ class PyBoyEnv(gym.Env):
             "speed_bonus": self.speed_bonus,
             "pokedex": self.pokedex,
             "seen_and_capture_events": self.seen_and_capture_events,
+            "pokedex_status": self.pokedex_status_string,
         }
         screen = self.pyboy.memory[MEM_START:MEM_END].copy()
         # self.last_n_frames[:-1] = self.last_n_frames[1:]
