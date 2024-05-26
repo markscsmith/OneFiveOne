@@ -476,9 +476,9 @@ class PyBoyEnv(gym.Env):
         # convert binary chunks into a single string
         chunk_id = f"{px}:{py}:{pbx}:{pby}:{map_id}"
         self.visited_xy.add(chunk_id)
-        
-        caught_pokedex = list(self.pyboy.memory[caught_pokemon_start:caught_pokemon_end])
-        seen_pokedex = list(self.pyboy.memory[seen_pokemon_start:seen_pokemon_end])
+        full_dex = list(self.pyboy.memory[caught_pokemon_start:seen_pokemon_end])
+        caught_pokedex = list(full_dex[:caught_pokemon_end - caught_pokemon_start])
+        seen_pokedex = list(full_dex[seen_pokemon_start - caught_pokemon_start:])
         self.seen_pokedex = seen_pokedex
         self.caught_pokedex = caught_pokedex
         
