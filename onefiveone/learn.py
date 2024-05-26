@@ -476,7 +476,7 @@ class PyBoyEnv(gym.Env):
         self.visited_xy.add(chunk_id)
         
         caught_pokedex = list(self.pyboy.memory[caught_pokemon_start:caught_pokemon_end])
-        seen_pokedex = list(self.pyboy[seen_pokemon_start:seen_pokemon_end])
+        seen_pokedex = list(self.pyboy.memory[seen_pokemon_start:seen_pokemon_end])
         
         self.pokedex_status_string = self.get_pokedex_status_string(seen_pokedex, caught_pokedex)
         pokemon_seen = sum(seen_pokedex)
