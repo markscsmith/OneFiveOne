@@ -483,16 +483,16 @@ class PyBoyEnv(gym.Env):
         self.caught_pokedex = caught_pokedex
         
         self.pokedex = self.get_pokedex_status_string(seen_pokedex, caught_pokedex)
-        pokemon_caught =  self.pokedex.count("C")
-        pokemon_seen = self.pokedex.count("S") + pokemon_caught
+        pokemon_owned =  self.pokedex.count("O")
+        pokemon_seen = self.pokedex.count("S") + pokemon_owned
 
         last_poke = self.last_pokemon_count
         last_poke_seen = self.last_seen_pokemon_count
 
         if pokemon_seen == 0:
-            pokemon_caught = 0
+            pokemon_owned = 0
 
-        if pokemon_caught > self.last_pokemon_count:
+        if pokemon_owned > self.last_pokemon_count:
             # Give a backtrack bonus and reset the explored list
             self.backtrack_bonus += len(self.visited_xy)
             self.visited_xy = set()
@@ -501,20 +501,20 @@ class PyBoyEnv(gym.Env):
             + (self.backtrack_bonus + len(self.visited_xy)) // 1000
         ) // 10
 
-        if pokemon_caught > last_poke:
-            self.last_pokemon_count = pokemon_caught
+        if pokemon_owned > last_poke:
+            self.last_pokemon_count = pokemon_owned
             self.speed_bonus += reward * (speed_bonus_calc)
 
         if pokemon_seen > last_poke_seen:
             self.last_seen_pokemon_count = pokemon_seen
             self.speed_bonus += reward // 2 * (speed_bonus_calc)
 
-        self.last_pokemon_count = pokemon_caught
+        self.last_pokemon_count = pokemon_owned
         self.last_seen_pokemon_count = pokemon_seen
 
         reward = (
             reward
-            + (100 * ((pokemon_caught * 2) + pokemon_seen))
+            + (100 * ((pokemon_owned * 2) + pokemon_seen))
             + sum(self.item_points.values()) * 10
         )
         self.speed_bonus = int(self.speed_bonus)
