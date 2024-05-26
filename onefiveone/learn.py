@@ -251,7 +251,6 @@ class PyBoyEnv(gym.Env):
         self.pyboy = PyBoy(game_path, window="null", cgb=CGB)
         self.game_path = game_path
         self.menu_value = None
-        self.pokedex_status_string = "-" * 151 # 151 pokemon in gen 1
         self.n = 15  # 15 seconds of frames
         # self.last_n_frames = [self.pyboy.memory[SPRITE_MAP_START:SPRITE_MAP_END].copy() for _ in range(self.n)]
         # self.last_n_frames = [self.pyboy.memory[MEM_START:MEM_END].copy() for _ in range(self.n)]
@@ -478,7 +477,7 @@ class PyBoyEnv(gym.Env):
         caught_pokedex = list(self.pyboy.memory[caught_pokemon_start:caught_pokemon_end])
         seen_pokedex = list(self.pyboy.memory[seen_pokemon_start:seen_pokemon_end])
         
-        self.pokedex_status_string = self.get_pokedex_status_string(seen_pokedex, caught_pokedex)
+        self.pokedex = self.get_pokedex_status_string(seen_pokedex, caught_pokedex)
         pokemon_seen = sum(seen_pokedex)
         pokemon_caught = sum(caught_pokedex)
 
@@ -630,7 +629,6 @@ class PyBoyEnv(gym.Env):
             "speed_bonus": self.speed_bonus,
             "pokedex": self.pokedex,
             "seen_and_capture_events": self.seen_and_capture_events,
-            "pokedex_status": self.pokedex_status_string,
         }
         screen = self.pyboy.memory[MEM_START:MEM_END].copy()
         # self.last_n_frames[:-1] = self.last_n_frames[1:]
