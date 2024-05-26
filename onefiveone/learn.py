@@ -296,6 +296,9 @@ class PyBoyEnv(gym.Env):
         self.item_points = {}
         self.last_items = []
         self.pokedex = "-" * 151
+        self.seen_and_capture_events = {}
+        self.seen_pokedex = []
+        self.caught_pokedex = []
         self.last_total_items = 0
         self.last_carried_item_total = 0
         self.last_stored_item_total = 0
@@ -476,6 +479,8 @@ class PyBoyEnv(gym.Env):
         
         caught_pokedex = list(self.pyboy.memory[caught_pokemon_start:caught_pokemon_end])
         seen_pokedex = list(self.pyboy.memory[seen_pokemon_start:seen_pokemon_end])
+        self.seen_pokedex = seen_pokedex
+        self.caught_pokedex = caught_pokedex
         
         self.pokedex = self.get_pokedex_status_string(seen_pokedex, caught_pokedex)
         pokemon_seen = sum(seen_pokedex)
@@ -570,12 +575,12 @@ class PyBoyEnv(gym.Env):
             game_time_string = f"{clock_faces[game_hours % 12]} {game_hours:02d}:{game_minutes % 60:02d}:{game_seconds % 60:02d}"
             image_string = self.renderer.to_string(Ansi24HblockMethod)
             if target_index is not None:
-                render_string = f"{image_string}🧠: {target_index:2d} 🟢 {self.last_pokemon_count:3d} 👀 {self.last_seen_pokemon_count:3d} 🌎 {len(self.visited_xy):3d}:{len(self.player_maps):3d} 🏆 {self.last_score:7.2f} 🎒 {item_score:3d} 🐆 {self.speed_bonus:7.2f}\n [{self.last_player_x:3d},{self.last_player_y:3d},{self.last_player_x_block:3d},{self.last_player_y_block:3d}], 🗺️: {self.last_player_map:3d} Actions {' '.join(self.actions[-6:])} 🎬 {self.frames:6d} {game_time_string} {len(self.actions)}"
+                render_string = f"{image_string}🧠: {target_index:2d} 🟢 {self.last_pokemon_count:3d} 👀 {self.last_seen_pokemon_count:3d} 🌎 {len(self.visited_xy):3d}:{len(self.player_maps):3d} 🏆 {self.last_score:7.2f} 🎒 {item_score:3d} 🐆 {self.speed_bonus:7.2f} {self.caught_pokedex}\n [{self.last_player_x:3d},{self.last_player_y:3d},{self.last_player_x_block:3d},{self.last_player_y_block:3d}], 🗺️: {self.last_player_map:3d} Actions {' '.join(self.actions[-6:])} 🎬 {self.frames:6d} {game_time_string} {len(self.actions)}"
             else:
                 render_string = f"{image_string}🛠️: {self.emunum:2d} 🟢 {self.last_pokemon_count:3d} 👀 {self.last_seen_pokemon_count:3d} 🌎 {len(self.visited_xy):3d}:{len(self.player_maps):3d} 🏆 {self.last_score:7.2f} 🎒 {item_score:3d} 🐆 {self.speed_bonus:7.2f}\n [{self.last_player_x:3d},{self.last_player_y:3d},{self.last_player_x_block:3d},{self.last_player_y_block:3d}], 🗺️: {self.last_player_map:3d} Actions {' '.join(self.actions[-6:])} 🎬 {self.frames:6d} {len(self.actions)}"
 
             return render_string
-
+#🧠: 19 🟢  64 👀  64 🌎  27:  4 🏆 19270.00 🎒   1 🐆   20.00
     # TODO: build expanding pixel map to show extents of game travelled. (minimap?) Use 3d numpy array to store visited pixels. performance?
 
     def step(self, action):
