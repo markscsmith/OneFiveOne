@@ -85,6 +85,8 @@ class PokeCart:
         self.offset = 0
         return self.offset
 
+def diff_pokedex(s1, s2):
+    return [i for i, (c1, c2) in enumerate(zip(s1, s2)) if c1 != c2]
 
 def learning_rate_schedule(progress):
     # return 0.025
@@ -296,7 +298,6 @@ class PyBoyEnv(gym.Env):
         self.item_points = {}
         self.last_items = []
         self.pokedex = "-" * 151
-        self.seen_and_capture_events = {}
         self.seen_pokedex = []
         self.caught_pokedex = []
         self.last_total_items = 0
@@ -481,8 +482,18 @@ class PyBoyEnv(gym.Env):
         seen_pokedex = list(full_dex[seen_pokemon_start - caught_pokemon_start:])
         self.seen_pokedex = seen_pokedex
         self.caught_pokedex = caught_pokedex
-        
-        self.pokedex = self.get_pokedex_status_string(seen_pokedex, caught_pokedex)
+        last_dex = self.pokedex
+        new_dex = self.get_pokedex_status_string(seen_pokedex, caught_pokedex)
+
+        # compare the last pokedex to the current pokedex
+        if last_dex != new_dex:
+            poke_nums = diff_pokedex(last_dex, new_dex)
+            poke_pairs = zip(poke_nums, [new_dex[p] for p in poke_nums])
+            self.seen_and_capture_events[self.pyboy.frame_count] = poke_pairs
+
+
+        self.pokedex = new_dex
+
         pokemon_owned =  self.pokedex.count("O")
         pokemon_seen = self.pokedex.count("S") + pokemon_owned
 
@@ -492,16 +503,18 @@ class PyBoyEnv(gym.Env):
         if pokemon_seen == 0:
             pokemon_owned = 0
 
-        if pokemon_owned > self.last_pokemon_count:
+        if pokemon_owned > last_poke:
             # Give a backtrack bonus and reset the explored list
             self.backtrack_bonus += len(self.visited_xy)
             self.visited_xy = set()
+            
         reward = (
             len(self.player_maps) * 100
             + (self.backtrack_bonus + len(self.visited_xy)) // 1000
         ) // 10
 
         if pokemon_owned > last_poke:
+            self.seen_and_capture_events[self.pyboy.frame_count] = (pokemon_owned, pokemon_seen)
             self.last_pokemon_count = pokemon_owned
             self.speed_bonus += reward * (speed_bonus_calc)
 
