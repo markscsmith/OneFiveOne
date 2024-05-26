@@ -489,7 +489,7 @@ class PyBoyEnv(gym.Env):
         if last_dex != new_dex:
             poke_nums = diff_pokedex(last_dex, new_dex)
             poke_pairs = zip(poke_nums, [new_dex[p] for p in poke_nums])
-            self.seen_and_capture_events[self.pyboy.frame_count] = poke_pairs
+            self.seen_and_capture_events[self.pyboy.frame_count] = list(poke_pairs)
 
 
         self.pokedex = new_dex
