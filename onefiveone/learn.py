@@ -483,8 +483,8 @@ class PyBoyEnv(gym.Env):
         self.caught_pokedex = caught_pokedex
         
         self.pokedex = self.get_pokedex_status_string(seen_pokedex, caught_pokedex)
-        pokemon_seen = sum(seen_pokedex)
-        pokemon_caught = sum(caught_pokedex)
+        pokemon_caught =  self.pokedex.count("C")
+        pokemon_seen = self.pokedex.count("S") + pokemon_caught
 
         last_poke = self.last_pokemon_count
         last_poke_seen = self.last_seen_pokemon_count
