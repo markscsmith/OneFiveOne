@@ -51,44 +51,42 @@ class PokeCart:
     def __init__(self, cart_data) -> None:
         # calculate checksum of cart_data
         self.cart_data = cart_data
+        self.offset = None
         self.checksum = hashlib.md5(cart_data).hexdigest()
+        self.carts = {
+            "a6924ce1f9ad2228e1c6580779b23878": ("POKEMONG.GBC", 0),
+            "9f2922b235a5eeb78d65594e82ef5dde": ("PMCRYSTA.GBC", 0),
+            # TODO: Add Pokemon Yellow logic to keep Pikachu happy. 🌩️🐭  Address is 0xD46F    1    Pikachu's happiness per https://datacrystal.tcrf.net/wiki/Pokémon_Yellow/RAM_map
+            "d9290db87b1f0a23b89f99ee4469e34b": ("POKEMONY.GBC", -1),
+            "50927e843568814f7ed45ec4f944bd8b": ("POKEMONB.GBC", 0),
+            "3e098020b56c807393cc2ebae5e1857a": ("POKEMONS.GBC", 0),
+            "3d45c1ee9abd5738df46d2bdda8b57dc": ("POKEMONR.GBC", 0),
+        }
 
     def identify_cart(self):
         # identify cart
-        carts = {
-            "a6924ce1f9ad2228e1c6580779b23878": "POKEMONG.GBC",
-            "9f2922b235a5eeb78d65594e82ef5dde": "PMCRYSTA.GBC",
-            # TODO: Add Pokemon Yellow logic to keep Pikachu happy. 🌩️🐭  Address is 0xD46F    1    Pikachu's happiness per https://datacrystal.tcrf.net/wiki/Pokémon_Yellow/RAM_map
-            "d9290db87b1f0a23b89f99ee4469e34b": "POKEMONY.GBC",
-            "50927e843568814f7ed45ec4f944bd8b": "POKEMONB.GBC",
-            "3e098020b56c807393cc2ebae5e1857a": "POKEMONS.GBC",
-            "3d45c1ee9abd5738df46d2bdda8b57dc": "POKEMONR.GBC",
-        }
-        if self.checksum in carts:
-            return carts[self.checksum]
+
+        if self.checksum in self.carts:
+            print(f"Identified cart: {self.carts[self.checksum]} with offset {self.carts[self.checksum][1]}")
+            return self.carts[self.checksum][0]
         else:
-            print("Unknown cart:", self.checksum)
+            print(f"Unknown cart: {self.checksum}")
             return None
 
     def cart_offset(self):
         # Pokemon Yellow has offset -1 vs blue and green
         # TODO: Pokemon Gold Silver and Crystal
-        carts = {
-            "POKEMONR.GBC": 0,
-            "POKEMONB.GBC": 0,
-            # I now suddenly understand what was meant by this comment from https://datacrystal.tcrf.net/wiki/Pokémon_Yellow/RAM_map: "The RAM map for this game has an offset of -1 from the one on Red and Blue."
-            # I think I tried this before, but I didn't grok it at the time due to other memory read glitches and bugs I introduced
-            "POKEMONY.GBC": 0 - 1,
-            "POKEMONG.GBC": 0,
-            "PMCRYSTA.GBC": 0,
-            "POKEMONS.GBC": 0,
-        }
-        if self.identify_cart() in carts:
-            return carts[self.identify_cart()]
-        else:
-            print("Unknown cart:", self.checksum)
-            return 0x00000000
+        if self.offset is not None:
+            return self.offset
+        elif self.identify_cart() is not None:
+            self.offset = self.carts[self.checksum][1]
+            return self.offset
+        print("Unknown cart:", self.checksum)
+        self.offset = 0
+        return self.offset
 
+def diff_pokedex(s1, s2):
+    return [i for i, (c1, c2) in enumerate(zip(s1, s2)) if c1 != c2]
 
 def learning_rate_schedule(progress):
     # return 0.025
@@ -136,8 +134,10 @@ class TensorboardLoggingCallback(BaseCallback):
                     reward = info["reward"]
                     frames = info["frames"]
                     caught = info["pokemon_caught"]
-
                     seen = info["pokemon_seen"]
+                    pokedex = info["pokedex"]
+                    seen_and_capture_events = info["seen_and_capture_events"]
+
                     # TODO: pad emunumber with 0s to match number of digits in possible emunum
                     self.logger.record(
                         f"actions/{emunum}",
@@ -154,6 +154,8 @@ class TensorboardLoggingCallback(BaseCallback):
                         f"speed_bonus/{emunum}", f"{info['speed_bonus']}"
                     )
                     max_item_points = max(max_item_points, sum(info["items"].values()))
+                    self.logger.record(f"pokedex/{emunum}", f"{pokedex}")
+                    self.logger.record(f"seen_and_capture/{emunum}", f"{seen_and_capture_events}")
 
             # todo: record each progress/reward separately like I do the actions?
             if len(rewards) > 0:  # Check if rewards list is not empty
@@ -172,15 +174,18 @@ class PokeCaughtCallback(BaseCallback):
         self.total_timesteps = total_timesteps
         self.timg_render = Renderer()
         self.filename_datetime = datetime.datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
-        self.progress_bar = tqdm(total=total_timesteps, desc="Frames", leave=False, dynamic_ncols=True)
+        self.progress_bar = tqdm(
+            total=total_timesteps, desc="Frames", leave=False, dynamic_ncols=True
+        )
         self.multiplier = multiplier
-
 
     def _on_step(self) -> bool:
         rewards = self.training_env.get_attr("last_score")
 
         best_env_idx = rewards.index(max(rewards))
-        render_string = self.training_env.env_method("render", best_env_idx)[best_env_idx]
+        render_string = self.training_env.env_method("render", best_env_idx)[
+            best_env_idx
+        ]
 
         # render_string = self.training_env.env_method("render", best_env_idx)
         # sys.stdout.write(render_string)
@@ -260,10 +265,11 @@ class PyBoyEnv(gym.Env):
         self.max_frames = max_frames
         self.cart = PokeCart(open(game_path, "rb").read())
         offset = self.cart.cart_offset()
+        # End needs to have +8 to include the last byte
         self.caught_pokemon_start = 0xD2F7 + offset
-        self.caught_pokemon_end = 0xD309 + offset
+        self.caught_pokemon_end = 0xD309 + 1 + offset
         self.seen_pokemon_start = 0xD30A + offset
-        self.seen_pokemon_end = 0xD31C + offset
+        self.seen_pokemon_end = 0xD31C + 1 + offset
         self.player_x_mem = 0xD361 + offset
         self.player_y_mem = 0xD362 + offset
         self.player_x_block_mem = 0xD363 + offset
@@ -291,18 +297,22 @@ class PyBoyEnv(gym.Env):
         self.backtrack_bonus = 0
         self.item_points = {}
         self.last_items = []
-        self.pokedex = {}
+        self.pokedex = "-" * 151
+        self.seen_pokedex = []
+        self.caught_pokedex = []
         self.last_total_items = 0
         self.last_carried_item_total = 0
         self.last_stored_item_total = 0
         self.device = device
+
+        self.seen_and_capture_events = {}
 
         self.speed_bonus = 0
 
         self.last_memory_update_frame = 0
         self.current_memory = None
         self.progress_frames = self.max_frames * (PRESS_FRAMES + RELEASE_FRAMES)
-        
+
         # self.buttons = {
         #     0: (utils.WindowEvent.PASS, "-"),
         #     1: (utils.WindowEvent.PRESS_ARROW_UP, "U"),
@@ -354,11 +364,34 @@ class PyBoyEnv(gym.Env):
         # size = SPRITE_MAP_END - SPRITE_MAP_START + 1
 
         # size = MEM_START MEM_END + 2
+
     def generate_image(self):
         return self.pyboy.screen.ndarray
 
     def generate_screen_ndarray(self):
         return self.pyboy.screen.ndarray
+    
+    
+    def get_pokedex_status_string(self, data_seen, data_owned):
+        def get_status(data, poke_num):
+            byte_index = poke_num // 8
+            bit_index = poke_num % 8
+            return (data[byte_index] >> bit_index) & 1
+        
+        status_string = ""
+        for poke_num in range(151):
+            seen = get_status(data_seen, poke_num)
+            owned = get_status(data_owned, poke_num)
+            if owned and seen:
+                status_string += 'O'
+            elif seen:
+                status_string += 'S'
+            elif owned:
+                status_string += '?'
+            else:
+                status_string += '-'
+        return status_string
+        
 
     def calculate_reward(self):
         # calculate total bits from the memory values
@@ -398,31 +431,6 @@ class PyBoyEnv(gym.Env):
             self.last_total_items = carried_item_total + stored_item_total
 
         speed_bonus_calc = (self.max_frames - self.frames) // (self.max_frames + 1)
-
-        if caught_pokemon_start < caught_pokemon_end:
-            pokemon_caught = np.sum(
-                [
-                    bin(byte).count("1")
-                    for byte in curr_pyboy.memory[
-                        caught_pokemon_start:caught_pokemon_end
-                    ]
-                ]
-            )
-        else:
-            pokemon_caught = 0
-
-        if seen_pokemon_start < seen_pokemon_end:
-            pokemon_seen = np.sum(
-                [
-                    bin(byte).count("1")
-                    for byte in curr_pyboy.memory[seen_pokemon_start:seen_pokemon_end]
-                ]
-            )
-
-        else:
-            pokemon_seen = 0
-
-        # self.pokedex = {i: bin(values).count('1') for i, values in enumerate(current_memory[item_start: item_end]) if item_start < item_end}
 
         items = curr_pyboy.memory[item_start:item_end]
         # extract every 2 indexes from the list
@@ -469,39 +477,60 @@ class PyBoyEnv(gym.Env):
         # convert binary chunks into a single string
         chunk_id = f"{px}:{py}:{pbx}:{pby}:{map_id}"
         self.visited_xy.add(chunk_id)
+        full_dex = list(self.pyboy.memory[caught_pokemon_start:seen_pokemon_end])
+        caught_pokedex = list(full_dex[:caught_pokemon_end - caught_pokemon_start])
+        seen_pokedex = list(full_dex[seen_pokemon_start - caught_pokemon_start:])
+        self.seen_pokedex = seen_pokedex
+        self.caught_pokedex = caught_pokedex
+        last_dex = self.pokedex
+        new_dex = self.get_pokedex_status_string(seen_pokedex, caught_pokedex)
 
-        self.last_pokemon_count = pokemon_caught
+        # compare the last pokedex to the current pokedex
+        if last_dex != new_dex:
+            poke_nums = diff_pokedex(last_dex, new_dex)
+            poke_pairs = zip(poke_nums, [new_dex[p] for p in poke_nums])
+            self.seen_and_capture_events[self.pyboy.frame_count] = list(poke_pairs)
+
+
+        self.pokedex = new_dex
+
+        pokemon_owned =  self.pokedex.count("O")
+        pokemon_seen = self.pokedex.count("S") + pokemon_owned
+
+        last_poke = self.last_pokemon_count
+        last_poke_seen = self.last_seen_pokemon_count
+
         if pokemon_seen == 0:
-            pokemon_caught = 0
+            pokemon_owned = 0
 
-        if pokemon_caught > self.last_pokemon_count:
+        if pokemon_owned > last_poke:
             # Give a backtrack bonus and reset the explored list
             self.backtrack_bonus += len(self.visited_xy)
             self.visited_xy = set()
+            
         reward = (
             len(self.player_maps) * 100
             + (self.backtrack_bonus + len(self.visited_xy)) // 1000
         ) // 10
 
-        last_poke = self.last_pokemon_count
-        last_poke_seen = self.last_seen_pokemon_count
-        if pokemon_caught > last_poke:
-            self.last_pokemon_count = pokemon_caught
+        if pokemon_owned > last_poke:
+            self.seen_and_capture_events[self.pyboy.frame_count] = (pokemon_owned, pokemon_seen)
+            self.last_pokemon_count = pokemon_owned
             self.speed_bonus += reward * (speed_bonus_calc)
 
         if pokemon_seen > last_poke_seen:
             self.last_seen_pokemon_count = pokemon_seen
             self.speed_bonus += reward // 2 * (speed_bonus_calc)
 
-        self.last_pokemon_count = pokemon_caught
+        self.last_pokemon_count = pokemon_owned
         self.last_seen_pokemon_count = pokemon_seen
 
         reward = (
             reward
-            + (reward * (pokemon_caught * 2) + (pokemon_seen)) // 150
+            + (100 * ((pokemon_owned * 2) + pokemon_seen))
             + sum(self.item_points.values()) * 10
         )
-
+        self.speed_bonus = int(self.speed_bonus)
         # reward -= (reward * (self.stationary_frames / (self.frames + 1)))
         reward += self.speed_bonus
 
@@ -539,7 +568,9 @@ class PyBoyEnv(gym.Env):
                 new_height = h + height_offset
                 replacer = Image.new("RGB", (new_width, new_height), (0, 0, 0))
                 # in center of image
-                replacer.paste(image, ((new_width - image.width) // 2, height_offset // 2))
+                replacer.paste(
+                    image, ((new_width - image.width) // 2, height_offset // 2)
+                )
                 image = replacer
 
             self.renderer.load_image(image)
@@ -557,18 +588,16 @@ class PyBoyEnv(gym.Env):
             game_time_string = f"{clock_faces[game_hours % 12]} {game_hours:02d}:{game_minutes % 60:02d}:{game_seconds % 60:02d}"
             image_string = self.renderer.to_string(Ansi24HblockMethod)
             if target_index is not None:
-                render_string = f"{image_string}🧠: {target_index:2d} 🟢 {self.last_pokemon_count:3d} 👀 {self.last_seen_pokemon_count:3d} 🌎 {len(self.visited_xy):3d}:{len(self.player_maps):3d} 🏆 {self.last_score:7.2f} 🎒 {item_score:3d} 🐆 {self.speed_bonus:7.2f}\n [{self.last_player_x:3d},{self.last_player_y:3d},{self.last_player_x_block:3d},{self.last_player_y_block:3d}], 🗺️: {self.last_player_map:3d} Actions {' '.join(self.actions[-6:])} 🎬 {self.frames:6d} {game_time_string} {len(self.actions)}"
+                render_string = f"{image_string}🧠: {target_index:2d} 🟢 {self.last_pokemon_count:3d} 👀 {self.last_seen_pokemon_count:3d} 🌎 {len(self.visited_xy):3d}:{len(self.player_maps):3d} 🏆 {self.last_score:7.2f} 🎒 {item_score:3d} 🐆 {self.speed_bonus:7.2f} {self.caught_pokedex}\n [{self.last_player_x:3d},{self.last_player_y:3d},{self.last_player_x_block:3d},{self.last_player_y_block:3d}], 🗺️: {self.last_player_map:3d} Actions {' '.join(self.actions[-6:])} 🎬 {self.frames:6d} {game_time_string} {len(self.actions)}"
             else:
                 render_string = f"{image_string}🛠️: {self.emunum:2d} 🟢 {self.last_pokemon_count:3d} 👀 {self.last_seen_pokemon_count:3d} 🌎 {len(self.visited_xy):3d}:{len(self.player_maps):3d} 🏆 {self.last_score:7.2f} 🎒 {item_score:3d} 🐆 {self.speed_bonus:7.2f}\n [{self.last_player_x:3d},{self.last_player_y:3d},{self.last_player_x_block:3d},{self.last_player_y_block:3d}], 🗺️: {self.last_player_map:3d} Actions {' '.join(self.actions[-6:])} 🎬 {self.frames:6d} {len(self.actions)}"
 
             return render_string
-
-
+#🧠: 19 🟢  64 👀  64 🌎  27:  4 🏆 19270.00 🎒   1 🐆   20.00
     # TODO: build expanding pixel map to show extents of game travelled. (minimap?) Use 3d numpy array to store visited pixels. performance?
 
     def step(self, action):
-
-        # self.frames = self.pyboy.frame_count
+        self.frames = self.pyboy.frame_count
         # button_1, button_name_1 = self.buttons[action]
         # button_2, _ = self.buttons[action + 8]
         # self.pyboy.send_input(button_1)
@@ -586,7 +615,7 @@ class PyBoyEnv(gym.Env):
         if action != 0:
             self.pyboy.button_release(button[0])
         for _ in range(RELEASE_FRAMES):
-           self.pyboy.tick()
+            self.pyboy.tick()
 
         # if it's the same button it's held.  If it's a different button it's a different button.
         # In theory this means it'll figure out how to hold buttons down and how to not
@@ -616,6 +645,8 @@ class PyBoyEnv(gym.Env):
             "stationary_frames": self.stationary_frames,
             "items": self.item_points,
             "speed_bonus": self.speed_bonus,
+            "pokedex": self.pokedex,
+            "seen_and_capture_events": self.seen_and_capture_events,
         }
         screen = self.pyboy.memory[MEM_START:MEM_END].copy()
         # self.last_n_frames[:-1] = self.last_n_frames[1:]
@@ -654,7 +685,7 @@ class PyBoyEnv(gym.Env):
         self.last_player_x_block = 0
         self.last_player_y_block = 0
         self.menu_value = 0
-        self.pokedex = {}
+        self.pokedex = "-" * 151
         self.pyboy = PyBoy(
             self.game_path,
             window="null",
@@ -799,7 +830,9 @@ def train_model(
     # wiill this eliminate the progress bar left hanging out?
 
     # TODO checkpoints not being saved
-    checkpoint_file_path = f"{checkpoint_path.rstrip('/')}/{os.uname()[1]}-{time.time()}/"
+    checkpoint_file_path = (
+        f"{checkpoint_path.rstrip('/')}/{os.uname()[1]}-{time.time()}/"
+    )
     print(f"Checkpoint path: {checkpoint_file_path}")
     checkpoint_callback = CheckpointCallback(
         save_freq=total_steps // 64,
@@ -810,14 +843,15 @@ def train_model(
 
     update_freq = num_cpu * 256
     current_stats = EveryNTimesteps(
-        n_steps=update_freq, callback=PokeCaughtCallback(total_steps, multiplier=update_freq, verbose=1)
+        n_steps=update_freq,
+        callback=PokeCaughtCallback(total_steps, multiplier=update_freq, verbose=1),
     )
     tbcallback = TensorboardLoggingCallback(tensorboard_log)
     callbacks = [checkpoint_callback, current_stats, tbcallback]
     # callbacks = [current_stats, tbcallback]
     run_model.learn(total_timesteps=total_steps, callback=callbacks, progress_bar=False)
     # run_model.save(f"{checkpoint_path}/{file_name}-{episode}.zip")
-    
+
     del checkpoint_callback
     del current_stats
     del tbcallback
@@ -867,14 +901,15 @@ if __name__ == "__main__":
     run_env = None
     # max_frames = PRESS_FRAMES + RELEASE_FRAMES * runsteps
 
-        # episodes = 13
+    # episodes = 13
     episodes = 13
-
+    
     batch_size = 512
     n_steps = 4096
     # total_steps = n_steps * 1024 * 6
-    total_steps = 1728000 * 32 // (PRESS_FRAMES + RELEASE_FRAMES) # 8 hours * 60 minutes * 60 seconds * 60 frames per second * 32 // (PRESS_FRAMES + RELEASE_FRAMES)
-
+    total_steps = (
+        1728000 * 32 // (PRESS_FRAMES + RELEASE_FRAMES)
+    )  # 8 hours * 60 minutes * 60 seconds * 60 frames per second * 32 // (PRESS_FRAMES + RELEASE_FRAMES)
 
     if num_cpu == 1:
         run_env = DummyVecEnv([make_env(args.game_path, 0, device=device)])
