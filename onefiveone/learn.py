@@ -24,6 +24,8 @@ from timg import Renderer, Ansi24HblockMethod
 from PIL import Image, ImageDraw, ImageFont
 from tqdm import tqdm
 import glob
+import argparse
+import socket
 
 # Memory ranges to read in Pokemon Red/Blue (+ Yellow?)
 # MEM_START = 0xCC3C
@@ -658,10 +660,11 @@ class ModelMergeCallback(BaseCallback):
         self.num_hosts = num_hosts
         self.checkpoint_num = 0
         self.checkpoint_steps = checkpoint_steps
+        self.hostname = socket.gethostname()
 
     def _on_step(self) -> bool:
         if self.n_calls % self.checkpoint_steps == 0:
-            self.model.save(f"{self.checkpoint_path}/model_{self.checkpoint_num}.zip")
+            self.model.save(f"{self.checkpoint_path}/{self.hostname}_model_{self.checkpoint_num}.zip")
             self._wait_for_all_checkpoints()
             self._merge_models()
             self.checkpoint_num += 1
@@ -669,13 +672,13 @@ class ModelMergeCallback(BaseCallback):
 
     def _wait_for_all_checkpoints(self):
         while True:
-            checkpoints = glob.glob(f"{self.checkpoint_path}/{self.checkpoint_num}/*/model_*.zip")
+            checkpoints = glob.glob(f"{self.checkpoint_path}/{self.checkpoint_num}/*/*.zip")
             if len(checkpoints) >= self.num_hosts:
                 break
             time.sleep(1)
 
     def _merge_models(self):
-        model_files = glob.glob(f"{self.checkpoint_path}/{self.checkpoint_num}/*/model_*.zip")
+        model_files = glob.glob(f"{self.checkpoint_path}/{self.checkpoint_num}/*/*.zip")
         models = [PPO.load(model_file) for model_file in model_files]
 
         # Find the maximum checkpoint of the current generation
@@ -761,7 +764,7 @@ if __name__ == "__main__":
     device = "mps" if torch.backends.mps.is_available() and torch.backends.mps.is_built() else device
     device = "cuda" if torch.cuda.is_available() else device
 
-    import argparse
+
 
     parser = argparse.ArgumentParser()
     # TODO: Investigate Pokemon Blue caught = 4 before you have a pokedex. Is this a bug in the game?  Is it a bug in the emulator?  Is it a bug in the memory address? Seems to work fine on Red,
