@@ -9,16 +9,10 @@ import multiprocessing
 import numpy as np
 import torch
 import torch.nn as nn
-
 import gymnasium as gym
 from gymnasium.spaces import Box, Discrete
 from stable_baselines3 import PPO
-
-from stable_baselines3.common.callbacks import (
-    BaseCallback,
-    EveryNTimesteps,
-    CheckpointCallback,
-)
+from stable_baselines3.common.callbacks import BaseCallback, EveryNTimesteps, CheckpointCallback
 from stable_baselines3.common.policies import ActorCriticPolicy
 from stable_baselines3.common.env_util import SubprocVecEnv, DummyVecEnv
 
@@ -37,15 +31,11 @@ MEM_START = 0xD2F7
 MEM_END = 0xDEE1
 SPRITE_MAP_START = 0xC3A0
 SPRITE_MAP_END = 0xC507
-
 LOG_FREQ = 1000
-
 PRESS_FRAMES = 5
 RELEASE_FRAMES = 10
-
 CGB = False
 NUM_CPU = multiprocessing.cpu_count()
-
 
 class PokeCart:
     def __init__(self, cart_data) -> None:
@@ -99,14 +89,11 @@ def learning_rate_schedule(progress):
     )  # positive and negative adjustments
     # rate = (rate + rate * progress) / 2
     return new_rate
-    # return  0.0
-
 
 class CustomNetwork(ActorCriticPolicy):
     def __init__(self, *args, **kwargs):
         super(CustomNetwork, self).__init__(*args, **kwargs)
         self.lr_schedule = learning_rate_schedule
-
 
 class TensorboardLoggingCallback(BaseCallback):
     def __init__(self, verbose=0):
@@ -146,13 +133,9 @@ class TensorboardLoggingCallback(BaseCallback):
                     self.logger.record(f"caught/{emunum}", f"{caught}")
                     self.logger.record(f"seen/{emunum}", f"{seen}")
                     self.logger.record(f"reward/{emunum}", f"{reward}")
-                    self.logger.record(
-                        f"visited/{emunum}", f"{len(info['visited_xy'])}"
-                    )
+                    self.logger.record(f"visited/{emunum}", f"{len(info['visited_xy'])}")
                     self.logger.record(f"items/{emunum}", f"{info['items']}")
-                    self.logger.record(
-                        f"speed_bonus/{emunum}", f"{info['speed_bonus']}"
-                    )
+                    self.logger.record(f"speed_bonus/{emunum}", f"{info['speed_bonus']}")
                     max_item_points = max(max_item_points, sum(info["items"].values()))
                     self.logger.record(f"pokedex/{emunum}", f"{pokedex}")
                     self.logger.record(f"seen_and_capture/{emunum}", f"{seen_and_capture_events}")
@@ -187,12 +170,8 @@ class PokeCaughtCallback(BaseCallback):
             best_env_idx
         ]
 
-        # render_string = self.training_env.env_method("render", best_env_idx)
-        # sys.stdout.write(render_string)
         print(render_string)
         self.progress_bar.update(self.multiplier)
-
-        # self.progress = self.model.num_timesteps
         return True
 
 
@@ -220,7 +199,6 @@ def add_string_overlay(
     """
     # Initialize a drawing context
     draw = ImageDraw.Draw(image)
-
     try:
         # Use a truetype or opentype font file
         # font = ImageFont.truetype("arial.ttf", font_size)
@@ -304,34 +282,11 @@ class PyBoyEnv(gym.Env):
         self.last_carried_item_total = 0
         self.last_stored_item_total = 0
         self.device = device
-
         self.seen_and_capture_events = {}
-
         self.speed_bonus = 0
-
         self.last_memory_update_frame = 0
         self.current_memory = None
         self.progress_frames = self.max_frames * (PRESS_FRAMES + RELEASE_FRAMES)
-
-        # self.buttons = {
-        #     0: (utils.WindowEvent.PASS, "-"),
-        #     1: (utils.WindowEvent.PRESS_ARROW_UP, "U"),
-        #     2: (utils.WindowEvent.PRESS_ARROW_DOWN, "D"),
-        #     3: (utils.WindowEvent.PRESS_ARROW_LEFT, "L"),
-        #     4: (utils.WindowEvent.PRESS_ARROW_RIGHT, "R"),
-        #     5: (utils.WindowEvent.PRESS_BUTTON_A, "A"),
-        #     6: (utils.WindowEvent.PRESS_BUTTON_B, "B"),
-        #     7: (utils.WindowEvent.PRESS_BUTTON_START, "S"),
-        #     8: (utils.WindowEvent.PASS, "."),
-        #     9: (utils.WindowEvent.RELEASE_ARROW_UP, "u"),
-        #     10: (utils.WindowEvent.RELEASE_ARROW_DOWN, "d"),
-        #     11: (utils.WindowEvent.RELEASE_ARROW_LEFT, "l"),
-        #     12: (utils.WindowEvent.RELEASE_ARROW_RIGHT, "r"),
-        #     13: (utils.WindowEvent.RELEASE_BUTTON_A, "a"),
-        #     14: (utils.WindowEvent.RELEASE_BUTTON_B, "b"),
-        #     15: (utils.WindowEvent.RELEASE_BUTTON_START, "s"),
-        # }
-
         self.buttons = {
             0: ("", "-"),
             1: ("up", "U"),
@@ -342,7 +297,6 @@ class PyBoyEnv(gym.Env):
             6: ("b", "B"),
             7: ("start", "S"),
         }
-
         self.buttons_names = "UDLRABS!_udlrabs.-"
 
         # Get the current date and time
@@ -359,7 +313,6 @@ class PyBoyEnv(gym.Env):
         # self.action_space = gym.spaces.Box(low=0, high=1, shape=(8,), dtype=np.float32)
 
         self.observation_space = Box(low=0, high=255, shape=(size,), dtype=np.float32)
-
         self.action_space = Discrete(8, start=0)
         # size = SPRITE_MAP_END - SPRITE_MAP_START + 1
 
@@ -370,8 +323,7 @@ class PyBoyEnv(gym.Env):
 
     def generate_screen_ndarray(self):
         return self.pyboy.screen.ndarray
-    
-    
+
     def get_pokedex_status_string(self, data_seen, data_owned):
         def get_status(data, poke_num):
             byte_index = poke_num // 8
@@ -392,7 +344,6 @@ class PyBoyEnv(gym.Env):
                 status_string += '-'
         return status_string
         
-
     def calculate_reward(self):
         # calculate total bits from the memory values
         # current_memory = self.pyboy.memory[MEM_START: MEM_END + 1]
@@ -425,9 +376,7 @@ class PyBoyEnv(gym.Env):
 
         last_total_items = self.last_total_items
         if carried_item_total + stored_item_total != last_total_items:
-            self.speed_bonus += (
-                np.abs((carried_item_total + stored_item_total) - last_total_items) * 10
-            )
+            self.speed_bonus += np.abs((carried_item_total + stored_item_total) - last_total_items) * 10
             self.last_total_items = carried_item_total + stored_item_total
 
         speed_bonus_calc = (self.max_frames - self.frames) // (self.max_frames + 1)
@@ -444,9 +393,7 @@ class PyBoyEnv(gym.Env):
         if len(last_items) == 0:
             last_items = [0] * len(item_counts)
 
-        item_diff = [
-            np.abs(item_counts[i] - last_items[i]) for i in range(len(item_counts))
-        ]
+        item_diff = [np.abs(item_counts[i] - last_items[i]) for i in range(len(item_counts))]
         self.last_items = item_counts
 
         # create tuple of item type and points
@@ -491,10 +438,9 @@ class PyBoyEnv(gym.Env):
             poke_pairs = zip(poke_nums, [new_dex[p] for p in poke_nums])
             self.seen_and_capture_events[self.pyboy.frame_count] = list(poke_pairs)
 
-
         self.pokedex = new_dex
 
-        pokemon_owned =  self.pokedex.count("O")
+        pokemon_owned = self.pokedex.count("O")
         pokemon_seen = self.pokedex.count("S") + pokemon_owned
 
         last_poke = self.last_pokemon_count
@@ -525,13 +471,8 @@ class PyBoyEnv(gym.Env):
         self.last_pokemon_count = pokemon_owned
         self.last_seen_pokemon_count = pokemon_seen
 
-        reward = (
-            reward
-            + (100 * ((pokemon_owned * 2) + pokemon_seen))
-            + sum(self.item_points.values()) * 10
-        )
+        reward = reward + (100 * ((pokemon_owned * 2) + pokemon_seen)) + sum(self.item_points.values()) * 10
         self.speed_bonus = int(self.speed_bonus)
-        # reward -= (reward * (self.stationary_frames / (self.frames + 1)))
         reward += self.speed_bonus
 
         self.last_player_x = px
@@ -553,9 +494,7 @@ class PyBoyEnv(gym.Env):
             h = 144
             if terminal_size.columns != w or terminal_size.lines < h / 2:
                 image_aspect_ratio = w / h
-                terminal_aspect_ratio = terminal_size.columns / (
-                    terminal_size.lines - terminal_offset
-                )
+                terminal_aspect_ratio = terminal_size.columns / (terminal_size.lines - terminal_offset)
 
                 if image_aspect_ratio > terminal_aspect_ratio:
                     new_width = int(w / image_aspect_ratio)
@@ -567,16 +506,11 @@ class PyBoyEnv(gym.Env):
                 height_offset = new_width - w
                 new_height = h + height_offset
                 replacer = Image.new("RGB", (new_width, new_height), (0, 0, 0))
-                # in center of image
-                replacer.paste(
-                    image, ((new_width - image.width) // 2, height_offset // 2)
-                )
+                replacer.paste(image, ((new_width - image.width) // 2, height_offset // 2))
                 image = replacer
 
             self.renderer.load_image(image)
-            self.renderer.resize(
-                terminal_size.columns, terminal_size.lines * 2 - terminal_offset
-            )
+            self.renderer.resize(terminal_size.columns, terminal_size.lines * 2 - terminal_offset)
 
             item_score = sum(self.item_points.values())
             fc = self.pyboy.frame_count
@@ -625,13 +559,9 @@ class PyBoyEnv(gym.Env):
         # Grab less frames to append if we're standing still.
 
         reward = round(self.calculate_reward(), 3)
-
         self.last_score = reward
 
         truncated = False
-        # if self.frames >= self.max_frames:
-        #     terminated = True
-        # else:
         terminated = False
 
         info = {
@@ -649,30 +579,18 @@ class PyBoyEnv(gym.Env):
             "seen_and_capture_events": self.seen_and_capture_events,
         }
         screen = self.pyboy.memory[MEM_START:MEM_END].copy()
-        # self.last_n_frames[:-1] = self.last_n_frames[1:]
-        # self.last_n_frames[-1] = screen
         observation = np.append(screen, reward)
-
-        # convert observation into float32s
-        # if self.device == "mps":
         observation = observation.astype(np.float32)
-        # else:
-        #     observation = observation.astype(np.float64)
 
         return observation, reward, terminated, truncated, info
 
     def reset(self, seed=0, **kwargs):
-        # reward = self.calculate_reward()
-        # observation = np.append(
-        #     self.get_memory_range(), reward)
         self.last_total_items = 0
         self.last_carried_item_total = 0
         self.last_stored_item_total = 0
-
         self.stationary_frames = 0
         self.unchanged_frames = 0
         self.speed_bonus = 0
-        # print("OS:RESET:", self.emunum, seed)
         super().reset(seed=seed, **kwargs)
         self.last_memory_update_frame = 0
         self.visited_xy = set()
@@ -686,20 +604,12 @@ class PyBoyEnv(gym.Env):
         self.last_player_y_block = 0
         self.menu_value = 0
         self.pokedex = "-" * 151
-        self.pyboy = PyBoy(
-            self.game_path,
-            window="null",
-            cgb=CGB,
-        )
-        # self.last_n_frames = [self.pyboy.screen.ndarray] * self.n
+        self.pyboy = PyBoy(self.game_path, window="null", cgb=CGB)
 
         if self.save_state_path is not None:
             self.pyboy.load_state(open(self.save_state_path, "rb"))
         else:
-            print(
-                f"Error: No state file found for {self.save_state_path}",
-                file=sys.stderr,
-            )
+            print(f"Error: No state file found for {self.save_state_path}", file=sys.stderr)
 
         self.actions = ""
         self.screen_image_arrays = set()
@@ -714,23 +624,12 @@ class PyBoyEnv(gym.Env):
         self.last_player_x_block = 0
         self.last_player_y_block = 0
         reward = self.calculate_reward()
-        # self.last_n_frames = [self.pyboy.memory[MEM_START:MEM_END].copy() for _ in range(self.n)]
         screen = self.pyboy.memory[MEM_START:MEM_END].copy()
         observation = np.append(screen, reward)
         observation = observation.astype(np.float32)
 
-        # convert observation into float32s
-        # if self.device == "mps":
-        # observation = observation.astype(np.uint8)
-        # else:
-        #  observation = observation.astype(np.float64)
-        # if self.device == "mps":
-        #     observation = observation.astype(np.float32)
-        # else:
-        #     observation = observation.astype(np.float64)
         print("RESET:OS:SHAPE:", observation.shape, seed, file=sys.stderr)
         return observation, {"seed": seed}
-
 
 def make_env(game_path, emunum, max_frames=500_000, device="cpu"):
     def _init():
@@ -742,13 +641,7 @@ def make_env(game_path, emunum, max_frames=500_000, device="cpu"):
             else:
                 ext = ".ogb_state"
 
-            new_env = PyBoyEnv(
-                game_path,
-                emunum=emunum,
-                save_state_path=game_path + ext,
-                max_frames=max_frames,
-                device=device,
-            )
+            new_env = PyBoyEnv(game_path, emunum=emunum, save_state_path=game_path + ext, max_frames=max_frames, device=device)
             new_env.pyboy.load_state(open(game_path + ext, "rb"))
         else:
             print(f"Error: No state file found for {game_path}.state")
@@ -758,22 +651,51 @@ def make_env(game_path, emunum, max_frames=500_000, device="cpu"):
 
     return _init
 
+class ModelMergeCallback(BaseCallback):
+    def __init__(self, checkpoint_path, num_hosts, verbose=0, checkpoint_steps=1000):
+        super(ModelMergeCallback, self).__init__(verbose)
+        self.checkpoint_path = checkpoint_path
+        self.num_hosts = num_hosts
+        self.checkpoint_num = 0
+        self.checkpoint_steps = checkpoint_steps
 
-def train_model(
-    env,
-    total_steps,
-    n_steps,
-    batch_size,
-    episode,
-    file_name,
-    save_path="ofo",
-    device="cpu",
-):
-    # first_layer_size = (24 * 359) + 1
+    def _on_step(self) -> bool:
+        if self.n_calls % self.checkpoint_steps == 0:
+            self.model.save(f"{self.checkpoint_path}/model_{self.checkpoint_num}.zip")
+            self._wait_for_all_checkpoints()
+            self._merge_models()
+            self.checkpoint_num += 1
+        return True
+
+    def _wait_for_all_checkpoints(self):
+        while True:
+            checkpoints = glob.glob(f"{self.checkpoint_path}/{self.checkpoint_num}/*/model_*.zip")
+            if len(checkpoints) >= self.num_hosts:
+                break
+            time.sleep(1)
+
+    def _merge_models(self):
+        model_files = glob.glob(f"{self.checkpoint_path}/{self.checkpoint_num}/*/model_*.zip")
+        models = [PPO.load(model_file) for model_file in model_files]
+
+        # Find the maximum checkpoint of the current generation
+        max_checkpoint = max(model_files, key=lambda x: int(x.split("_")[-1].split(".")[0]))
+
+        # Load the model with the maximum checkpoint
+        new_model = PPO.load(max_checkpoint)
+
+        # Merge the models by averaging their weights
+        for model in models:
+            for var in new_model.get_parameters().keys():
+                new_model.get_parameters()[var] += model.get_parameters()[var]
+            new_model.get_parameters()[var] /= len(models)
+
+        new_model.save(f"{self.checkpoint_path}/{self.checkpoint_num}/combined_model.zip")
+        self.model = new_model
+
+def train_model(env, total_steps, n_steps, batch_size, episode, file_name, save_path="ofo", num_hosts=1, device="cpu", other_models_path=None):
     first_layer_size = 4192
     policy_kwargs = dict(
-        # features_extractor_class=CustomFeatureExtractor,
-        # features_extractor_kwargs={},
         net_arch=dict(
             pi=[first_layer_size, first_layer_size // 2, 8],
             vf=[first_layer_size, first_layer_size // 2, 8],
@@ -783,32 +705,22 @@ def train_model(
     # make sure we take care of accidental trailing slashes in the save path which
     # would cause the checkpoint path to be incorrect.
     checkpoint_path = f"{save_path.rstrip('/')}_chkpt"
-
     tensorboard_log = f"{save_path}/tensorboard/{os.uname()[1]}-{time.time()-episode}"
 
     run_model = PPO(
         policy="MlpPolicy",
-        # Reduce n_steps if too large; ensure not less than some minimum like 2048 for sufficient learning per update.
         n_steps=n_steps,
-        # Reduce batch size if it's too large but ensure a minimum size for stability.
         batch_size=batch_size,
-        # Adjusted for potentially more stable learning across batches.
         n_epochs=3,
-        # Increased to give more importance to future rewards, can help escape repetitive actions.
         gamma=0.9998,
-        # Adjusted for a better balance between bias and variance in advantage estimation.
         gae_lambda=0.998,
-        learning_rate=learning_rate_schedule,  # Standard starting point for PPO, adjust based on performance.
-        # learning_rate=0.0002,
+        learning_rate=learning_rate_schedule,
         env=env,
-        # Ensure this aligns with the complexities of your environment.
         policy_kwargs=policy_kwargs,
         verbose=1,
         device=device,
-        # Reduced for less aggressive exploration after initial learning, adjust based on needs.
         ent_coef=0.01,
         tensorboard_log=tensorboard_log,
-        # vf_coef=0.5,  # Adjusted to balance value function loss importance.
     )
     checkpoints = glob.glob(f"{checkpoint_path.rstrip('/')}/*/*.zip")
     if len(checkpoints) > 0:
@@ -817,56 +729,36 @@ def train_model(
         newest_checkpoint = max(checkpoints, key=os.path.getctime)
         print(f"Newest checkpoint: {newest_checkpoint}")
         run_model.load(newest_checkpoint)
-
-        # run_model = PPO.load(newest_checkpoint, env=env,)
-        # tensorboard_log=tensorboard_log)
         print("\ncheckpoint loaded")
     else:
         print("No checkpoints found.")
 
-    # model_merge_callback = EveryNTimesteps(n_steps=steps * num_cpu * 1024, callback=ModelMergeCallback(args.num_hosts))
-    # TODO: Progress callback that collects data from each frame for stats
-
-    # wiill this eliminate the progress bar left hanging out?
-
-    # TODO checkpoints not being saved
-    checkpoint_file_path = (
-        f"{checkpoint_path.rstrip('/')}/{os.uname()[1]}-{time.time()}/"
-    )
-    print(f"Checkpoint path: {checkpoint_file_path}")
+    checkpoint_file_path = f"{checkpoint_path.rstrip('/')}/{os.uname()[1]}-{time.time()}/"
     checkpoint_callback = CheckpointCallback(
         save_freq=total_steps // 64,
         save_path=f"{checkpoint_file_path}",
         name_prefix="poke",
         verbose=2,
     )
-
+    num_cpu = NUM_CPU
     update_freq = num_cpu * 256
     current_stats = EveryNTimesteps(
         n_steps=update_freq,
         callback=PokeCaughtCallback(total_steps, multiplier=update_freq, verbose=1),
     )
     tbcallback = TensorboardLoggingCallback(tensorboard_log)
-    callbacks = [checkpoint_callback, current_stats, tbcallback]
-    # callbacks = [current_stats, tbcallback]
+    if other_models_path is not None and num_hosts > 1:
+        merge_callback = ModelMergeCallback(other_models_path, num_hosts, verbose=1, checkpoint_steps=n_steps)
+        callbacks = [checkpoint_callback, current_stats, tbcallback, merge_callback]
+    else:
+        callbacks = [checkpoint_callback, current_stats, tbcallback]
     run_model.learn(total_timesteps=total_steps, callback=callbacks, progress_bar=False)
-    # run_model.save(f"{checkpoint_path}/{file_name}-{episode}.zip")
-
-    del checkpoint_callback
-    del current_stats
-    del tbcallback
 
     return run_model
 
-
 if __name__ == "__main__":
-    # TODO: make path a parameter and use more sensible defaults for non-me users
     device = "cpu"
-    device = (
-        "mps"
-        if torch.backends.mps.is_available() and torch.backends.mps.is_built()
-        else device
-    )
+    device = "mps" if torch.backends.mps.is_available() and torch.backends.mps.is_built() else device
     device = "cuda" if torch.cuda.is_available() else device
 
     import argparse
@@ -888,37 +780,21 @@ if __name__ == "__main__":
     # TODO: 5529600 frames is roughly 10 seconds of gametime (144h * 160w * 24fps * 10) and about 5.2mb of data. 10m of data is about 317MB. Math OK? 144 * 160 * 24 * 60 * 10 / 1024 / 1024
     parser.add_argument("--output_dir", type=str, default="ofo")
     parser.add_argument("--num_hosts", type=int, default=1)
+    parser.add_argument('--expected_hosts', type=str, default=None, multiple=True)
+    parser.add_argument('--other_models_path', type=str, default=None)
     args = parser.parse_args()
 
     num_cpu = NUM_CPU
-
-    # hrs = 10  # number of hours (in-game) to run for.
-    # hrs = 5 # temporarily shorter duration.
-    # runsteps = int(3200000 * (hrs))
-    # runsteps = int(32000 * (hrs))
-    # runsteps = int(3600 * (hrs))
-
-    run_env = None
-    # max_frames = PRESS_FRAMES + RELEASE_FRAMES * runsteps
-
-    # episodes = 13
     episodes = 13
-    
     batch_size = 512
     n_steps = 4096
-    # total_steps = n_steps * 1024 * 6
-    total_steps = (
-        1728000 * 32 // (PRESS_FRAMES + RELEASE_FRAMES)
-    )  # 8 hours * 60 minutes * 60 seconds * 60 frames per second * 32 // (PRESS_FRAMES + RELEASE_FRAMES)
+    total_steps = 1728000 * 32 // (PRESS_FRAMES + RELEASE_FRAMES)
 
     if num_cpu == 1:
         run_env = DummyVecEnv([make_env(args.game_path, 0, device=device)])
     else:
         run_env = SubprocVecEnv(
-            [
-                make_env(args.game_path, emunum, device=device, max_frames=total_steps)
-                for emunum in range(num_cpu)
-            ]
+            [make_env(args.game_path, emunum, device=device, max_frames=total_steps) for emunum in range(num_cpu)]
         )
 
     model_file_name = "model"
@@ -932,5 +808,7 @@ if __name__ == "__main__":
             episode=e,
             file_name=model_file_name,
             save_path=args.output_dir,
+            num_hosts=args.num_hosts,
             device=device,
+            other_models_path=args.other_models_path,
         )
