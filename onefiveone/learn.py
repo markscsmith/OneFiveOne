@@ -773,7 +773,7 @@ def train_model(
     save_path="ofo",
     device="cpu",
 ):
-    env.set_episode(episode)
+    env.set_attr("episode", episode)
     # first_layer_size = (24 * 359) + 1
     first_layer_size = 4192
     policy_kwargs = dict(
