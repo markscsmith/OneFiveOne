@@ -247,6 +247,7 @@ class PyBoyEnv(gym.Env):
         save_state_path=None,
         max_frames=500_000,
         device="cpu",
+        episode=0,
         **kwargs,
     ):
         super(PyBoyEnv, self).__init__()
@@ -304,7 +305,7 @@ class PyBoyEnv(gym.Env):
         self.last_carried_item_total = 0
         self.last_stored_item_total = 0
         self.device = device
-
+        self.episode = episode
         self.seen_and_capture_events = {}
 
         self.speed_bonus = 0
@@ -588,9 +589,9 @@ class PyBoyEnv(gym.Env):
             game_time_string = f"{clock_faces[game_hours % 12]} {game_hours:02d}:{game_minutes % 60:02d}:{game_seconds % 60:02d}"
             image_string = self.renderer.to_string(Ansi24HblockMethod)
             if target_index is not None:
-                render_string = f"{image_string}🧠: {target_index:2d} 🟢 {self.last_pokemon_count:3d} 👀 {self.last_seen_pokemon_count:3d} 🌎 {len(self.visited_xy):3d}:{len(self.player_maps):3d} 🏆 {self.last_score:7.2f} 🎒 {item_score:3d} 🐆 {self.speed_bonus:7.2f} {self.caught_pokedex}\n [{self.last_player_x:3d},{self.last_player_y:3d},{self.last_player_x_block:3d},{self.last_player_y_block:3d}], 🗺️: {self.last_player_map:3d} Actions {' '.join(self.actions[-6:])} 🎬 {self.frames:6d} {game_time_string} {len(self.actions)}"
+                render_string = f"{image_string}🧳 {self.episode} 🧠: {target_index:2d} 🟢 {self.last_pokemon_count:3d} 👀 {self.last_seen_pokemon_count:3d} 🌎 {len(self.visited_xy):3d}:{len(self.player_maps):3d} 🏆 {self.last_score:7.2f} 🎒 {item_score:3d} 🐆 {self.speed_bonus:7.2f} {self.caught_pokedex}\n [{self.last_player_x:3d},{self.last_player_y:3d},{self.last_player_x_block:3d},{self.last_player_y_block:3d}], 🗺️: {self.last_player_map:3d} Actions {' '.join(self.actions[-6:])} 🎬 {self.frames:6d} {game_time_string} {len(self.actions)}"
             else:
-                render_string = f"{image_string}🛠️: {self.emunum:2d} 🟢 {self.last_pokemon_count:3d} 👀 {self.last_seen_pokemon_count:3d} 🌎 {len(self.visited_xy):3d}:{len(self.player_maps):3d} 🏆 {self.last_score:7.2f} 🎒 {item_score:3d} 🐆 {self.speed_bonus:7.2f}\n [{self.last_player_x:3d},{self.last_player_y:3d},{self.last_player_x_block:3d},{self.last_player_y_block:3d}], 🗺️: {self.last_player_map:3d} Actions {' '.join(self.actions[-6:])} 🎬 {self.frames:6d} {len(self.actions)}"
+                render_string = f"{image_string}🧳 {self.episode} 🛠️: {self.emunum:2d} 🟢 {self.last_pokemon_count:3d} 👀 {self.last_seen_pokemon_count:3d} 🌎 {len(self.visited_xy):3d}:{len(self.player_maps):3d} 🏆 {self.last_score:7.2f} 🎒 {item_score:3d} 🐆 {self.speed_bonus:7.2f}\n [{self.last_player_x:3d},{self.last_player_y:3d},{self.last_player_x_block:3d},{self.last_player_y_block:3d}], 🗺️: {self.last_player_map:3d} Actions {' '.join(self.actions[-6:])} 🎬 {self.frames:6d} {len(self.actions)}"
 
             return render_string
 #🧠: 19 🟢  64 👀  64 🌎  27:  4 🏆 19270.00 🎒   1 🐆   20.00
@@ -660,6 +661,9 @@ class PyBoyEnv(gym.Env):
         #     observation = observation.astype(np.float64)
 
         return observation, reward, terminated, truncated, info
+    
+    def set_episode(self, episode):
+        self.episode = episode
 
     def reset(self, seed=0, **kwargs):
         # reward = self.calculate_reward()
@@ -769,6 +773,7 @@ def train_model(
     save_path="ofo",
     device="cpu",
 ):
+    env.set_episode(episode)
     # first_layer_size = (24 * 359) + 1
     first_layer_size = 4192
     policy_kwargs = dict(
@@ -780,6 +785,7 @@ def train_model(
         ),
         activation_fn=nn.ReLU,
     )
+    
     # make sure we take care of accidental trailing slashes in the save path which
     # would cause the checkpoint path to be incorrect.
     checkpoint_path = f"{save_path.rstrip('/')}_chkpt"
@@ -840,7 +846,7 @@ def train_model(
         name_prefix="poke",
         verbose=2,
     )
-
+    num_cpu = NUM_CPU
     update_freq = num_cpu * 256
     current_stats = EveryNTimesteps(
         n_steps=update_freq,
