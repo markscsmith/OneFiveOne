@@ -415,7 +415,7 @@ class PyBoyEnv(gym.Env):
         # prioritize pulling items from storage, collecting items, and using items from inventory.
         if (
             carried_item_total != last_carried_item_total
-            and last_stored_item_total <= stored_item_total
+            and last_stored_item_total == stored_item_total
         ):
             self.speed_bonus += (
                 np.abs(carried_item_total - last_carried_item_total) * 10
@@ -799,13 +799,14 @@ def train_model(
         # Reduce batch size if it's too large but ensure a minimum size for stability.
         batch_size=batch_size,
         # Adjusted for potentially more stable learning across batches.
-        n_epochs=3,
+        n_epochs=7,
         # Increased to give more importance to future rewards, can help escape repetitive actions.
-        gamma=0.9998,
+        gamma=0.998,
         # Adjusted for a better balance between bias and variance in advantage estimation.
         gae_lambda=0.998,
-        learning_rate=learning_rate_schedule,  # Standard starting point for PPO, adjust based on performance.
+        # learning_rate=learning_rate_schedule,  # Standard starting point for PPO, adjust based on performance.
         # learning_rate=0.0002,
+        learning_rate=0.0003,
         env=env,
         # Ensure this aligns with the complexities of your environment.
         policy_kwargs=policy_kwargs,
@@ -908,7 +909,7 @@ if __name__ == "__main__":
     # max_frames = PRESS_FRAMES + RELEASE_FRAMES * runsteps
 
         # episodes = 13
-    episodes = 65
+    episodes = 13
 
     batch_size = 512
     n_steps = 4096
