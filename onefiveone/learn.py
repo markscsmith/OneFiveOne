@@ -780,8 +780,8 @@ def train_model(
         # features_extractor_class=CustomFeatureExtractor,
         # features_extractor_kwargs={},
         net_arch=dict(
-            pi=[first_layer_size, first_layer_size // 2, 8],
-            vf=[first_layer_size, first_layer_size // 2, 8],
+            pi=[first_layer_size, first_layer_size // 2, 128],
+            vf=[first_layer_size, first_layer_size // 2, 128],
         ),
         activation_fn=nn.ReLU,
     )
