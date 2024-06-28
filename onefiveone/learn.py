@@ -85,7 +85,7 @@ class PokeCart:
         self.offset = 0
         return self.offset
 
-def diff_pokedex(s1, s2):
+def diff_flags(s1, s2):
     return [i for i, (c1, c2) in enumerate(zip(s1, s2)) if c1 != c2]
 
 def learning_rate_schedule(progress):
@@ -136,7 +136,9 @@ class TensorboardLoggingCallback(BaseCallback):
                     caught = info["pokemon_caught"]
                     seen = info["pokemon_seen"]
                     pokedex = info["pokedex"]
+                    badges = info["badges"]
                     seen_and_capture_events = info["seen_and_capture_events"]
+                    flag_rewards = info["last_flag_rewards"]
 
                     # TODO: pad emunumber with 0s to match number of digits in possible emunum
                     self.logger.record(
@@ -145,25 +147,39 @@ class TensorboardLoggingCallback(BaseCallback):
                     )
                     self.logger.record(f"caught/{emunum}", f"{caught}")
                     self.logger.record(f"seen/{emunum}", f"{seen}")
+                    self.logger.record(f'badges/{emunum}', f"{badges}")
                     self.logger.record(f"reward/{emunum}", f"{reward}")
+                    self.logger.record(f"flag_rewards/{emunum}", f"{flag_rewards}")
                     self.logger.record(
                         f"visited/{emunum}", f"{len(info['visited_xy'])}"
                     )
-                    self.logger.record(f"items/{emunum}", f"{info['items']}")
-                    self.logger.record(
-                        f"speed_bonus/{emunum}", f"{info['speed_bonus']}"
-                    )
-                    max_item_points = max(max_item_points, sum(info["items"].values()))
+                    # self.logger.record(f"items/{emunum}", f"{info['items']}")
+                    # max_item_points = max(max_item_points, sum(info["items"].values()))
                     self.logger.record(f"pokedex/{emunum}", f"{pokedex}")
                     self.logger.record(f"seen_and_capture/{emunum}", f"{seen_and_capture_events}")
 
             # todo: record each progress/reward separately like I do the actions?
+            
+
             if len(rewards) > 0:  # Check if rewards list is not empty
                 average_reward = sum(rewards) / len(rewards)
+                flag_rewards = [info["last_flag_rewards"] for info in infos]
+                badges = [info["badges"] for info in infos]
+                
+                max_flag_rewards = max(flag_rewards)
+                average_flag_rewards = sum(flag_rewards) / len(flag_rewards)
                 max_reward = max(rewards)
+                max_seen = max([info["pokemon_seen"] for info in infos])
+                max_caught = max([info["pokemon_caught"] for info in infos])
+
                 self.logger.record("reward/average_reward", average_reward)
                 self.logger.record("reward/max_reward", max_reward)
-                self.logger.record("reward/max_items", max_item_points)
+                self.logger.record("reward/max_seen", max_seen)
+                self.logger.record("reward/max_caught", max_caught)
+                self.logger.record("reward/max_flag_rewards", max_flag_rewards)
+                self.logger.record("reward/average_flag_rewards", average_flag_rewards)
+                self.logger.record("reward/max_badges", max(badges))
+                # self.logger.record("reward/max_items", max_item_points)
 
         return True  # Returning True means we will continue training, returning False will stop training
 
@@ -191,13 +207,12 @@ class PokeCaughtCallback(BaseCallback):
         # sys.stdout.write(render_string)
         print(render_string)
         self.progress_bar.update(self.multiplier)
+        if self.progress_bar.n >= self.total_timesteps:
+            self.progress_bar.close()
 
         # self.progress = self.model.num_timesteps
         return True
     
-    def _on_rollout_end(self) -> None:
-        self.progress_bar.close()
-        return super()._on_rollout_end()
 
 
 def add_string_overlay(
@@ -294,25 +309,23 @@ class PyBoyEnv(gym.Env):
         self.last_player_x_block = None
         self.last_player_y_block = None
         self.last_player_map = None
-        self.screen_image_arrays = set()
-        self.screen_image_arrays_list = []
-        self.unchanged_frames = 0
-        self.reset_penalty = 0
+
+        self.last_flags = None
+        self.last_flag_reward = 0
+        self.badges = 0
+        
+        
+        
         self.player_maps = set()
-        self.backtrack_bonus = 0
-        self.item_points = {}
-        self.last_items = []
         self.pokedex = "-" * 151
         self.seen_pokedex = []
         self.caught_pokedex = []
-        self.last_total_items = 0
         self.last_carried_item_total = 0
         self.last_stored_item_total = 0
         self.device = device
         self.episode = episode
         self.seen_and_capture_events = {}
 
-        self.speed_bonus = 0
 
         self.last_memory_update_frame = 0
         self.current_memory = None
@@ -446,8 +459,18 @@ class PyBoyEnv(gym.Env):
         caught_pokemon_end = self.caught_pokemon_end
         seen_pokemon_start = self.seen_pokemon_start
         seen_pokemon_end = self.seen_pokemon_end
+
+        flat_flags = [item for sublist in [missable_object_flags, event_flags, ss_anne, mewtwo] for item in sublist]
+        flag_reward = 0
+        if self.last_flags is not None:
+            flag_reward = len(diff_flags(self.last_flags, flat_flags)) * 100
+        else:
+            self.last_flags = flat_flags
         
-        
+        # sum the 1 bits in badges
+        badge_count = sum([bin(badge).count("1") for badge in badges])
+        self.badges = badge_count
+        badge_reward = badge_count * 100
         curr_pyboy = self.pyboy
 
         # stored_item_counts = stored_items[1 + 1::2]
@@ -461,7 +484,6 @@ class PyBoyEnv(gym.Env):
         if self.last_player_map != map_id:
             if map_id not in self.player_maps:
                 self.player_maps.add(map_id)
-                self.speed_bonus += len(self.player_maps)
 
         # convert binary chunks into a single string
         chunk_id = f"{px}:{py}:{pbx}:{pby}:{map_id}"
@@ -476,7 +498,7 @@ class PyBoyEnv(gym.Env):
 
         # compare the last pokedex to the current pokedex
         if last_dex != new_dex:
-            poke_nums = diff_pokedex(last_dex, new_dex)
+            poke_nums = diff_flags(last_dex, new_dex)
             poke_pairs = zip(poke_nums, [new_dex[p] for p in poke_nums])
             self.seen_and_capture_events[self.pyboy.frame_count] = list(poke_pairs)
 
@@ -492,16 +514,10 @@ class PyBoyEnv(gym.Env):
         if pokemon_seen == 0:
             pokemon_owned = 0
 
-        if pokemon_owned > last_poke:
-            # Give a backtrack bonus and reset the explored list
-            self.backtrack_bonus += len(self.visited_xy)
-            self.visited_xy = set()
-            
         reward = (
             len(self.player_maps) * 100
             # + (self.backtrack_bonus + len(self.visited_xy)) // 1000
         ) // 10
-
         if pokemon_owned > last_poke:
             self.seen_and_capture_events[self.pyboy.frame_count] = (pokemon_owned, pokemon_seen)
             self.last_pokemon_count = pokemon_owned
@@ -516,10 +532,9 @@ class PyBoyEnv(gym.Env):
         reward = (
             reward
             + (100 * ((pokemon_owned * 2) + pokemon_seen))
-        )
-        self.speed_bonus = int(self.speed_bonus)
+        ) + flag_reward
+        self.last_flag_reward = flag_reward
         # reward -= (reward * (self.stationary_frames / (self.frames + 1)))
-        reward += self.speed_bonus
 
         self.last_player_x = px
         self.last_player_y = py
@@ -574,9 +589,9 @@ class PyBoyEnv(gym.Env):
             game_time_string = f"{clock_faces[game_hours % 12]} {game_hours:02d}:{game_minutes % 60:02d}:{game_seconds % 60:02d}"
             image_string = self.renderer.to_string(Ansi24HblockMethod)
             if target_index is not None:
-                render_string = f"{image_string}🧳 {self.episode} 🧠: {target_index:2d} 🟢 {self.last_pokemon_count:3d} 👀 {self.last_seen_pokemon_count:3d} 🌎 {len(self.visited_xy):3d}:{len(self.player_maps):3d} 🏆 {self.last_score:7.2f} 🐆 {self.speed_bonus:7.2f}\n [{self.last_player_x:3d},{self.last_player_y:3d},{self.last_player_x_block:3d},{self.last_player_y_block:3d}], 🗺️: {self.last_player_map:3d} Actions {' '.join(self.actions[-6:])} 🎬 {self.frames:6d} {game_time_string} {len(self.actions)}"
+                render_string = f"{image_string}🧳 {self.episode} 🧠: {target_index:2d} 🟢 {self.last_pokemon_count:3d} 👀 {self.last_seen_pokemon_count:3d} ⛳️ {self.last_flag_reward} 🌎 {len(self.visited_xy):3d}:{len(self.player_maps):3d} 🏆 {self.last_score:7.2f}\n[{self.last_player_x:3d},{self.last_player_y:3d},{self.last_player_x_block:3d},{self.last_player_y_block:3d}], 🗺️: {self.last_player_map:3d} Actions {' '.join(self.actions[-6:])} 🎬 {self.frames:6d} {game_time_string} {len(self.actions)}"
             else:
-                render_string = f"{image_string}🧳 {self.episode} 🛠️: {self.emunum:2d} 🟢 {self.last_pokemon_count:3d} 👀 {self.last_seen_pokemon_count:3d} 🌎 {len(self.visited_xy):3d}:{len(self.player_maps):3d} 🏆 {self.last_score:7.2f} 🐆 {self.speed_bonus:7.2f}\n [{self.last_player_x:3d},{self.last_player_y:3d},{self.last_player_x_block:3d},{self.last_player_y_block:3d}], 🗺️: {self.last_player_map:3d} Actions {' '.join(self.actions[-6:])} 🎬 {self.frames:6d} {len(self.actions)}"
+                render_string = f"{image_string}🧳 {self.episode} 🛠️: {self.emunum:2d} 🟢 {self.last_pokemon_count:3d} 👀 {self.last_seen_pokemon_count:3d} ⛳️ {self.last_flag_reward} 🌎 {len(self.visited_xy):3d}:{len(self.player_maps):3d} 🏆 {self.last_score:7.2f}\n[{self.last_player_x:3d},{self.last_player_y:3d},{self.last_player_x_block:3d},{self.last_player_y_block:3d}], 🗺️: {self.last_player_map:3d} Actions {' '.join(self.actions[-6:])} 🎬 {self.frames:6d} {len(self.actions)}"
 
             return render_string
 #🧠: 19 🟢  64 👀  64 🌎  27:  4 🏆 19270.00 🎒   1 🐆   20.00
@@ -628,9 +643,10 @@ class PyBoyEnv(gym.Env):
             "pokemon_caught": self.last_pokemon_count,
             "pokemon_seen": self.last_seen_pokemon_count,
             "visited_xy": self.visited_xy,
-            "speed_bonus": self.speed_bonus,
             "pokedex": self.pokedex,
             "seen_and_capture_events": self.seen_and_capture_events,
+            "last_flag_rewards": self.last_flag_reward,
+            "badges": self.badges
         }
         # screen = self.pyboy.memory[MEM_START:MEM_END].copy()
         # self.last_n_frames[:-1] = self.last_n_frames[1:]
@@ -747,7 +763,7 @@ def train_model(
 ):
     env.set_attr("episode", episode)
     # first_layer_size = (24 * 359) + 1
-    first_layer_size = 4096
+    first_layer_size = 128
     policy_kwargs = dict(
         # features_extractor_class=CustomFeatureExtractor,
         # features_extractor_kwargs={},
@@ -781,7 +797,7 @@ def train_model(
         learning_rate=0.0003,
         env=env,
         # Ensure this aligns with the complexities of your environment.
-        policy_kwargs=policy_kwargs,
+        # policy_kwargs=policy_kwargs,
         verbose=0,
         device=device,
         # Reduced for less aggressive exploration after initial learning, adjust based on needs.
@@ -887,10 +903,10 @@ if __name__ == "__main__":
     # batch_size = 512 // 4
     batch_size = 64
     # n_steps = 4096
-    n_steps = 2048
+    n_steps = 1024
     # total_steps = n_steps * 1024 * 6
     total_steps = (
-        1728000 * 16  // (PRESS_FRAMES + RELEASE_FRAMES)
+        (1728000  * 16) // (PRESS_FRAMES + RELEASE_FRAMES)
     )  # 8 hours * 60 minutes * 60 seconds * 60 frames per second * 32 // (PRESS_FRAMES + RELEASE_FRAMES)
 
     total_steps = total_steps
