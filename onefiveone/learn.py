@@ -775,8 +775,8 @@ def train_model(
         # features_extractor_class=CustomFeatureExtractor,
         # features_extractor_kwargs={},
         net_arch=dict(
-            pi=[first_layer_size * 4, first_layer_size * 2, first_layer_size],
-            vf=[first_layer_size * 4, first_layer_size * 2, first_layer_size],
+            pi=[first_layer_size, first_layer_size, first_layer_size],
+            vf=[first_layer_size, first_layer_size, first_layer_size],
         ),
         # activation_fn=nn.ReLU,
     )
@@ -915,6 +915,7 @@ if __name__ == "__main__":
     total_steps = (
         4 * 60 * 60 * (60 // (PRESS_FRAMES + RELEASE_FRAMES)) 
     )  # 8 hours * 60 minutes * 60 seconds * 60 frames per second * 32 // (PRESS_FRAMES + RELEASE_FRAMES)
+
 
     if num_cpu == 1:
         run_env = DummyVecEnv([make_env(args.game_path, 0, device=device)])
