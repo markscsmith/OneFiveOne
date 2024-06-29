@@ -300,6 +300,7 @@ class PyBoyEnv(gym.Env):
         self.player_x_block_mem = 0xD363 + offset
         self.player_y_block_mem = 0xD364 + offset
         self.player_map_mem = 0xD35E + offset
+        self.party_exp_reward = 0
         self.seen_events = set()
         self.emunum = emunum
         self.save_state_path = save_state_path
@@ -314,6 +315,7 @@ class PyBoyEnv(gym.Env):
         self.last_player_x_block = None
         self.last_player_y_block = None
         self.last_player_map = None
+        self.my_pokemon = None
 
         self.step_count = 0
 
@@ -337,6 +339,7 @@ class PyBoyEnv(gym.Env):
         self.last_memory_update_frame = 0
         self.current_memory = None
 
+        self.party_exp = [0, 0, 0, 0, 0, 0]
         # self.buttons = {
         #     0: (utils.WindowEvent.PASS, "-"),
         #     1: (utils.WindowEvent.PRESS_ARROW_UP, "U"),
@@ -461,10 +464,17 @@ class PyBoyEnv(gym.Env):
         offset = self.cart.cart_offset()  # + MEM_START
         mem_block = self.get_mem_block(offset)
         pokemart, my_pokemon, pokedex, items, money, badges, location, stored_items, coins, missable_object_flags, event_flags, ss_anne, mewtwo, opponent_pokemon = mem_block
+        
+        self.my_pokemon = my_pokemon
+
         caught_pokemon_start = self.caught_pokemon_start
         caught_pokemon_end = self.caught_pokemon_end
         seen_pokemon_start = self.seen_pokemon_start
         seen_pokemon_end = self.seen_pokemon_end
+        
+
+        # 6 x 44 byte blocks for each of the 6 pokemon in the player's party
+
 
         flat_flags = [item for sublist in [missable_object_flags, event_flags, ss_anne, mewtwo] for item in sublist]
         flag_reward = 0
@@ -534,11 +544,36 @@ class PyBoyEnv(gym.Env):
 
         self.last_pokemon_count = pokemon_owned
         self.last_seen_pokemon_count = pokemon_seen
+        # [84, 0, 19, 0, 0, 23, 23, 163, 84, 45, 0, 0, 133, 139, 0, 0, 125, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 89, 72, 30, 40, 0, 0, 5, 0, 19, 0, 11, 0, 8, 0, 14, 0, 10
+        #   1  2   3  4  5   6   7    8   9  10 11 12   13   14 15 16   17 18 19 20 21 22 23 24 25 26 27  28  29  30  31 32 33 34 35  36 37  38 39 40 41  42 43  44
+        #      |hp  | x  x   T   T    H  m1  m2 m3 m4 |  tid  |  exp | a | d | spd | spc|     
+        party = [my_pokemon[0:44],
+                 my_pokemon[44:88],
+                 my_pokemon[88:132],
+                 my_pokemon[132:176],
+                 my_pokemon[176:220],
+                 my_pokemon[220:264],]
+        
+        # level = 32 in per pokemon
+        poke_levels = [poke[33] for poke in party]
+        party_exp_reward = self.party_exp_reward
+        party_exp = poke_levels
+        # for poke in party:
+        #     upper = int(poke[14]) << 8
+        #     lower = int(poke[15])
+        #     exp = upper + lower
+        #     party_exp.append(exp)
 
+        if sum(party_exp) != sum(self.party_exp):
+            party_exp_reward += 100
+            # self.render()
+            #print("Party EXP:", party_exp, self.party_exp, party_exp_reward)
+        self.party_exp = party_exp
         reward = (
             reward
             + (500 * ((pokemon_owned * 2) + pokemon_seen))
-        ) + flag_reward
+        ) + flag_reward + badge_reward + party_exp_reward
+        self.party_exp_reward = party_exp_reward
         self.last_flag_reward = flag_reward
         # reward -= (reward * (self.stationary_frames / (self.frames + 1)))
 
@@ -595,9 +630,9 @@ class PyBoyEnv(gym.Env):
             game_time_string = f"{clock_faces[game_hours % 12]} {game_hours:02d}:{game_minutes % 60:02d}:{game_seconds % 60:02d}"
             image_string = self.renderer.to_string(Ansi24HblockMethod)
             if target_index is not None:
-                render_string = f"{image_string}🧳 {self.episode} 🧠: {target_index:2d} 🥾 {self.step_count:10d} 🟢 {self.last_pokemon_count:3d} 👀 {self.last_seen_pokemon_count:3d} ⛳️ {self.last_flag_reward} 🌎 {len(self.visited_xy):3d}:{len(self.player_maps):3d} 🏆 {self.last_score:7.2f}\n[{self.last_player_x:3d},{self.last_player_y:3d},{self.last_player_x_block:3d},{self.last_player_y_block:3d}], 🗺️: {self.last_player_map:3d} Actions {' '.join(self.actions[-6:])} 🎬 {self.frames:6d} {game_time_string} {len(self.actions)}"
+                render_string = f"{image_string}🧳 {self.episode} 🧠: {target_index:2d} 🥾 {self.step_count:10d} 🟢 {self.last_pokemon_count:3d} 👀 {self.last_seen_pokemon_count:3d} 🎉 {self.party_exp} ⛳️ {self.last_flag_reward} 🌎 {len(self.visited_xy):3d}:{len(self.player_maps):3d} 🏆 {self.last_score:7.2f} 🏋️‍♂️ {self.party_exp_reward} \n[{self.last_player_x:3d},{self.last_player_y:3d},{self.last_player_x_block:3d},{self.last_player_y_block:3d}], 🗺️: {self.last_player_map:3d} Actions {' '.join(self.actions[-6:])} 🎬 {self.frames:6d} {game_time_string} {len(self.actions)}"
             else:
-                render_string = f"{image_string}🧳 {self.episode} 🛠️: {self.emunum:2d} 🥾 {self.step_count:10d} 🟢 {self.last_pokemon_count:3d} 👀 {self.last_seen_pokemon_count:3d} ⛳️ {self.last_flag_reward} 🌎 {len(self.visited_xy):3d}:{len(self.player_maps):3d} 🏆 {self.last_score:7.2f}\n[{self.last_player_x:3d},{self.last_player_y:3d},{self.last_player_x_block:3d},{self.last_player_y_block:3d}], 🗺️: {self.last_player_map:3d} Actions {' '.join(self.actions[-6:])} 🎬 {self.frames:6d} {len(self.actions)}"
+                render_string = f"{image_string}🧳 {self.episode} 🛠️: {self.emunum:2d} 🥾 {self.step_count:10d} 🟢 {self.last_pokemon_count:3d} 👀 {self.last_seen_pokemon_count:3d} 🎉 {self.party_exp} ⛳️ {self.last_flag_reward} 🌎 {len(self.visited_xy):3d}:{len(self.player_maps):3d} 🏆 {self.last_score:7.2f} 🏋️‍♂️ {self.party_exp_reward} \n[{self.last_player_x:3d},{self.last_player_y:3d},{self.last_player_x_block:3d},{self.last_player_y_block:3d}], 🗺️: {self.last_player_map:3d} Actions {' '.join(self.actions[-6:])} 🎬 {self.frames:6d} {len(self.actions)}"
 
             return render_string
 #🧠: 19 🟢  64 👀  64 🌎  27:  4 🏆 19270.00 🎒   1 🐆   20.00
@@ -676,6 +711,8 @@ class PyBoyEnv(gym.Env):
         
         super().reset(seed=seed, **kwargs)
         self.last_memory_update_frame = 0
+        self.party_exp_reward = 0
+        self.party_exp = [0, 0, 0, 0, 0, 0]
         self.step_count = 0
         self.visited_xy = set()
         self.player_maps = set()
@@ -915,7 +952,6 @@ if __name__ == "__main__":
     total_steps = (
         4 * 60 * 60 * (60 // (PRESS_FRAMES + RELEASE_FRAMES)) 
     )  # 8 hours * 60 minutes * 60 seconds * 60 frames per second * 32 // (PRESS_FRAMES + RELEASE_FRAMES)
-
 
     if num_cpu == 1:
         run_env = DummyVecEnv([make_env(args.game_path, 0, device=device)])
