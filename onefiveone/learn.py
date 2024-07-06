@@ -500,11 +500,13 @@ class PyBoyEnv(gym.Env):
         if chunk_id not in self.visited_xy and self.last_chunk_id != chunk_id:
             self.visited_xy.add(chunk_id)
             visited_score = 1
-        else:
+        elif self.last_chunk_id != chunk_id:
             visited_score = 0.1 # reward backtracking still
+        else:
+            visited_score = 0    
         self.last_chunk_id = chunk_id
 
-        travel_reward = len(self.player_maps) + visited_score
+        travel_reward += visited_score
 
 
         # convert binary chunks into a single string
