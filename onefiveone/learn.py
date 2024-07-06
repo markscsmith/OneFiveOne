@@ -315,6 +315,7 @@ class PyBoyEnv(gym.Env):
         self.last_player_map = None
         self.my_pokemon = None
         self.step_count = 0
+        self.backtrack_reward = 0
 
         
         
@@ -468,7 +469,7 @@ class PyBoyEnv(gym.Env):
         pbx = location[3]
         pby = location[4]
         
-
+        
         self.my_pokemon = my_pokemon
 
         caught_pokemon_start = self.caught_pokemon_start
@@ -489,12 +490,20 @@ class PyBoyEnv(gym.Env):
             if map_id not in self.player_maps:
                 self.player_maps.add(map_id)
 
-        travel_reward = len(self.player_maps)
+        chunk_id = f"{px}:{py}:{pbx}:{pby}:{map_id}"
+        visited_score = 0
+        if chunk_id not in self.visited_xy:
+            self.visited_xy.add(chunk_id)
+            visited_score = 1
+        else:
+            visited_score = 0.1 # reward backtracking still
+
+
+        travel_reward = len(self.player_maps) + visited_score
 
 
         # convert binary chunks into a single string
-        chunk_id = f"{px}:{py}:{pbx}:{pby}:{map_id}"
-        self.visited_xy.add(chunk_id)
+        
         full_dex = pokedex
         caught_pokedex = list(full_dex[:caught_pokemon_end - caught_pokemon_start])
         seen_pokedex = list(full_dex[seen_pokemon_start - caught_pokemon_start:])
@@ -558,7 +567,7 @@ class PyBoyEnv(gym.Env):
         self.party_exp = party_exp
         reward = (
             len(self.player_maps) + ((pokemon_owned * 2) + pokemon_seen)
-        )  + badge_reward + party_exp_reward
+        )  + badge_reward + party_exp_reward + travel_reward
         self.party_exp_reward = party_exp_reward
         
         # reward -= (reward * (self.stationary_frames / (self.frames + 1)))
