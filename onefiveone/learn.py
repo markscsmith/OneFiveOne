@@ -377,7 +377,7 @@ class PyBoyEnv(gym.Env):
         self.filename_datetime = current_datetime.strftime("%Y-%m-%d_%H-%M-%S")
         # size = (self.n * 359) + 1
         # size = MEM_END - MEM_START + 1
-        size = 963
+        size = 816
 
         # Define actioqn_space and observation_space
         # self.action_space = gym.spaces.Discrete(256)
@@ -394,16 +394,16 @@ class PyBoyEnv(gym.Env):
 
 
     def get_mem_block(self, offset):
-        pokemart = self.pyboy.memory[0xCF7B + offset:0xCF85 + offset + 1]
+        pokemart = [] # self.pyboy.memory[0xCF7B + offset:0xCF85 + offset + 1]
         my_pokemon = self.pyboy.memory[0xD16B + offset:0xD272 + offset + 1]
         pokedex = self.pyboy.memory[0xD2F7 + offset:0xD31C + offset + 1]
         items = self.pyboy.memory[0xD31D + offset:0xD346 + offset + 1]
         money = self.pyboy.memory[0xD347 + offset:0xD349 + offset + 1]
         badges = [self.pyboy.memory[0xD356 + offset]]
         location = self.pyboy.memory[0xD35E+offset:0xD365+offset + 1]
-        stored_items = self.pyboy.memory[0xD53A + offset:0xD59F + offset + 1]
-        coins = self.pyboy.memory[0xD5A4 + offset: 0xD5A5 + offset + 1]
-        missable_object_flags = self.pyboy.memory[0xD5A6 + offset: 0xD5C5 + offset + 1]
+        stored_items = []#  self.pyboy.memory[0xD53A + offset:0xD59F + offset + 1]
+        coins = [] # self.pyboy.memory[0xD5A4 + offset: 0xD5A5 + offset + 1]
+        missable_object_flags = [] # self.pyboy.memory[0xD5A6 + offset: 0xD5C5 + offset + 1]
         event_flags = self.pyboy.memory[0xD72E + offset: 0xD7EE + offset + 1]
         ss_anne = [self.pyboy.memory[0xD803] + offset]
         mewtwo = [self.pyboy.memory[0xD85F] + offset]
