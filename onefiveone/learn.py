@@ -316,7 +316,6 @@ class PyBoyEnv(gym.Env):
         self.last_player_y_block = None
         self.last_player_map = None
         self.my_pokemon = None
-
         self.step_count = 0
 
         self.last_flags = None
@@ -460,6 +459,7 @@ class PyBoyEnv(gym.Env):
         # calculate total bits from the memory values
         # current_memory = self.pyboy.memory[MEM_START: MEM_END + 1]
 
+        reward = 0
 
         offset = self.cart.cart_offset()  # + MEM_START
         mem_block = self.get_mem_block(offset)
@@ -477,16 +477,17 @@ class PyBoyEnv(gym.Env):
 
 
         flat_flags = [item for sublist in [missable_object_flags, event_flags, ss_anne, mewtwo] for item in sublist]
-        flag_reward = 0
+        flag_reward = self.last_flag_reward
         if self.last_flags is not None:
-            flag_reward = len(diff_flags(self.last_flags, flat_flags)) * 500
+            flag_reward = len(diff_flags(self.last_flags, flat_flags)) * 5
         else:
             self.last_flags = flat_flags
+
         
         # sum the 1 bits in badges
         badge_count = sum([bin(badge).count("1") for badge in badges])
         self.badges = badge_count
-        badge_reward = badge_count * 1000
+        badge_reward = badge_count * 10
         curr_pyboy = self.pyboy
 
         # stored_item_counts = stored_items[1 + 1::2]
@@ -530,10 +531,6 @@ class PyBoyEnv(gym.Env):
         if pokemon_seen == 0:
             pokemon_owned = 0
 
-        reward = (
-            len(self.player_maps) * 100
-            # + (self.backtrack_bonus + len(self.visited_xy)) // 1000
-        ) // 10
         if pokemon_owned > last_poke:
             self.seen_and_capture_events[self.pyboy.frame_count] = (pokemon_owned, pokemon_seen)
             self.last_pokemon_count = pokemon_owned
@@ -564,17 +561,17 @@ class PyBoyEnv(gym.Env):
         #     exp = upper + lower
         #     party_exp.append(exp)
 
-        if sum(party_exp) != sum(self.party_exp):
-            party_exp_reward += 100
+        if sum(party_exp) > sum(self.party_exp):
+            party_exp_reward += (sum(party_exp) - sum(self.party_exp))
             # self.render()
             #print("Party EXP:", party_exp, self.party_exp, party_exp_reward)
         self.party_exp = party_exp
+        self.last_flag_reward += flag_reward
         reward = (
-            reward
-            + (500 * ((pokemon_owned * 2) + pokemon_seen))
-        ) + flag_reward + badge_reward + party_exp_reward
+            len(self.player_maps) + ((pokemon_owned * 2) + pokemon_seen)
+        ) + self.last_flag_reward + badge_reward + party_exp_reward
         self.party_exp_reward = party_exp_reward
-        self.last_flag_reward = flag_reward
+        
         # reward -= (reward * (self.stationary_frames / (self.frames + 1)))
 
         self.last_player_x = px
@@ -711,6 +708,7 @@ class PyBoyEnv(gym.Env):
         
         super().reset(seed=seed, **kwargs)
         self.last_memory_update_frame = 0
+        self.last_flag_reward = 0
         self.party_exp_reward = 0
         self.party_exp = [0, 0, 0, 0, 0, 0]
         self.step_count = 0
