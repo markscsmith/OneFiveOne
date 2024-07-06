@@ -378,7 +378,7 @@ class PyBoyEnv(gym.Env):
         self.filename_datetime = current_datetime.strftime("%Y-%m-%d_%H-%M-%S")
         # size = (self.n * 359) + 1
         # size = MEM_END - MEM_START + 1
-        size = 952
+        size = 963
 
         # Define actioqn_space and observation_space
         # self.action_space = gym.spaces.Discrete(256)
@@ -510,7 +510,6 @@ class PyBoyEnv(gym.Env):
         self.seen_pokedex = seen_pokedex
         self.caught_pokedex = caught_pokedex
         last_dex = self.pokedex
-        print("DEX:", seen_pokedex, caught_pokedex)
         new_dex = self.get_pokedex_status_string(seen_pokedex, caught_pokedex)
 
         # compare the last pokedex to the current pokedex
