@@ -316,7 +316,7 @@ class PyBoyEnv(gym.Env):
         self.my_pokemon = None
         self.step_count = 0
         self.backtrack_reward = 0
-
+        self.last_chunk_id = None
         
         
         self.badges = 0
@@ -332,6 +332,7 @@ class PyBoyEnv(gym.Env):
         self.device = device
         self.episode = episode
         self.seen_and_capture_events = {}
+        self.travel_reward = 0
 
 
         self.last_memory_update_frame = 0
@@ -459,6 +460,9 @@ class PyBoyEnv(gym.Env):
         offset = self.cart.cart_offset()  # + MEM_START
         mem_block = self.get_mem_block(offset)
         reward = 0
+
+        travel_reward = self.travel_reward
+
         pokemart, my_pokemon, pokedex, items, money, badges, location, stored_items, coins, missable_object_flags, event_flags, ss_anne, mewtwo, opponent_pokemon = mem_block
         
 
@@ -491,13 +495,14 @@ class PyBoyEnv(gym.Env):
                 self.player_maps.add(map_id)
 
         chunk_id = f"{px}:{py}:{pbx}:{pby}:{map_id}"
+        
         visited_score = 0
-        if chunk_id not in self.visited_xy:
+        if chunk_id not in self.visited_xy and self.last_chunk_id != chunk_id:
             self.visited_xy.add(chunk_id)
             visited_score = 1
         else:
             visited_score = 0.1 # reward backtracking still
-
+        self.last_chunk_id = chunk_id
 
         travel_reward = len(self.player_maps) + visited_score
 
@@ -705,7 +710,8 @@ class PyBoyEnv(gym.Env):
         
         super().reset(seed=seed, **kwargs)
         self.last_memory_update_frame = 0
-
+        self.travel_reward = 0
+        self.last_chunk_id = None
         
         self.party_exp_reward = 0
         self.party_exp = [0, 0, 0, 0, 0, 0]
