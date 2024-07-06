@@ -489,8 +489,8 @@ class PyBoyEnv(gym.Env):
         flag_reward = 0
         if self.last_flags is not None:
             flag_reward = len(diff_flags(self.last_flags, flat_flags)) * 5
-        else:
-            self.last_flags = flat_flags
+        self.last_flags = flat_flags
+
         
 
         # Calculate reward from exploring the game world by counting maps, doesn't need to store counter
