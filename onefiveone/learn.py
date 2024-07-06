@@ -574,6 +574,7 @@ class PyBoyEnv(gym.Env):
             len(self.player_maps) + ((pokemon_owned * 2) + pokemon_seen)
         )  + badge_reward + party_exp_reward + travel_reward
         self.party_exp_reward = party_exp_reward
+        self.travel_reward = travel_reward
         
         # reward -= (reward * (self.stationary_frames / (self.frames + 1)))
 
