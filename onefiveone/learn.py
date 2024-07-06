@@ -138,7 +138,7 @@ class TensorboardLoggingCallback(BaseCallback):
                     pokedex = info["pokedex"]
                     badges = info["badges"]
                     seen_and_capture_events = info["seen_and_capture_events"]
-                    flag_rewards = info["last_flag_rewards"]
+                    
 
                     # TODO: pad emunumber with 0s to match number of digits in possible emunum
                     self.logger.record(
@@ -149,7 +149,7 @@ class TensorboardLoggingCallback(BaseCallback):
                     self.logger.record(f"seen/{emunum}", f"{seen}")
                     self.logger.record(f'badges/{emunum}', f"{badges}")
                     self.logger.record(f"reward/{emunum}", f"{reward}")
-                    self.logger.record(f"flag_rewards/{emunum}", f"{flag_rewards}")
+                    
                     self.logger.record(
                         f"visited/{emunum}", f"{len(info['visited_xy'])}"
                     )
@@ -163,11 +163,10 @@ class TensorboardLoggingCallback(BaseCallback):
 
             if len(rewards) > 0:  # Check if rewards list is not empty
                 average_reward = sum(rewards) / len(rewards)
-                flag_rewards = [info["last_flag_rewards"] for info in infos]
+                
                 badges = [info["badges"] for info in infos]
                 
-                max_flag_rewards = max(flag_rewards)
-                average_flag_rewards = sum(flag_rewards) / len(flag_rewards)
+                
                 max_reward = max(rewards)
                 max_seen = max([info["pokemon_seen"] for info in infos])
                 max_caught = max([info["pokemon_caught"] for info in infos])
@@ -176,8 +175,7 @@ class TensorboardLoggingCallback(BaseCallback):
                 self.logger.record("reward/max_reward", max_reward)
                 self.logger.record("reward/max_seen", max_seen)
                 self.logger.record("reward/max_caught", max_caught)
-                self.logger.record("reward/max_flag_rewards", max_flag_rewards)
-                self.logger.record("reward/average_flag_rewards", average_flag_rewards)
+                
                 self.logger.record("reward/max_badges", max(badges))
                 # self.logger.record("reward/max_items", max_item_points)
 
@@ -318,8 +316,8 @@ class PyBoyEnv(gym.Env):
         self.my_pokemon = None
         self.step_count = 0
 
-        self.last_flags = None
-        self.last_flag_reward = 0
+        
+        
         self.badges = 0
         
         
@@ -485,13 +483,6 @@ class PyBoyEnv(gym.Env):
         badge_reward = badge_count * 10
 
         # Calculate reward from flags / missable objects / events
-        flat_flags = [item for sublist in [missable_object_flags, event_flags, ss_anne, mewtwo] for item in sublist]
-        flag_reward = 0
-        if self.last_flags is not None:
-            flag_reward = len(diff_flags(self.last_flags, flat_flags)) * 5
-        self.last_flags = flat_flags
-
-        
 
         # Calculate reward from exploring the game world by counting maps, doesn't need to store counter
         if self.last_player_map != map_id:
@@ -565,10 +556,9 @@ class PyBoyEnv(gym.Env):
             # self.render()
             #print("Party EXP:", party_exp, self.party_exp, party_exp_reward)
         self.party_exp = party_exp
-        self.last_flag_reward += flag_reward
         reward = (
             len(self.player_maps) + ((pokemon_owned * 2) + pokemon_seen)
-        ) + self.last_flag_reward + badge_reward + party_exp_reward
+        )  + badge_reward + party_exp_reward
         self.party_exp_reward = party_exp_reward
         
         # reward -= (reward * (self.stationary_frames / (self.frames + 1)))
@@ -626,9 +616,9 @@ class PyBoyEnv(gym.Env):
             game_time_string = f"{clock_faces[game_hours % 12]} {game_hours:02d}:{game_minutes % 60:02d}:{game_seconds % 60:02d}"
             image_string = self.renderer.to_string(Ansi24HblockMethod)
             if target_index is not None:
-                render_string = f"{image_string}🧳 {self.episode} 🧠: {target_index:2d} 🥾 {self.step_count:10d} 🟢 {self.last_pokemon_count:3d} 👀 {self.last_seen_pokemon_count:3d} 🎉 {self.party_exp} ⛳️ {self.last_flag_reward} 🌎 {len(self.visited_xy):3d}:{len(self.player_maps):3d} 🏆 {self.last_score:7.2f} 🏋️‍♂️ {self.party_exp_reward} \n[{self.last_player_x:3d},{self.last_player_y:3d},{self.last_player_x_block:3d},{self.last_player_y_block:3d}], 🗺️: {self.last_player_map:3d} Actions {' '.join(self.actions[-6:])} 🎬 {self.frames:6d} {game_time_string} {len(self.actions)}"
+                render_string = f"{image_string}🧳 {self.episode} 🧠: {target_index:2d} 🥾 {self.step_count:10d} 🟢 {self.last_pokemon_count:3d} 👀 {self.last_seen_pokemon_count:3d} 🎉 {self.party_exp} 🌎 {len(self.visited_xy):3d}:{len(self.player_maps):3d} 🏆 {self.last_score:7.2f} 🏋️‍♂️ {self.party_exp_reward} \n[{self.last_player_x:3d},{self.last_player_y:3d},{self.last_player_x_block:3d},{self.last_player_y_block:3d}], 🗺️: {self.last_player_map:3d} Actions {' '.join(self.actions[-6:])} 🎬 {self.frames:6d} {game_time_string} {len(self.actions)}"
             else:
-                render_string = f"{image_string}🧳 {self.episode} 🛠️: {self.emunum:2d} 🥾 {self.step_count:10d} 🟢 {self.last_pokemon_count:3d} 👀 {self.last_seen_pokemon_count:3d} 🎉 {self.party_exp} ⛳️ {self.last_flag_reward} 🌎 {len(self.visited_xy):3d}:{len(self.player_maps):3d} 🏆 {self.last_score:7.2f} 🏋️‍♂️ {self.party_exp_reward} \n[{self.last_player_x:3d},{self.last_player_y:3d},{self.last_player_x_block:3d},{self.last_player_y_block:3d}], 🗺️: {self.last_player_map:3d} Actions {' '.join(self.actions[-6:])} 🎬 {self.frames:6d} {len(self.actions)}"
+                render_string = f"{image_string}🧳 {self.episode} 🛠️: {self.emunum:2d} 🥾 {self.step_count:10d} 🟢 {self.last_pokemon_count:3d} 👀 {self.last_seen_pokemon_count:3d} 🎉 {self.party_exp} 🌎 {len(self.visited_xy):3d}:{len(self.player_maps):3d} 🏆 {self.last_score:7.2f} 🏋️‍♂️ {self.party_exp_reward} \n[{self.last_player_x:3d},{self.last_player_y:3d},{self.last_player_x_block:3d},{self.last_player_y_block:3d}], 🗺️: {self.last_player_map:3d} Actions {' '.join(self.actions[-6:])} 🎬 {self.frames:6d} {len(self.actions)}"
 
             return render_string
 #🧠: 19 🟢  64 👀  64 🌎  27:  4 🏆 19270.00 🎒   1 🐆   20.00
@@ -682,7 +672,6 @@ class PyBoyEnv(gym.Env):
             "visited_xy": self.visited_xy,
             "pokedex": self.pokedex,
             "seen_and_capture_events": self.seen_and_capture_events,
-            "last_flag_rewards": self.last_flag_reward,
             "badges": self.badges
         }
         # screen = self.pyboy.memory[MEM_START:MEM_END].copy()
@@ -707,7 +696,8 @@ class PyBoyEnv(gym.Env):
         
         super().reset(seed=seed, **kwargs)
         self.last_memory_update_frame = 0
-        self.last_flag_reward = 0
+
+        
         self.party_exp_reward = 0
         self.party_exp = [0, 0, 0, 0, 0, 0]
         self.step_count = 0
