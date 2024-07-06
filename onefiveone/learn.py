@@ -456,56 +456,55 @@ class PyBoyEnv(gym.Env):
         
 
     def calculate_reward(self):
-        # calculate total bits from the memory values
-        # current_memory = self.pyboy.memory[MEM_START: MEM_END + 1]
-
-        reward = 0
 
         offset = self.cart.cart_offset()  # + MEM_START
         mem_block = self.get_mem_block(offset)
+        reward = 0
         pokemart, my_pokemon, pokedex, items, money, badges, location, stored_items, coins, missable_object_flags, event_flags, ss_anne, mewtwo, opponent_pokemon = mem_block
         
+
+        map_id = location[0]
+        
+        px = location[1]
+        py = location[2]
+        pbx = location[3]
+        pby = location[4]
+        
+
         self.my_pokemon = my_pokemon
 
         caught_pokemon_start = self.caught_pokemon_start
         caught_pokemon_end = self.caught_pokemon_end
         seen_pokemon_start = self.seen_pokemon_start
         seen_pokemon_end = self.seen_pokemon_end
-        
-
-        # 6 x 44 byte blocks for each of the 6 pokemon in the player's party
 
 
+        # Calculate badge reward total
+        badge_count = sum([bin(badge).count("1") for badge in badges])
+        self.badges = badge_count
+        badge_reward = badge_count * 10
+
+        # Calculate reward from flags / missable objects / events
         flat_flags = [item for sublist in [missable_object_flags, event_flags, ss_anne, mewtwo] for item in sublist]
         flag_reward = 0
         if self.last_flags is not None:
             flag_reward = len(diff_flags(self.last_flags, flat_flags)) * 5
         else:
             self.last_flags = flat_flags
-
         
-        # sum the 1 bits in badges
-        badge_count = sum([bin(badge).count("1") for badge in badges])
-        self.badges = badge_count
-        badge_reward = badge_count * 10
-        curr_pyboy = self.pyboy
 
-        # stored_item_counts = stored_items[1 + 1::2]
-        
-        px = location[1]
-        py = location[2]
-        pbx = location[3]
-        pby = location[4]
-        map_id = location[0]
-
+        # Calculate reward from exploring the game world by counting maps, doesn't need to store counter
         if self.last_player_map != map_id:
             if map_id not in self.player_maps:
                 self.player_maps.add(map_id)
 
+        travel_reward = len(self.player_maps)
+
+
         # convert binary chunks into a single string
         chunk_id = f"{px}:{py}:{pbx}:{pby}:{map_id}"
         self.visited_xy.add(chunk_id)
-        full_dex = list(self.pyboy.memory[caught_pokemon_start:seen_pokemon_end])
+        full_dex = list(pokedex)
         caught_pokedex = list(full_dex[:caught_pokemon_end - caught_pokemon_start])
         seen_pokedex = list(full_dex[seen_pokemon_start - caught_pokemon_start:])
         self.seen_pokedex = seen_pokedex
