@@ -477,7 +477,7 @@ class PyBoyEnv(gym.Env):
 
 
         flat_flags = [item for sublist in [missable_object_flags, event_flags, ss_anne, mewtwo] for item in sublist]
-        flag_reward = self.last_flag_reward
+        flag_reward = 0
         if self.last_flags is not None:
             flag_reward = len(diff_flags(self.last_flags, flat_flags)) * 5
         else:
