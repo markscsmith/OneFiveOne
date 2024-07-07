@@ -979,7 +979,7 @@ if __name__ == "__main__":
 
     model_file_name = "model"
 
-    for e in range(1, episodes):
+    for e in range(1, episodes + 1):
         model = train_model(
             env=run_env,
             total_steps=total_steps * num_cpu,
