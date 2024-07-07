@@ -28,20 +28,21 @@ from pyboy import PyBoy
 # Output libs
 from timg import Renderer, Ansi24HblockMethod
 from PIL import Image, ImageDraw, ImageFont
-from tqdm import tqdm
 import glob
 
 # Memory ranges to read in Pokemon Red/Blue (+ Yellow?)
 # MEM_START = 0xCC3C
 MEM_START = 0xD2F7
 MEM_END = 0xDEE1
-SPRITE_MAP_START = 0xC3A0
-SPRITE_MAP_END = 0xC507
+SPRITE_MAP_START = 0xC100
+SPRITE_MAP_END = 0xC2FF
+
+FRAME_BUFFER_SIZE = 3600
 
 LOG_FREQ = 1000
 
-PRESS_FRAMES = 5
-RELEASE_FRAMES = 10
+PRESS_FRAMES = 10
+RELEASE_FRAMES = 20
 
 CGB = False
 NUM_CPU = multiprocessing.cpu_count()
@@ -283,7 +284,6 @@ class PyBoyEnv(gym.Env):
         # self.last_n_frames = [self.pyboy.memory[MEM_START:MEM_END].copy() for _ in range(self.n)]
         self.renderer = Renderer()
         self.actions = ""
-        self.screen_images = []
         self.reset_unlocked = False
         # Define the memory range for 'number of Pokémon caught'
         self.cart = PokeCart(open(game_path, "rb").read())
@@ -317,6 +317,8 @@ class PyBoyEnv(gym.Env):
         self.step_count = 0
         self.backtrack_reward = 0
         self.last_chunk_id = None
+
+        self.recent_frames = []
         
         
         self.badges = 0
@@ -378,7 +380,7 @@ class PyBoyEnv(gym.Env):
         self.filename_datetime = current_datetime.strftime("%Y-%m-%d_%H-%M-%S")
         # size = (self.n * 359) + 1
         # size = MEM_END - MEM_START + 1
-        size = 816
+        size = 1327
 
         # Define actioqn_space and observation_space
         # self.action_space = gym.spaces.Discrete(256)
@@ -425,6 +427,8 @@ class PyBoyEnv(gym.Env):
             mewtwo ,
             opponent_pokemon ,]
 
+    def get_screen_tiles(self):
+        return self.pyboy.memory[SPRITE_MAP_START:SPRITE_MAP_END].copy()
 
 
     def generate_image(self):
@@ -460,6 +464,7 @@ class PyBoyEnv(gym.Env):
         offset = self.cart.cart_offset()  # + MEM_START
         mem_block = self.get_mem_block(offset)
         reward = 0
+
 
         travel_reward = self.travel_reward
 
@@ -573,7 +578,7 @@ class PyBoyEnv(gym.Env):
             #print("Party EXP:", party_exp, self.party_exp, party_exp_reward)
         self.party_exp = party_exp
         reward = (
-            len(self.player_maps) + ((pokemon_owned * 2) + pokemon_seen)
+            len(self.player_maps) + ((pokemon_owned * 2) * 10 + pokemon_seen * 10)
         )  + badge_reward + party_exp_reward + travel_reward
         self.party_exp_reward = party_exp_reward
         self.travel_reward = travel_reward
@@ -671,8 +676,9 @@ class PyBoyEnv(gym.Env):
         # self.actions = self.actions + (f"{button_name_1}")
         # Grab less frames to append if we're standing still.
 
-        reward , mem_block = self.calculate_reward()
         
+        sprites = self.get_screen_tiles()
+        reward , mem_block = self.calculate_reward()
         self.last_score = reward
 
         truncated = False
@@ -694,7 +700,7 @@ class PyBoyEnv(gym.Env):
         # screen = self.pyboy.memory[MEM_START:MEM_END].copy()
         # self.last_n_frames[:-1] = self.last_n_frames[1:]
         # self.last_n_frames[-1] = screen
-        
+        mem_block.append(sprites)
         flat_mem_block = [item for sublist in mem_block for item in sublist]
         observation = np.append(flat_mem_block, reward)
 
@@ -755,7 +761,9 @@ class PyBoyEnv(gym.Env):
         # self.last_n_frames = [self.pyboy.memory[MEM_START:MEM_END].copy() for _ in range(self.n)]
         # screen = self.pyboy.memory[MEM_START:MEM_END].copy()
         # observation = np.append(screen, reward)
+        sprites = self.get_screen_tiles()
         reward, mem_block = self.calculate_reward()
+        mem_block.append(sprites)
         flat_mem_block = [item for sublist in mem_block for item in sublist]
         observation = np.append(flat_mem_block, reward)
         observation = observation.astype(np.float32)
@@ -812,7 +820,7 @@ def train_model(
 ):
     env.set_attr("episode", episode)
     # first_layer_size = (24 * 359) + 1
-    first_layer_size = 4096
+    first_layer_size = 1024
     policy_kwargs = dict(
         # features_extractor_class=CustomFeatureExtractor,
         # features_extractor_kwargs={},
@@ -836,21 +844,22 @@ def train_model(
         # Reduce batch size if it's too large but ensure a minimum size for stability.
         batch_size=batch_size,
         # Adjusted for potentially more stable learning across batches.
-        n_epochs=3,
+        n_epochs=13,
         # Increased to give more importance to future rewards, can help escape repetitive actions.
-        gamma=0.98,
+        gamma=0.9998,
         # Adjusted for a better balance between bias and variance in advantage estimation.
         # gae_lambda=0.998,
         # learning_rate=learning_rate_schedule,  # Standard starting point for PPO, adjust based on performance.
         # learning_rate=0.0002,
         # learning_rate=0.0003,
+        # learning_rate=0.005,
         env=env,
         # Ensure this aligns with the complexities of your environment.
         policy_kwargs=policy_kwargs,
         verbose=0,
         device=device,
         # Reduced for less aggressive exploration after initial learning, adjust based on needs.
-        # ent_coef=0.01,
+        ent_coef=0.01,
         tensorboard_log=tensorboard_log,
         # vf_coef=0.5,  # Adjusted to balance value function loss importance.
     )
@@ -946,7 +955,7 @@ if __name__ == "__main__":
     run_env = None
     # max_frames = PRESS_FRAMES + RELEASE_FRAMES * runsteps
 
-    episodes = 26
+    episodes = 3
     # episodes = 69
 
     # batch_size = 512 // 4
