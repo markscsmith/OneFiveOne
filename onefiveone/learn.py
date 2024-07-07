@@ -955,13 +955,13 @@ if __name__ == "__main__":
     run_env = None
     # max_frames = PRESS_FRAMES + RELEASE_FRAMES * runsteps
 
-    episodes = 3
+    episodes = 69
     # episodes = 69
 
     # batch_size = 512 // 4
-    batch_size = 256
+    batch_size = 64
     # n_steps = 4096
-    n_steps = 1024
+    n_steps = 2048
     # total_steps = n_steps * 1024 * 6
     total_steps = (
         4 * 60 * 60 * (60 // (PRESS_FRAMES + RELEASE_FRAMES)) 
