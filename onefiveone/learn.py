@@ -283,6 +283,7 @@ class PyBoyEnv(gym.Env):
         # self.last_n_frames = [self.pyboy.memory[SPRITE_MAP_START:SPRITE_MAP_END].copy() for _ in range(self.n)]
         # self.last_n_frames = [self.pyboy.memory[MEM_START:MEM_END].copy() for _ in range(self.n)]
         self.renderer = Renderer()
+        
         self.actions = ""
         self.reset_unlocked = False
         # Define the memory range for 'number of Pokémon caught'
@@ -955,7 +956,7 @@ if __name__ == "__main__":
     run_env = None
     # max_frames = PRESS_FRAMES + RELEASE_FRAMES * runsteps
 
-    episodes = 69
+    episodes = 69 * 5
     # episodes = 69
 
     # batch_size = 512 // 4
