@@ -8,7 +8,7 @@ import multiprocessing
 # Compute and AI libs
 import numpy as np
 import torch
-import torch.nn as nn
+
 
 import gymnasium as gym
 from gymnasium.spaces import Box, Discrete
@@ -318,6 +318,7 @@ class PyBoyEnv(gym.Env):
         self.step_count = 0
         self.backtrack_reward = 0
         self.last_chunk_id = None
+        self.screen_image = None
 
         self.recent_frames = []
         
@@ -650,6 +651,7 @@ class PyBoyEnv(gym.Env):
     def step(self, action):
         self.step_count += 1
         self.frames = self.pyboy.frame_count
+        self.screen_image = self.pyboy.screen.image
         
         # button_1, button_name_1 = self.buttons[action]
         # button_2, _ = self.buttons[action + 8]
@@ -720,6 +722,7 @@ class PyBoyEnv(gym.Env):
         
         super().reset(seed=seed, **kwargs)
         self.last_memory_update_frame = 0
+        
         self.travel_reward = 0
         self.last_chunk_id = None
         
@@ -739,6 +742,7 @@ class PyBoyEnv(gym.Env):
             window="null",
             cgb=CGB,
         )
+        self.screen_image = self.pyboy.screen.image
         # self.last_n_frames = [self.pyboy.screen.ndarray] * self.n
 
         if self.save_state_path is not None:
