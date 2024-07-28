@@ -833,7 +833,7 @@ def train_model(
 ):
     env.set_attr("episode", episode)
     # first_layer_size = (24 * 359) + 1
-    first_layer_size = 1024
+    first_layer_size = 256
     policy_kwargs = dict(
         # features_extractor_class=CustomFeatureExtractor,
         # features_extractor_kwargs={},
@@ -872,7 +872,7 @@ def train_model(
         verbose=0,
         device=device,
         # Reduced for less aggressive exploration after initial learning, adjust based on needs.
-        ent_coef=0.01,
+        # ent_coef=0.01,
         tensorboard_log=tensorboard_log,
         # vf_coef=0.5,  # Adjusted to balance value function loss importance.
     )
@@ -968,17 +968,20 @@ if __name__ == "__main__":
     run_env = None
     # max_frames = PRESS_FRAMES + RELEASE_FRAMES * runsteps
 
-    episodes = 69 * 5
+    episodes = 3
     # episodes = 69
 
     # batch_size = 512 // 4
-    batch_size = 64
+    batch_size = 16
     # n_steps = 4096
-    n_steps = 1024
+    n_steps = 512
     # total_steps = n_steps * 1024 * 6
     total_steps = (
-        4 * 60 * 60 * (60 // (PRESS_FRAMES + RELEASE_FRAMES)) 
+        60 * 60 * (60 // (PRESS_FRAMES + RELEASE_FRAMES))
     )  # 8 hours * 60 minutes * 60 seconds * 60 frames per second * 32 // (PRESS_FRAMES + RELEASE_FRAMES)
+
+
+    
 
     if num_cpu == 1:
         run_env = DummyVecEnv([make_env(args.game_path, 0, device=device)])
