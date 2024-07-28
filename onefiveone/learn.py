@@ -859,7 +859,7 @@ def train_model(
         # Adjusted for potentially more stable learning across batches.
         n_epochs=3,
         # Increased to give more importance to future rewards, can help escape repetitive actions.
-        gamma=0.9998,
+        # gamma=0.9998,
         # Adjusted for a better balance between bias and variance in advantage estimation.
         # gae_lambda=0.998,
         # learning_rate=learning_rate_schedule,  # Standard starting point for PPO, adjust based on performance.
