@@ -387,7 +387,7 @@ class PyBoyEnv(gym.Env):
         # Define actioqn_space and observation_space
         # self.action_space = gym.spaces.Discrete(256)
         # self.action_space = gym.spaces.Box(low=0, high=1, shape=(12,), dtype=np.float32)
-        # self.action_space = gym.spaces.Box(low=0, high=1, shape=(8,), dtype=np.float32)
+        
 
         # self.observation_space = Box(low=0, high=255, shape=(size,), dtype=np.float32)
         # use screen as input
@@ -833,7 +833,7 @@ def train_model(
 ):
     env.set_attr("episode", episode)
     # first_layer_size = (24 * 359) + 1
-    first_layer_size = 128
+    first_layer_size = 512
     policy_kwargs = dict(
         # features_extractor_class=CustomFeatureExtractor,
         # features_extractor_kwargs={},
@@ -841,7 +841,8 @@ def train_model(
             pi=[first_layer_size, first_layer_size, first_layer_size],
             vf=[first_layer_size, first_layer_size, first_layer_size],
         ),
-        # activation_fn=nn.ReLU,
+        
+        
     )
     
     # make sure we take care of accidental trailing slashes in the save path which
@@ -858,6 +859,8 @@ def train_model(
         batch_size=batch_size,
         # Adjusted for potentially more stable learning across batches.
         n_epochs=3,
+        
+        
         # Increased to give more importance to future rewards, can help escape repetitive actions.
         # gamma=0.9998,
         # Adjusted for a better balance between bias and variance in advantage estimation.
@@ -972,7 +975,7 @@ if __name__ == "__main__":
     # episodes = 69
 
     # batch_size = 512 // 4
-    batch_size = 16
+    batch_size = 64
     # n_steps = 4096
     n_steps = 512
     # total_steps = n_steps * 1024 * 6
