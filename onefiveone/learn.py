@@ -832,13 +832,13 @@ def train_model(
 ):
     env.set_attr("episode", episode)
     # first_layer_size = (24 * 359) + 1
-    first_layer_size = 1024
+    first_layer_size = 256
     policy_kwargs = dict(
         # features_extractor_class=CustomFeatureExtractor,
         # features_extractor_kwargs={},
         net_arch=dict(
-            pi=[first_layer_size, first_layer_size, first_layer_size],
-            vf=[first_layer_size, first_layer_size, first_layer_size],
+            pi=[first_layer_size * 4, first_layer_size * 2, first_layer_size],
+            vf=[first_layer_size * 4, first_layer_size * 2, first_layer_size],
         ),
         # activation_fn=nn.ReLU,
     )
