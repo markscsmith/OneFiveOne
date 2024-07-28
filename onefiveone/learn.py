@@ -389,7 +389,12 @@ class PyBoyEnv(gym.Env):
         # self.action_space = gym.spaces.Box(low=0, high=1, shape=(12,), dtype=np.float32)
         # self.action_space = gym.spaces.Box(low=0, high=1, shape=(8,), dtype=np.float32)
 
-        self.observation_space = Box(low=0, high=255, shape=(size,), dtype=np.float32)
+        # self.observation_space = Box(low=0, high=255, shape=(size,), dtype=np.float32)
+        # use screen as input
+
+
+        
+        self.observation_space = Box(low=0, high=255, shape=(144,160,4), dtype=np.uint8)
 
         self.action_space = Discrete(8, start=0)
         # size = SPRITE_MAP_END - SPRITE_MAP_START + 1
@@ -704,14 +709,15 @@ class PyBoyEnv(gym.Env):
         # self.last_n_frames[:-1] = self.last_n_frames[1:]
         # self.last_n_frames[-1] = screen
         mem_block.append(sprites)
-        flat_mem_block = [item for sublist in mem_block for item in sublist]
-        observation = np.append(flat_mem_block, reward)
+        # flat_mem_block = [item for sublist in mem_block for item in sublist]
+        # observation = np.append(flat_mem_block, reward)
 
         # convert observation into float32s
         # if self.device == "mps":
-        observation = observation.astype(np.float32)
+        # observation = observation.astype(np.float32)
         # else:
         #     observation = observation.astype(np.float64)
+        observation = self.screen_image
 
         return observation, reward, terminated, truncated, info
     
@@ -769,9 +775,10 @@ class PyBoyEnv(gym.Env):
         sprites = self.get_screen_tiles()
         reward, mem_block = self.calculate_reward()
         mem_block.append(sprites)
-        flat_mem_block = [item for sublist in mem_block for item in sublist]
-        observation = np.append(flat_mem_block, reward)
-        observation = observation.astype(np.float32)
+        # flat_mem_block = [item for sublist in mem_block for item in sublist]
+        # observation = np.append(flat_mem_block, reward)
+        # observation = observation.astype(np.float32)
+        observation = self.screen_image
 
         # convert observation into float32s
         # if self.device == "mps":
@@ -782,7 +789,7 @@ class PyBoyEnv(gym.Env):
         #     observation = observation.astype(np.float32)
         # else:
         #     observation = observation.astype(np.float64)
-        print("RESET:OS:SHAPE:", observation.shape, seed, file=sys.stderr)
+        print("RESET:OS:SHAPE:", observation.size, seed, file=sys.stderr)
         return observation, {"seed": seed}
 
 
@@ -843,7 +850,7 @@ def train_model(
     tensorboard_log = f"{save_path}/tensorboard/{os.uname()[1]}-{time.time()-episode}"
 
     run_model = PPO(
-        policy="MlpPolicy",
+        policy="CnnPolicy",
         # Reduce n_steps if too large; ensure not less than some minimum like 2048 for sufficient learning per update.
         n_steps=n_steps,
         # Reduce batch size if it's too large but ensure a minimum size for stability.
