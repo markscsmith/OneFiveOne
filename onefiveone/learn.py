@@ -676,7 +676,7 @@ class PyBoyEnv(gym.Env):
             self.pyboy.button_release(button[0])
         for _ in range(RELEASE_FRAMES):
             self.pyboy.tick()
-        self.screen_image = self.pyboy.screen.image
+        self.screen_image = self.pyboy.screen.ndarray
         # if it's the same button it's held.  If it's a different button it's a different button.
         # In theory this means it'll figure out how to hold buttons down and how to not
         # press buttons when it's not useful to do so
@@ -749,7 +749,7 @@ class PyBoyEnv(gym.Env):
             cgb=CGB,
         )
 
-        self.screen_image = self.pyboy.screen.image
+        self.screen_image = self.pyboy.screen.ndarray
         # self.last_n_frames = [self.pyboy.screen.ndarray] * self.n
 
         if self.save_state_path is not None:
@@ -833,7 +833,7 @@ def train_model(
 ):
     env.set_attr("episode", episode)
     # first_layer_size = (24 * 359) + 1
-    first_layer_size = 256
+    first_layer_size = 128
     policy_kwargs = dict(
         # features_extractor_class=CustomFeatureExtractor,
         # features_extractor_kwargs={},
@@ -976,11 +976,11 @@ if __name__ == "__main__":
     # n_steps = 4096
     n_steps = 512
     # total_steps = n_steps * 1024 * 6
-    total_steps = (
-        60 * 60 * (60 // (PRESS_FRAMES + RELEASE_FRAMES))
-    )  # 8 hours * 60 minutes * 60 seconds * 60 frames per second * 32 // (PRESS_FRAMES + RELEASE_FRAMES)
+    # total_steps = (
+    #     60 * 60 * (60 // (PRESS_FRAMES + RELEASE_FRAMES))
+    # )  # 8 hours * 60 minutes * 60 seconds * 60 frames per second * 32 // (PRESS_FRAMES + RELEASE_FRAMES)
 
-
+    total_steps = num_cpu * n_steps * batch_size
     
 
     if num_cpu == 1:
@@ -998,7 +998,7 @@ if __name__ == "__main__":
     for e in range(1, episodes + 1):
         model = train_model(
             env=run_env,
-            total_steps=total_steps * num_cpu,
+            total_steps=total_steps,
             n_steps=n_steps,
             batch_size=batch_size,
             episode=e,
