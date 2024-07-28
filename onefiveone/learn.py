@@ -748,6 +748,7 @@ class PyBoyEnv(gym.Env):
             window="null",
             cgb=CGB,
         )
+
         self.screen_image = self.pyboy.screen.image
         # self.last_n_frames = [self.pyboy.screen.ndarray] * self.n
 
@@ -832,13 +833,13 @@ def train_model(
 ):
     env.set_attr("episode", episode)
     # first_layer_size = (24 * 359) + 1
-    first_layer_size = 256
+    first_layer_size = 1024
     policy_kwargs = dict(
         # features_extractor_class=CustomFeatureExtractor,
         # features_extractor_kwargs={},
         net_arch=dict(
-            pi=[first_layer_size * 4, first_layer_size * 2, first_layer_size],
-            vf=[first_layer_size * 4, first_layer_size * 2, first_layer_size],
+            pi=[first_layer_size, first_layer_size, first_layer_size],
+            vf=[first_layer_size, first_layer_size, first_layer_size],
         ),
         # activation_fn=nn.ReLU,
     )
@@ -973,7 +974,7 @@ if __name__ == "__main__":
     # batch_size = 512 // 4
     batch_size = 64
     # n_steps = 4096
-    n_steps = 2048
+    n_steps = 1024
     # total_steps = n_steps * 1024 * 6
     total_steps = (
         4 * 60 * 60 * (60 // (PRESS_FRAMES + RELEASE_FRAMES)) 
