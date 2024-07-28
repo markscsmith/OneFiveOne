@@ -656,7 +656,7 @@ class PyBoyEnv(gym.Env):
     def step(self, action):
         self.step_count += 1
         self.frames = self.pyboy.frame_count
-        self.screen_image = self.pyboy.screen.image
+        
         
         # button_1, button_name_1 = self.buttons[action]
         # button_2, _ = self.buttons[action + 8]
@@ -676,7 +676,7 @@ class PyBoyEnv(gym.Env):
             self.pyboy.button_release(button[0])
         for _ in range(RELEASE_FRAMES):
             self.pyboy.tick()
-
+        self.screen_image = self.pyboy.screen.image
         # if it's the same button it's held.  If it's a different button it's a different button.
         # In theory this means it'll figure out how to hold buttons down and how to not
         # press buttons when it's not useful to do so
@@ -856,7 +856,7 @@ def train_model(
         # Reduce batch size if it's too large but ensure a minimum size for stability.
         batch_size=batch_size,
         # Adjusted for potentially more stable learning across batches.
-        n_epochs=13,
+        n_epochs=3,
         # Increased to give more importance to future rewards, can help escape repetitive actions.
         gamma=0.9998,
         # Adjusted for a better balance between bias and variance in advantage estimation.
