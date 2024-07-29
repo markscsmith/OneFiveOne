@@ -515,7 +515,7 @@ class PyBoyEnv(gym.Env):
         elif self.last_chunk_id != chunk_id:
             visited_score = 0.1 # reward backtracking still
         else:
-            visited_score = 0    
+            visited_score = 0
         self.last_chunk_id = chunk_id
 
         travel_reward += visited_score
@@ -585,7 +585,7 @@ class PyBoyEnv(gym.Env):
             #print("Party EXP:", party_exp, self.party_exp, party_exp_reward)
         self.party_exp = party_exp
         reward = (
-            len(self.player_maps) + ((pokemon_owned * 2) * 10 + pokemon_seen * 10)
+            len(self.player_maps) + ((pokemon_owned * 2) * 100 + pokemon_seen * 100)
         )  + badge_reward + party_exp_reward + travel_reward
         self.party_exp_reward = party_exp_reward
         self.travel_reward = travel_reward
@@ -790,7 +790,7 @@ class PyBoyEnv(gym.Env):
         #     observation = observation.astype(np.float32)
         # else:
         #     observation = observation.astype(np.float64)
-        print("RESET:OS:SHAPE:", observation.size, seed, file=sys.stderr)
+        # print("RESET:OS:SHAPE:", observation.size, seed, file=sys.stderr)
         return observation, {"seed": seed}
 
 
@@ -971,7 +971,7 @@ if __name__ == "__main__":
     run_env = None
     # max_frames = PRESS_FRAMES + RELEASE_FRAMES * runsteps
 
-    episodes = 3
+    episodes = 13
     # episodes = 69
 
     # batch_size = 512 // 4
