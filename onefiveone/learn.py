@@ -586,7 +586,7 @@ class PyBoyEnv(gym.Env):
         self.party_exp = party_exp
         reward = (
             len(self.player_maps) + ((pokemon_owned * 2) * 100 + pokemon_seen * 100)
-        )  + badge_reward + party_exp_reward + travel_reward
+        )  + badge_reward + party_exp_reward # + travel_reward
         self.party_exp_reward = party_exp_reward
         self.travel_reward = travel_reward
         
@@ -826,12 +826,12 @@ def train_model(
     total_steps,
     n_steps,
     batch_size,
-    episode,
+    episodes,
     file_name,
     save_path="ofo",
     device="cpu",
 ):
-    env.set_attr("episode", episode)
+    
     # first_layer_size = (24 * 359) + 1
     first_layer_size = 512
     policy_kwargs = dict(
@@ -848,8 +848,8 @@ def train_model(
     # make sure we take care of accidental trailing slashes in the save path which
     # would cause the checkpoint path to be incorrect.
     checkpoint_path = f"{save_path.rstrip('/')}_chkpt"
-
-    tensorboard_log = f"{save_path}/tensorboard/{os.uname()[1]}-{time.time()-episode}"
+    env.set_attr("episode", 0)
+    tensorboard_log = f"{save_path}/tensorboard/{os.uname()[1]}-{time.time()}"
 
     run_model = PPO(
         policy="CnnPolicy",
@@ -862,7 +862,7 @@ def train_model(
         
         
         # Increased to give more importance to future rewards, can help escape repetitive actions.
-        # gamma=0.9998,
+        gamma=0.998,
         # Adjusted for a better balance between bias and variance in advantage estimation.
         # gae_lambda=0.998,
         # learning_rate=learning_rate_schedule,  # Standard starting point for PPO, adjust based on performance.
@@ -899,32 +899,45 @@ def train_model(
     # wiill this eliminate the progress bar left hanging out?
 
     # TODO checkpoints not being saved
-    checkpoint_file_path = (
-        f"{checkpoint_path.rstrip('/')}/{os.uname()[1]}-{time.time()}/"
+
+    # update_freq = n_steps * num_cpu
+    update_freq = n_steps
+    
+    
+    
+    # callbacks = [current_stats, tbcallback]
+    for episode in range(episodes):
+        print(f"Starting episode {episode}")
+        checkpoint_file_path = (
+        f"{checkpoint_path.rstrip('/')}/{os.uname()[1]}-{time.time()}-{episode}/"
     )
-    print(f"Checkpoint path: {checkpoint_file_path}")
-    checkpoint_callback = CheckpointCallback(
+
+        print(f"Checkpoint path: {checkpoint_file_path}")
+        checkpoint_callback = CheckpointCallback(
         # save_freq=total_steps // 64,
         save_freq=total_steps // (NUM_CPU * 2),
         save_path=f"{checkpoint_file_path}",
         name_prefix="poke",
         verbose=2,
     )
-    # update_freq = n_steps * num_cpu
-    update_freq = n_steps
-    current_stats = EveryNTimesteps(
+        current_stats = EveryNTimesteps(
         n_steps=update_freq,
         callback=PokeCaughtCallback(total_steps + (update_freq * 16), multiplier=update_freq, verbose=1),
     )
-    tbcallback = TensorboardLoggingCallback(tensorboard_log)
-    callbacks = [checkpoint_callback, current_stats, tbcallback]
-    # callbacks = [current_stats, tbcallback]
-    run_model.learn(total_timesteps=total_steps, callback=callbacks, progress_bar=True)
+        tbcallback = TensorboardLoggingCallback(tensorboard_log)
+        env.set_attr("episode", episode)
+        callbacks = [checkpoint_callback, current_stats, tbcallback]
+        run_model.learn(total_timesteps=total_steps, callback=callbacks, progress_bar=True)
+        run_model.save(f"{checkpoint_path}/{file_name}-{episode}.zip")
+        
+        del callbacks
+        del checkpoint_callback
+        del current_stats
+        del tbcallback
+        
     # run_model.save(f"{checkpoint_path}/{file_name}-{episode}.zip")
 
-    del checkpoint_callback
-    del current_stats
-    del tbcallback
+
 
     return run_model
 
@@ -983,6 +996,7 @@ if __name__ == "__main__":
     #     60 * 60 * (60 // (PRESS_FRAMES + RELEASE_FRAMES))
     # )  # 8 hours * 60 minutes * 60 seconds * 60 frames per second * 32 // (PRESS_FRAMES + RELEASE_FRAMES)
 
+    # total_steps = num_cpu * n_steps * batch_size * 4
     total_steps = num_cpu * n_steps * batch_size
     
 
@@ -998,13 +1012,13 @@ if __name__ == "__main__":
 
     model_file_name = "model"
 
-    for e in range(1, episodes + 1):
-        model = train_model(
+    
+    model = train_model(
             env=run_env,
             total_steps=total_steps,
             n_steps=n_steps,
             batch_size=batch_size,
-            episode=e,
+            episodes=episodes,
             file_name=model_file_name,
             save_path=args.output_dir,
             device=device,
