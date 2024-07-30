@@ -849,7 +849,7 @@ def train_model(
     tensorboard_log = f"{save_path}/tensorboard/{os.uname()[1]}-{time.time()}"
 
     run_model = PPO(
-        policy="MlpPolicy",
+        policy="CnnPolicy",
         # Reduce n_steps if too large; ensure not less than some minimum like 2048 for sufficient learning per update.
         n_steps=n_steps,
         # Reduce batch size if it's too large but ensure a minimum size for stability.
@@ -986,8 +986,8 @@ if __name__ == "__main__":
 
     # batch_size = 512 // 4
     batch_size = 64
-    # n_steps = 4096
-    n_steps = 512
+    n_steps = 4096
+    # n_steps = 512
     # total_steps = n_steps * 1024 * 6
     # total_steps = (
     #     60 * 60 * (60 // (PRESS_FRAMES + RELEASE_FRAMES))
