@@ -511,9 +511,9 @@ class PyBoyEnv(gym.Env):
         visited_score = 0
         if chunk_id not in self.visited_xy and self.last_chunk_id != chunk_id:
             self.visited_xy.add(chunk_id)
-            visited_score = 1
+            visited_score = 0.10
         elif self.last_chunk_id != chunk_id:
-            visited_score = 0.1 # reward backtracking still
+            visited_score = 0.05 # reward backtracking still
         else:
             visited_score = 0
         self.last_chunk_id = chunk_id
@@ -586,7 +586,7 @@ class PyBoyEnv(gym.Env):
         self.party_exp = party_exp
         reward = (
             len(self.player_maps) + ((pokemon_owned * 2) * 100 + pokemon_seen * 100)
-        )  + badge_reward + party_exp_reward # + travel_reward
+        )  + badge_reward + party_exp_reward + travel_reward
         self.party_exp_reward = party_exp_reward
         self.travel_reward = travel_reward
         
