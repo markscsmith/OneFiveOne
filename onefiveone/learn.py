@@ -511,9 +511,9 @@ class PyBoyEnv(gym.Env):
         visited_score = 0
         if chunk_id not in self.visited_xy and self.last_chunk_id != chunk_id:
             self.visited_xy.add(chunk_id)
-            visited_score = 0.10
+            visited_score = 0.100
         elif self.last_chunk_id != chunk_id:
-            visited_score = 0.05 # reward backtracking still
+            visited_score = -0.005 # very small penalty for revisiting the same chunk
         else:
             visited_score = 0
         self.last_chunk_id = chunk_id
@@ -536,6 +536,7 @@ class PyBoyEnv(gym.Env):
             poke_nums = diff_flags(last_dex, new_dex)
             poke_pairs = zip(poke_nums, [new_dex[p] for p in poke_nums])
             self.seen_and_capture_events[self.pyboy.frame_count] = list(poke_pairs)
+            self.visited_xy = set()
 
 
         self.pokedex = new_dex
@@ -598,7 +599,7 @@ class PyBoyEnv(gym.Env):
         self.last_player_y_block = pby
         self.last_player_map = map_id
 
-        return round(reward, 3), mem_block
+        return round(reward, 4), mem_block
 
     # TODO: Refactor so returns image instead of immediately rendering so PokeCaughtCallback can render instead.
     def render(self, target_index=None, reset=False):
