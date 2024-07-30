@@ -512,10 +512,6 @@ class PyBoyEnv(gym.Env):
         if chunk_id not in self.visited_xy and self.last_chunk_id != chunk_id:
             self.visited_xy.add(chunk_id)
             visited_score = 0.100
-        elif self.last_chunk_id != chunk_id:
-            visited_score = -0.005 # very small penalty for revisiting the same chunk
-        else:
-            visited_score = 0
         self.last_chunk_id = chunk_id
 
         travel_reward += visited_score
