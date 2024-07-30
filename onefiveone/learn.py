@@ -859,9 +859,9 @@ def train_model(
         
         
         # Increased to give more importance to future rewards, can help escape repetitive actions.
-        gamma=0.998,
+        gamma=0.995,
         # Adjusted for a better balance between bias and variance in advantage estimation.
-        # gae_lambda=0.998,
+        # gae_lambda=0.995,
         learning_rate=learning_rate_schedule,  # Standard starting point for PPO, adjust based on performance.
         # learning_rate=0.0002,
         # learning_rate=0.0003,
