@@ -856,13 +856,12 @@ def train_model(
         batch_size=batch_size,
         # Adjusted for potentially more stable learning across batches.
         n_epochs=3,
-        
-        
         # Increased to give more importance to future rewards, can help escape repetitive actions.
         gamma=0.995,
         # Adjusted for a better balance between bias and variance in advantage estimation.
         gae_lambda=0.90,
-        learning_rate=learning_rate_schedule,  # Standard starting point for PPO, adjust based on performance.
+        learning_rate=learning_rate_schedule,
+        # Standard starting point for PPO, adjust based on performance.
         # learning_rate=0.0002,
         # learning_rate=0.0003,
         # learning_rate=0.005,
@@ -872,7 +871,7 @@ def train_model(
         verbose=0,
         device=device,
         # Reduced for less aggressive exploration after initial learning, adjust based on needs.
-        # ent_coef=0.01,
+        ent_coef=0.05,
         tensorboard_log=tensorboard_log,
         # vf_coef=0.5,  # Adjusted to balance value function loss importance.
     )
