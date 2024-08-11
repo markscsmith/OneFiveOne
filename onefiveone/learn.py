@@ -871,7 +871,7 @@ def train_model(
         verbose=0,
         device=device,
         # Reduced for less aggressive exploration after initial learning, adjust based on needs.
-        ent_coef=0.05,
+        # ent_coef=0.05,
         tensorboard_log=tensorboard_log,
         # vf_coef=0.5,  # Adjusted to balance value function loss importance.
     )
