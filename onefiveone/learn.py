@@ -982,7 +982,7 @@ if __name__ == "__main__":
     # )  # 8 hours * 60 minutes * 60 seconds * 60 frames per second * 32 // (PRESS_FRAMES + RELEASE_FRAMES)
 
     # total_steps = num_cpu * n_steps * batch_size * 4
-    total_steps = num_cpu * n_steps
+    total_steps = num_cpu * n_steps * 20
     
 
     if num_cpu == 1:
