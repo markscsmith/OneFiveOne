@@ -970,7 +970,7 @@ if __name__ == "__main__":
     # max_frames = PRESS_FRAMES + RELEASE_FRAMES * runsteps
 
     # episodes = 13
-    episodes = 5
+    episodes = 24
 
     # batch_size = 512 // 4
     batch_size = 256
