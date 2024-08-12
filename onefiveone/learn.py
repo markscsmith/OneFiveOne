@@ -854,26 +854,15 @@ def train_model(
         n_steps=n_steps,
         # Reduce batch size if it's too large but ensure a minimum size for stability.
         batch_size=batch_size,
-        # Adjusted for potentially more stable learning across batches.
-        n_epochs=10,
-        # Increased to give more importance to future rewards, can help escape repetitive actions.
+        n_epochs=3,
         gamma=0.995,
-        # Adjusted for a better balance between bias and variance in advantage estimation.
-        gae_lambda=0.50,
+        gae_lambda=0.95,
         learning_rate=learning_rate_schedule,
-        # Standard starting point for PPO, adjust based on performance.
-        # learning_rate=0.0002,
-        # learning_rate=0.0003,
-        # learning_rate=0.005,
         env=env,
-        # Ensure this aligns with the complexities of your environment.
         policy_kwargs=policy_kwargs,
         verbose=0,
         device=device,
-        # Reduced for less aggressive exploration after initial learning, adjust based on needs.
-        # ent_coef=0.05,
         tensorboard_log=tensorboard_log,
-        # vf_coef=0.5,  # Adjusted to balance value function loss importance.
     )
     checkpoints = glob.glob(f"{checkpoint_path.rstrip('/')}/*/*.zip")
     if len(checkpoints) > 0:
@@ -984,7 +973,7 @@ if __name__ == "__main__":
     episodes = 5
 
     # batch_size = 512 // 4
-    batch_size = 64
+    batch_size = 256
     n_steps = 2048
     # n_steps = 512
     # total_steps = n_steps * 1024 * 6
