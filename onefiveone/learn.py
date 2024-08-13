@@ -653,17 +653,7 @@ class PyBoyEnv(gym.Env):
     def step(self, action):
         self.step_count += 1
         self.frames = self.pyboy.frame_count
-        
-        
-        # button_1, button_name_1 = self.buttons[action]
-        # button_2, _ = self.buttons[action + 8]
-        # self.pyboy.send_input(button_1)
-        # for _ in range(PRESS_FRAMES):
-        #     self.pyboy.tick()
-        # # for _ in range(ticks):
 
-        # for _ in range(RELEASE_FRAMES):
-        #     self.pyboy.tick()
         button = self.buttons[action]
         if action != 0:
             self.pyboy.button_press(button[0])
@@ -858,6 +848,7 @@ def train_model(
         gamma=0.95,
         gae_lambda=0.95,
         # learning_rate=learning_rate_schedule,
+        ent_coef=0.01,
         env=env,
         policy_kwargs=policy_kwargs,
         verbose=0,
