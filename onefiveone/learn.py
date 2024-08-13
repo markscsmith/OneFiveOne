@@ -848,7 +848,7 @@ def train_model(
         gamma=0.95,
         gae_lambda=0.95,
         # learning_rate=learning_rate_schedule,
-        ent_coef=0.01,
+        ent_coef=0.05,
         env=env,
         policy_kwargs=policy_kwargs,
         verbose=0,
