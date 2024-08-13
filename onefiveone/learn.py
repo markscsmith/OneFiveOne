@@ -857,7 +857,7 @@ def train_model(
         n_epochs=3,
         gamma=0.995,
         gae_lambda=0.95,
-        learning_rate=learning_rate_schedule,
+        # learning_rate=learning_rate_schedule,
         env=env,
         policy_kwargs=policy_kwargs,
         verbose=0,
