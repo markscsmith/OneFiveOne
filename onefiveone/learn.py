@@ -102,6 +102,8 @@ def learning_rate_schedule(progress):
     return new_rate
     # return  0.0
 
+def learning_rate_decay_schedule(progress):
+    return  0.0003 * (1 - progress)
 
 class CustomNetwork(ActorCriticPolicy):
     def __init__(self, *args, **kwargs):
@@ -848,6 +850,7 @@ def train_model(
         gamma=0.95,
         gae_lambda=0.95,
         # learning_rate=learning_rate_schedule,
+        learning_rate=learning_rate_decay_schedule
         ent_coef=0.20,
         env=env,
         policy_kwargs=policy_kwargs,
