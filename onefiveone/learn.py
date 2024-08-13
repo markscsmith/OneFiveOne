@@ -830,14 +830,14 @@ def train_model(
 ):
     
     # first_layer_size = (24 * 359) + 1
-    first_layer_size = 512
+    first_layer_size = 1024
     policy_kwargs = dict(
         # features_extractor_class=CustomFeatureExtractor,
         # features_extractor_kwargs={},
-        # net_arch=dict(
-        #     pi=[first_layer_size, first_layer_size, first_layer_size],
-        #     vf=[first_layer_size, first_layer_size, first_layer_size],
-        # ),
+        net_arch=dict(
+            pi=[first_layer_size, first_layer_size, first_layer_size],
+            vf=[first_layer_size, first_layer_size, first_layer_size],
+        ),
         
         
     )
