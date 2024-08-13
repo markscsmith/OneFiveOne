@@ -856,10 +856,10 @@ def train_model(
         batch_size=batch_size,
         n_epochs=3,
         gamma=0.998,
-        gae_lambda=0.95,
+        # gae_lambda=0.95,
         # learning_rate=learning_rate_schedule,
         learning_rate=learning_rate_decay_schedule,
-        ent_coef=0.20,
+        # ent_coef=0.20,
         env=env,
         policy_kwargs=policy_kwargs,
         verbose=0,
@@ -975,7 +975,7 @@ if __name__ == "__main__":
     episodes = 3
 
     # batch_size = 512 // 4
-    batch_size = 256
+    batch_size = 64
     n_steps = 2048
     # n_steps = 512
     # total_steps = n_steps * 1024 * 6
