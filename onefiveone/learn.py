@@ -627,7 +627,7 @@ class PyBoyEnv(gym.Env):
                 if i < 4:
                     new_image.paste(memory, ((i * w // 4), h))
                 else:
-                    new_image.paste(memory, ((i - 4 * w // 4), h + h // 4))
+                    new_image.paste(memory, (((i - 4) * w // 4), h + h // 4))
             
 
             new_image.paste(image, (0, 0))
