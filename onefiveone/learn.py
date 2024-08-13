@@ -834,10 +834,10 @@ def train_model(
     policy_kwargs = dict(
         # features_extractor_class=CustomFeatureExtractor,
         # features_extractor_kwargs={},
-        net_arch=dict(
-            pi=[first_layer_size, first_layer_size, first_layer_size],
-            vf=[first_layer_size, first_layer_size, first_layer_size],
-        ),
+        # net_arch=dict(
+        #     pi=[first_layer_size, first_layer_size, first_layer_size],
+        #     vf=[first_layer_size, first_layer_size, first_layer_size],
+        # ),
         
         
     )
@@ -891,7 +891,7 @@ def train_model(
     
     
     # callbacks = [current_stats, tbcallback]
-    for episode in range(episodes):
+    for episode in range(1, episodes + 1):
         print(f"Starting episode {episode}")
         checkpoint_file_path = (
         f"{checkpoint_path.rstrip('/')}/{os.uname()[1]}-{time.time()}-{episode}/"
@@ -970,7 +970,7 @@ if __name__ == "__main__":
     # max_frames = PRESS_FRAMES + RELEASE_FRAMES * runsteps
 
     # episodes = 13
-    episodes = 24
+    episodes = 3
 
     # batch_size = 512 // 4
     batch_size = 256
@@ -982,7 +982,7 @@ if __name__ == "__main__":
     # )  # 8 hours * 60 minutes * 60 seconds * 60 frames per second * 32 // (PRESS_FRAMES + RELEASE_FRAMES)
 
     # total_steps = num_cpu * n_steps * batch_size * 4
-    total_steps = num_cpu * n_steps * 20
+    total_steps = num_cpu * n_steps * 4
     
 
     if num_cpu == 1:
