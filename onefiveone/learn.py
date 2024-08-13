@@ -281,10 +281,11 @@ class PyBoyEnv(gym.Env):
         self.pyboy = PyBoy(game_path, window="null", cgb=CGB)
         self.game_path = game_path
         self.menu_value = None
-        self.n = 16 # number of frames to store
+        self.n = 8 # number of frames to store
         # self.last_n_frames = [self.pyboy.memory[SPRITE_MAP_START:SPRITE_MAP_END].copy() for _ in range(self.n)]
         # self.last_n_frames = [self.pyboy.memory[MEM_START:MEM_END].copy() for _ in range(self.n)]
-        self.last_n_frames = [self.pyboy.screen.ndarray] * self.n
+        self.screen_image = np.copy(self.pyboy.screen.ndarray)
+        self.last_n_frames = [self.screen_image] * self.n
         self.renderer = Renderer()
         
         self.actions = ""
@@ -613,27 +614,49 @@ class PyBoyEnv(gym.Env):
             image = self.pyboy.screen.image
             w = 160
             h = 144
-            if terminal_size.columns != w or terminal_size.lines < h / 2:
-                image_aspect_ratio = w / h
-                terminal_aspect_ratio = terminal_size.columns / (
-                    terminal_size.lines - terminal_offset
-                )
+            memories = self.last_n_frames
+            # convert list of ndarrays into a single ndarray
+            
+            # convert memories into an image
+            
+            new_image = Image.new("RGB", (image.width, image.height + image.height // 2))
+            for i, memory in enumerate(memories[4:]):
+                # shrink image to 1/4 size
+                memory = Image.fromarray(memory)
+                memory = memory.resize((w // 4, h // 4))
+                new_image.paste(memory, ((i * w // 4), h))
+            for i, memory in enumerate(memories[:4]):
+                memory = Image.fromarray(memory)
+                memory = memory.resize((w // 4, h // 4))
+                new_image.paste(memory, ((i * w // 4), h + h // 4))
+            
 
-                if image_aspect_ratio > terminal_aspect_ratio:
-                    new_width = int(w / image_aspect_ratio)
-                elif image_aspect_ratio < terminal_aspect_ratio:
-                    new_width = int(w * image_aspect_ratio)
-                else:
-                    new_width = w
+            new_image.paste(image, (0, 0))
+            image = new_image
+            
+            # if terminal_size.columns != w or terminal_size.lines < h / 2:
+            #     image_aspect_ratio = image.width / image.height
+            #     terminal_aspect_ratio = terminal_size.columns / (
+            #         terminal_size.lines - terminal_offset
+            #     )
 
-                height_offset = new_width - w
-                new_height = h + height_offset
-                replacer = Image.new("RGB", (new_width, new_height), (0, 0, 0))
-                # in center of image
-                replacer.paste(
-                    image, ((new_width - image.width) // 2, height_offset // 2)
-                )
-                image = replacer
+            #     if image_aspect_ratio > terminal_aspect_ratio:
+            #         new_width = int(image.width / image_aspect_ratio)
+            #     elif image_aspect_ratio < terminal_aspect_ratio:
+            #         new_width = int(image.width * image_aspect_ratio)
+            #     else:
+            #         new_width = image.width
+
+            #     height_offset = new_width - image.width
+            #     new_height = image.height + height_offset
+            #     replacer = Image.new("RGB", (new_width, new_height), (0, 0, 0))
+            #     # in center of image
+            #     replacer.paste(
+            #         image, ((new_width - image.width) // 2, height_offset // 2)
+            #     )
+            #     image = replacer
+            # create new larger image with memories along the bottom at the same width as the original image maintaining aspect ratio
+            
 
             self.renderer.load_image(image)
             self.renderer.resize(
@@ -671,8 +694,26 @@ class PyBoyEnv(gym.Env):
         for _ in range(RELEASE_FRAMES):
             self.pyboy.tick()
         self.screen_image = np.copy(self.pyboy.screen.ndarray)
-        self.last_n_frames[:-1] = self.last_n_frames[1:]
+        # .5 seconds = 1 step
+        # 5 seconds = 10 steps
+        # 10 seconds = 20 steps
+        # 30 seconds = 60 steps
+        # 60 seconds = 120 steps
+        n = self.n
+        stm = 4
+
+        
+        i = 4
+        if self.step_count % 120 == 0:
+            i = 1
+        elif self.step_count % 60 == 0:
+            i = 2
+        elif self.step_count % 30 == 0:
+            i = 3
+              
+        self.last_n_frames[:-(1 + i)] = self.last_n_frames[(1+i):]
         self.last_n_frames[-1] = self.screen_image
+
         # if it's the same button it's held.  If it's a different button it's a different button.
         # In theory this means it'll figure out how to hold buttons down and how to not
         # press buttons when it's not useful to do so
