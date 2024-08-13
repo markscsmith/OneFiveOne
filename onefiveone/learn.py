@@ -850,7 +850,7 @@ def train_model(
         gamma=0.95,
         gae_lambda=0.95,
         # learning_rate=learning_rate_schedule,
-        learning_rate=learning_rate_decay_schedule
+        learning_rate=learning_rate_decay_schedule,
         ent_coef=0.20,
         env=env,
         policy_kwargs=policy_kwargs,
