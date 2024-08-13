@@ -281,9 +281,10 @@ class PyBoyEnv(gym.Env):
         self.pyboy = PyBoy(game_path, window="null", cgb=CGB)
         self.game_path = game_path
         self.menu_value = None
-        self.n = 15  # 15 seconds of frames
+        self.n = 4 # number of frames to store
         # self.last_n_frames = [self.pyboy.memory[SPRITE_MAP_START:SPRITE_MAP_END].copy() for _ in range(self.n)]
         # self.last_n_frames = [self.pyboy.memory[MEM_START:MEM_END].copy() for _ in range(self.n)]
+        self.last_n_frames = [self.pyboy.screen.ndarray] * self.n
         self.renderer = Renderer()
         
         self.actions = ""
@@ -396,7 +397,11 @@ class PyBoyEnv(gym.Env):
 
 
         
-        self.observation_space = Box(low=0, high=255, shape=(144,160,4), dtype=np.uint8)
+        # single frame
+        # self.observation_space = Box(low=0, high=255, shape=(144,160,4), dtype=np.uint8)
+        # multiple frames
+
+        self.observation_space = Box(low=0, high=255, shape=(144,160,4*self.n), dtype=np.uint8)
 
         self.action_space = Discrete(8, start=0)
         # size = SPRITE_MAP_END - SPRITE_MAP_START + 1
@@ -665,7 +670,9 @@ class PyBoyEnv(gym.Env):
             self.pyboy.button_release(button[0])
         for _ in range(RELEASE_FRAMES):
             self.pyboy.tick()
-        self.screen_image = self.pyboy.screen.ndarray
+        self.screen_image = np.copy(self.pyboy.screen.ndarray)
+        self.last_n_frames[:-1] = self.last_n_frames[1:]
+        self.last_n_frames[-1] = self.screen_image
         # if it's the same button it's held.  If it's a different button it's a different button.
         # In theory this means it'll figure out how to hold buttons down and how to not
         # press buttons when it's not useful to do so
@@ -706,7 +713,7 @@ class PyBoyEnv(gym.Env):
         # observation = observation.astype(np.float32)
         # else:
         #     observation = observation.astype(np.float64)
-        observation = self.screen_image
+        observation = np.concatenate(self.last_n_frames, axis=-1)
 
         return observation, reward, terminated, truncated, info
     
@@ -738,8 +745,9 @@ class PyBoyEnv(gym.Env):
             cgb=CGB,
         )
 
-        self.screen_image = self.pyboy.screen.ndarray
-        # self.last_n_frames = [self.pyboy.screen.ndarray] * self.n
+        self.screen_image = np.copy(self.pyboy.screen.ndarray)
+
+        self.last_n_frames = [self.screen_image] * self.n
 
         if self.save_state_path is not None:
             self.pyboy.load_state(open(self.save_state_path, "rb"))
@@ -768,7 +776,7 @@ class PyBoyEnv(gym.Env):
         # flat_mem_block = [item for sublist in mem_block for item in sublist]
         # observation = np.append(flat_mem_block, reward)
         # observation = observation.astype(np.float32)
-        observation = self.screen_image
+        observation = np.concatenate(self.last_n_frames, axis=-1)
 
         # convert observation into float32s
         # if self.device == "mps":
