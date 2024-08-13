@@ -620,15 +620,14 @@ class PyBoyEnv(gym.Env):
             # convert memories into an image
             
             new_image = Image.new("RGB", (image.width, image.height + image.height // 2))
-            for i, memory in enumerate(memories[4:]):
+            for i, memory in enumerate(memories):
                 # shrink image to 1/4 size
                 memory = Image.fromarray(memory)
                 memory = memory.resize((w // 4, h // 4))
-                new_image.paste(memory, ((i * w // 4), h))
-            for i, memory in enumerate(memories[:4]):
-                memory = Image.fromarray(memory)
-                memory = memory.resize((w // 4, h // 4))
-                new_image.paste(memory, ((i * w // 4), h + h // 4))
+                if i < 4:
+                    new_image.paste(memory, ((i * w // 4), h))
+                else:
+                    new_image.paste(memory, ((i * w // 4), h + h // 4))
             
 
             new_image.paste(image, (0, 0))
