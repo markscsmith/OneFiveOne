@@ -704,13 +704,15 @@ class PyBoyEnv(gym.Env):
         
         i = 4
         if self.step_count % 120 == 0:
-            i = 1
+            i += 3
         elif self.step_count % 60 == 0:
-            i = 2
+            i += 2
         elif self.step_count % 30 == 0:
-            i = 3
+            i+= 1
               
-        self.last_n_frames[:-(i)] = self.last_n_frames[(i):]
+        # 0 1 2 3 4 5 6 7
+        # 0 1 2 3 = 4 5 6 7
+        self.last_n_frames[:-i] = self.last_n_frames[1:i]
         self.last_n_frames[-1] = self.screen_image
 
         # if it's the same button it's held.  If it's a different button it's a different button.
