@@ -590,7 +590,7 @@ class PyBoyEnv(gym.Env):
             #print("Party EXP:", party_exp, self.party_exp, party_exp_reward)
         self.party_exp = party_exp
         reward = (
-            len(self.player_maps) + ((pokemon_owned * 2) * 100 + pokemon_seen * 100)
+            len(self.player_maps) + ((pokemon_owned * 2) * 10 + pokemon_seen * 10)
         )  + badge_reward + party_exp_reward + travel_reward
         self.party_exp_reward = party_exp_reward
         self.travel_reward = travel_reward
