@@ -391,13 +391,10 @@ class PyBoyEnv(gym.Env):
         # Define actioqn_space and observation_space
         # self.action_space = gym.spaces.Discrete(256)
         # self.action_space = gym.spaces.Box(low=0, high=1, shape=(12,), dtype=np.float32)
-        
 
         # self.observation_space = Box(low=0, high=255, shape=(size,), dtype=np.float32)
         # use screen as input
 
-
-        
         # single frame
         # self.observation_space = Box(low=0, high=255, shape=(144,160,4), dtype=np.uint8)
         # multiple frames
@@ -408,7 +405,6 @@ class PyBoyEnv(gym.Env):
         # size = SPRITE_MAP_END - SPRITE_MAP_START + 1
 
         # size = MEM_START MEM_END + 2
-
 
 
     def get_mem_block(self, offset):
@@ -1004,12 +1000,6 @@ if __name__ == "__main__":
 
     num_cpu = NUM_CPU
 
-    # hrs = 10  # number of hours (in-game) to run for.
-    # hrs = 5 # temporarily shorter duration.
-    # runsteps = int(3200000 * (hrs))
-    # runsteps = int(32000 * (hrs))
-    # runsteps = int(3600 * (hrs))
-
     run_env = None
     # max_frames = PRESS_FRAMES + RELEASE_FRAMES * runsteps
 
@@ -1017,18 +1007,23 @@ if __name__ == "__main__":
     episodes = 13
 
     # batch_size = 512 // 4
-    batch_size = 64
+    
+    # batch_size = 64
+    # https://stackoverflow.com/questions/76076904/in-stable-baselines3-ppo-what-is-nsteps try using whole batch of n_steps as batch size?
+    batch_size = 2048
+
+
     # n_steps = 2048
 
-    n_steps = 512
+    n_steps = 2048
     # total_steps = n_steps * 1024 * 6
     # total_steps = (
     #     60 * 60 * (60 // (PRESS_FRAMES + RELEASE_FRAMES))
     # )  # 8 hours * 60 minutes * 60 seconds * 60 frames per second * 32 // (PRESS_FRAMES + RELEASE_FRAMES)
 
     # total_steps = num_cpu * n_steps * batch_size * 4
-    total_steps = num_cpu * n_steps * batch_size // 4
-    
+    total_steps = num_cpu * n_steps * 64
+
 
     if num_cpu == 1:
         run_env = DummyVecEnv([make_env(args.game_path, 0, device=device)])
