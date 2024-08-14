@@ -1018,15 +1018,16 @@ if __name__ == "__main__":
 
     # batch_size = 512 // 4
     batch_size = 64
-    n_steps = 2048
-    # n_steps = 512
+    # n_steps = 2048
+
+    n_steps = 512
     # total_steps = n_steps * 1024 * 6
     # total_steps = (
     #     60 * 60 * (60 // (PRESS_FRAMES + RELEASE_FRAMES))
     # )  # 8 hours * 60 minutes * 60 seconds * 60 frames per second * 32 // (PRESS_FRAMES + RELEASE_FRAMES)
 
     # total_steps = num_cpu * n_steps * batch_size * 4
-    total_steps = num_cpu * n_steps * batch_size // 8
+    total_steps = num_cpu * n_steps * batch_size // 4
     
 
     if num_cpu == 1:
