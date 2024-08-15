@@ -868,7 +868,7 @@ def train_model(
         n_steps=n_steps,
         # Reduce batch size if it's too large but ensure a minimum size for stability.
         batch_size=batch_size,
-        n_epochs=3,
+        n_epochs=5,
         gamma=0.998,
         # gae_lambda=0.95,
         # learning_rate=learning_rate_schedule,
@@ -997,7 +997,7 @@ if __name__ == "__main__":
     # )  # 8 hours * 60 minutes * 60 seconds * 60 frames per second * 32 // (PRESS_FRAMES + RELEASE_FRAMES)
 
     # total_steps = num_cpu * n_steps * batch_size * 4
-    total_steps = num_cpu * n_steps
+    total_steps = num_cpu * n_steps * 8
 
     if num_cpu == 1:
         run_env = DummyVecEnv([make_env(args.game_path, 0, device=device)])
