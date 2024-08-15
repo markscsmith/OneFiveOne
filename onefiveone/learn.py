@@ -413,7 +413,7 @@ class PyBoyEnv(gym.Env):
         pokedex = self.pyboy.memory[0xD2F7 + offset : 0xD31C + offset + 1]
         items = self.pyboy.memory[0xD31D + offset : 0xD346 + offset + 1]
         money_bytes = self.pyboy.memory[0xD347 + offset : 0xD349 + offset + 1]
-        money = int.from_bytes(money_bytes, byteorder="big")
+        money = int(''.join(f'{byte:02x}' for byte in money_bytes))
         badges = [self.pyboy.memory[0xD356 + offset]]
         location = self.pyboy.memory[0xD35E + offset : 0xD365 + offset + 1]
         stored_items = []  #  self.pyboy.memory[0xD53A + offset:0xD59F + offset + 1]
