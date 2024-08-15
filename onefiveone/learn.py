@@ -11,7 +11,7 @@ import torch
 
 
 import gymnasium as gym
-from gymnasium.spaces import Box, Discrete
+from gymnasium.spaces import Box, Discrete, MultiDiscrete
 from stable_baselines3 import PPO
 
 from stable_baselines3.common.callbacks import (
@@ -401,7 +401,9 @@ class PyBoyEnv(gym.Env):
             low=0, high=255, shape=(144, 160, 4 * self.n), dtype=np.uint8
         )
 
-        self.action_space = Discrete(8, start=0)
+        # self.action_space = Discrete(8, start=0)
+        self.action_space = MultiDiscrete([8,8,8,8], start=[0, 0, 0, 0])
+        
         # size = SPRITE_MAP_END - SPRITE_MAP_START + 1
 
         # size = MEM_START MEM_END + 2
@@ -670,49 +672,52 @@ class PyBoyEnv(gym.Env):
     # 🧠: 19 🟢  64 👀  64 🌎  27:  4 🏆 19270.00 🎒   1 🐆   20.00
     # TODO: build expanding pixel map to show extents of game travelled. (minimap?) Use 3d numpy array to store visited pixels. performance?
 
-    def step(self, action):
-        self.step_count += 1
-        self.frames = self.pyboy.frame_count
+    def step(self, actions):
+        
+        
 
-        button = self.buttons[action]
-        if action != 0:
-            self.pyboy.button(button[0], delay=PRESS_FRAMES)
+        for action in actions:
+            self.step_count += 1
+            button = self.buttons[action]
+            if action != 0:
+                self.pyboy.button(button[0], delay=2)
 
-        self.pyboy.tick(PRESS_FRAMES + RELEASE_FRAMES, True)
+            self.pyboy.tick(PRESS_FRAMES + RELEASE_FRAMES, True)
         # if action != 0:
         #    self.pyboy.button_release(button[0])
         # self.pyboy.tick(RELEASE_FRAMES, True)
-        screen_image = np.copy(self.pyboy.screen.ndarray)
+            screen_image = np.copy(self.pyboy.screen.ndarray)
         # .5 seconds = 1 step
         # 5 seconds = 10 steps
         # 10 seconds = 20 steps
         # 30 seconds = 60 steps
         # 60 seconds = 120 steps
-        n = self.n
+            n = self.n
 
-        i = 4
-        if self.step_count % 120 == 0:
-            i += 3
-        elif self.step_count % 60 == 0:
-            i += 2
-        elif self.step_count % 30 == 0:
-            i += 1
+            i = 4
+            if self.step_count % 120 == 0:
+                i += 3
+            elif self.step_count % 60 == 0:
+                i += 2
+            elif self.step_count % 30 == 0:
+                i += 1
 
         # 0 1 2 3 4 5 6 7
         # 0 1 2 3 = 4 5 6 7
-        self.last_n_frames[: -(n - i)] = self.last_n_frames[1 : i + 1]
-        self.last_n_frames[-1] = screen_image
+            self.last_n_frames[: -(n - i)] = self.last_n_frames[1 : i + 1]
+            self.last_n_frames[-1] = screen_image
 
         # if it's the same button it's held.  If it's a different button it's a different button.
         # In theory this means it'll figure out how to hold buttons down and how to not
         # press buttons when it's not useful to do so
-        self.actions = f"{self.actions}{button[1]}"
+            self.actions = f"{self.actions}{button[1]}"
         # self.actions = self.actions + (f"{button_name_1}")
         # Grab less frames to append if we're standing still.
 
         # sprites = self.get_screen_tiles()
         reward, _ = self.calculate_reward()
         self.last_score = reward
+        self.frames = self.pyboy.frame_count
 
         truncated = False
         terminated = False
@@ -759,6 +764,7 @@ class PyBoyEnv(gym.Env):
             self.game_path,
             window="null",
             cgb=CGB,
+            log_level="CRITICAL",
         )
 
         self.screen_image = np.copy(self.pyboy.screen.ndarray)
@@ -985,18 +991,18 @@ if __name__ == "__main__":
 
     # batch_size = 64
     # https://stackoverflow.com/questions/76076904/in-stable-baselines3-ppo-what-is-nsteps try using whole batch of n_steps as batch size?
-    batch_size = 512
+    batch_size = 64
 
     # n_steps = 2048
 
-    n_steps = 512
+    n_steps = 64
     # total_steps = n_steps * 1024 * 6
     # total_steps = (
     #     60 * 60 * (60 // (PRESS_FRAMES + RELEASE_FRAMES))
     # )  # 8 hours * 60 minutes * 60 seconds * 60 frames per second * 32 // (PRESS_FRAMES + RELEASE_FRAMES)
 
     # total_steps = num_cpu * n_steps * batch_size * 4
-    total_steps = num_cpu * n_steps * 32
+    total_steps = num_cpu * n_steps * 64
 
     if num_cpu == 1:
         run_env = DummyVecEnv([make_env(args.game_path, 0, device=device)])
