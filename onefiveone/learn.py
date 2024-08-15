@@ -868,9 +868,9 @@ def train_model(
         n_steps=n_steps,
         # Reduce batch size if it's too large but ensure a minimum size for stability.
         batch_size=batch_size,
-        n_epochs=5,
+        n_epochs=3,
         gamma=0.998,
-        # gae_lambda=0.95,
+        gae_lambda=0.98,
         # learning_rate=learning_rate_schedule,
         # learning_rate=learning_rate_decay_schedule,
         ent_coef=0.10,
