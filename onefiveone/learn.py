@@ -411,8 +411,8 @@ class PyBoyEnv(gym.Env):
         pokemart = [] # self.pyboy.memory[0xCF7B + offset:0xCF85 + offset + 1]
         my_pokemon = self.pyboy.memory[0xD16B + offset:0xD272 + offset + 1]
         pokedex = self.pyboy.memory[0xD2F7 + offset:0xD31C + offset + 1]
-        items = [] # self.pyboy.memory[0xD31D + offset:0xD346 + offset + 1]
-        money = [] # self.pyboy.memory[0xD347 + offset:0xD349 + offset + 1]
+        items = self.pyboy.memory[0xD31D + offset:0xD346 + offset + 1]
+        money = self.pyboy.memory[0xD347 + offset:0xD349 + offset + 1]
         badges = [self.pyboy.memory[0xD356 + offset]]
         location = self.pyboy.memory[0xD35E+offset:0xD365+offset + 1]
         stored_items = []#  self.pyboy.memory[0xD53A + offset:0xD59F + offset + 1]
@@ -513,9 +513,14 @@ class PyBoyEnv(gym.Env):
         chunk_id = f"{px}:{py}:{pbx}:{pby}:{map_id}"
         
         visited_score = 0
-        if chunk_id not in self.visited_xy and self.last_chunk_id != chunk_id:
-            self.visited_xy.add(chunk_id)
-            visited_score = 0.100
+        if self.last_chunk_id != chunk_id:
+            if chunk_id in self.visited_xy:
+                visited_score = 0.005
+            else:
+                self.visited_xy.add(chunk_id)
+                visited_score = 0.010
+
+        
         self.last_chunk_id = chunk_id
 
         travel_reward += visited_score
@@ -681,13 +686,12 @@ class PyBoyEnv(gym.Env):
 
         button = self.buttons[action]
         if action != 0:
-            self.pyboy.button_press(button[0])
-        for _ in range(PRESS_FRAMES):
-            self.pyboy.tick()
-        if action != 0:
-            self.pyboy.button_release(button[0])
-        for _ in range(RELEASE_FRAMES):
-            self.pyboy.tick()
+            self.pyboy.button(button[0], delay=PRESS_FRAMES)
+        
+        self.pyboy.tick(PRESS_FRAMES + RELEASE_FRAMES, True)
+        # if action != 0:
+        #    self.pyboy.button_release(button[0])
+        # self.pyboy.tick(RELEASE_FRAMES, True)
         self.screen_image = np.copy(self.pyboy.screen.ndarray)
         # .5 seconds = 1 step
         # 5 seconds = 10 steps
