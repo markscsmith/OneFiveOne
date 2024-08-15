@@ -523,10 +523,10 @@ class PyBoyEnv(gym.Env):
         visited_score = 0
         if self.last_chunk_id != chunk_id:
             if chunk_id in self.visited_xy:
-                visited_score = 0.005
+                visited_score = -0.005
             else:
                 self.visited_xy.add(chunk_id)
-                visited_score = 0.010
+                visited_score =  0.050
 
         self.last_chunk_id = chunk_id
 
