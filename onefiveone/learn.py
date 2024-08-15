@@ -325,6 +325,7 @@ class PyBoyEnv(gym.Env):
         self.backtrack_reward = 0
         self.last_chunk_id = None
         self.screen_image = None
+        self.money = None
 
         self.recent_frames = []
 
@@ -474,6 +475,7 @@ class PyBoyEnv(gym.Env):
         offset = self.cart.cart_offset()  # + MEM_START
         mem_block = self.get_mem_block(offset)
         reward = 0
+        old_money = self.money
         travel_reward = self.travel_reward
 
         (
@@ -492,7 +494,7 @@ class PyBoyEnv(gym.Env):
             mewtwo,
             opponent_pokemon,
         ) = mem_block
-
+        self.money = money
         map_id = location[0]
 
         px = location[1]
@@ -599,12 +601,18 @@ class PyBoyEnv(gym.Env):
             # self.render()
             # print("Party EXP:", party_exp, self.party_exp, party_exp_reward)
         self.party_exp = party_exp
+
+        
         reward = (
             (len(self.player_maps) + ((pokemon_owned * 2) * 10 + pokemon_seen * 10))
             + badge_reward
             + party_exp_reward
             + travel_reward
         )
+
+        if old_money is not None and old_money != money:
+            reward += np.abs(money - old_money) / 1000
+        
         self.party_exp_reward = party_exp_reward
         self.travel_reward = travel_reward
 
@@ -661,9 +669,9 @@ class PyBoyEnv(gym.Env):
             game_time_string = f"{clock_faces[game_hours % 12]} {game_hours:02d}:{game_minutes % 60:02d}:{game_seconds % 60:02d}"
             image_string = self.renderer.to_string(Ansi24HblockMethod)
             if target_index is not None:
-                render_string = f"{image_string}🧳 {self.episode} 🧠: {target_index:2d} 🥾 {self.step_count:10d} 🟢 {self.last_pokemon_count:3d} 👀 {self.last_seen_pokemon_count:3d} 🎉 {self.party_exp} 🌎 {len(self.visited_xy):3d}:{len(self.player_maps):3d} 🏆 {self.last_score:7.2f} 💪 {self.party_exp_reward} \n[{self.last_player_x:3d},{self.last_player_y:3d},{self.last_player_x_block:3d},{self.last_player_y_block:3d}], 🗺️: {self.last_player_map:3d} Actions {' '.join(self.actions[-6:])} 🎬 {self.frames:6d} {game_time_string} {len(self.actions)}"
+                render_string = f"{image_string}🧳 {self.episode} 🧠: {target_index:2d} 🥾 {self.step_count:10d} 🟢 {self.last_pokemon_count:3d} 👀 {self.last_seen_pokemon_count:3d} 🎉 {self.party_exp} 🌎 {len(self.visited_xy):3d}:{len(self.player_maps):3d} 🏆 {self.last_score:7.2f} 💪 {self.party_exp_reward} 💰 {self.money:7.2f} \n[{self.last_player_x:3d},{self.last_player_y:3d},{self.last_player_x_block:3d},{self.last_player_y_block:3d}], 🗺️: {self.last_player_map:3d} Actions {' '.join(self.actions[-6:])} 🎬 {self.frames:6d} {game_time_string} {len(self.actions)}"
             else:
-                render_string = f"{image_string}🧳 {self.episode} 🛠️: {self.emunum:2d} 🥾 {self.step_count:10d} 🟢 {self.last_pokemon_count:3d} 👀 {self.last_seen_pokemon_count:3d} 🎉 {self.party_exp} 🌎 {len(self.visited_xy):3d}:{len(self.player_maps):3d} 🏆 {self.last_score:7.2f} 💪 {self.party_exp_reward} \n[{self.last_player_x:3d},{self.last_player_y:3d},{self.last_player_x_block:3d},{self.last_player_y_block:3d}], 🗺️: {self.last_player_map:3d} Actions {' '.join(self.actions[-6:])} 🎬 {self.frames:6d} {len(self.actions)}"
+                render_string = f"{image_string}🧳 {self.episode} 🛠️: {self.emunum:2d} 🥾 {self.step_count:10d} 🟢 {self.last_pokemon_count:3d} 👀 {self.last_seen_pokemon_count:3d} 🎉 {self.party_exp} 🌎 {len(self.visited_xy):3d}:{len(self.player_maps):3d} 🏆 {self.last_score:7.2f} 💪 {self.party_exp_reward} 💰 {self.money:7.2f} \n[{self.last_player_x:3d},{self.last_player_y:3d},{self.last_player_x_block:3d},{self.last_player_y_block:3d}], 🗺️: {self.last_player_map:3d} Actions {' '.join(self.actions[-6:])} 🎬 {self.frames:6d} {len(self.actions)}"
 
             return render_string
 
@@ -709,7 +717,7 @@ class PyBoyEnv(gym.Env):
         self.actions = f"{self.actions}{button[1]}"
         # self.actions = self.actions + (f"{button_name_1}")
         # Grab less frames to append if we're standing still.
-
+        
         # sprites = self.get_screen_tiles()
         reward, _ = self.calculate_reward()
         self.last_score = reward
@@ -754,6 +762,7 @@ class PyBoyEnv(gym.Env):
         self.last_player_x_block = 0
         self.last_player_y_block = 0
         self.menu_value = 0
+        self.money = None
         self.pokedex = "-" * 151
         self.pyboy = PyBoy(
             self.game_path,
