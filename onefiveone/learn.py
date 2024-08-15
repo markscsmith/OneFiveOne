@@ -787,7 +787,6 @@ class PyBoyEnv(gym.Env):
         # self.last_n_frames = [self.pyboy.memory[MEM_START:MEM_END].copy() for _ in range(self.n)]
         # screen = self.pyboy.memory[MEM_START:MEM_END].copy()
         # observation = np.append(screen, reward)
-        sprites = self.get_screen_tiles()
         reward, _ = self.calculate_reward()
         # mem_block.append(sprites)
         # flat_mem_block = [item for sublist in mem_block for item in sublist]
@@ -986,11 +985,11 @@ if __name__ == "__main__":
 
     # batch_size = 64
     # https://stackoverflow.com/questions/76076904/in-stable-baselines3-ppo-what-is-nsteps try using whole batch of n_steps as batch size?
-    batch_size = 256
+    batch_size = 512
 
     # n_steps = 2048
 
-    n_steps = 256
+    n_steps = 512
     # total_steps = n_steps * 1024 * 6
     # total_steps = (
     #     60 * 60 * (60 // (PRESS_FRAMES + RELEASE_FRAMES))
