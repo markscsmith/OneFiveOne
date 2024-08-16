@@ -1034,7 +1034,7 @@ if __name__ == "__main__":
     
     # each step is (PRESS_FRAMES + RELEASE_FRAMES) frames long, at 60fps.  
     seconds = hours * 60 * 60 
-    total_steps = seconds * (60 // (PRESS_FRAMES + RELEASE_FRAMES))
+    total_steps = seconds * (60 // (PRESS_FRAMES + RELEASE_FRAMES)) * num_cpu
     
 
     if num_cpu == 1:
