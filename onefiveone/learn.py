@@ -44,7 +44,7 @@ LOG_FREQ = 512
 PRESS_FRAMES = 10
 RELEASE_FRAMES = 20
 
-CGB = False
+CGB = True
 NUM_CPU = multiprocessing.cpu_count()
 
 
@@ -326,6 +326,7 @@ class PyBoyEnv(gym.Env):
         self.last_chunk_id = None
         self.screen_image = None
         self.money = None
+        self.total_poke_exp = None
 
         self.recent_frames = []
 
@@ -589,7 +590,25 @@ class PyBoyEnv(gym.Env):
 
         # level = 32 in per pokemon
         poke_levels = [poke[33] for poke in party]
+        poke_party_bytes = [poke[16:18] for poke in party]
+        poke_total_exp = 0
+        for party_byte in poke_party_bytes:
+            poke_total_exp += int.from_bytes(party_byte, byteorder='big')
+
+
+
+        exp_reward = 0
+        if self.total_poke_exp is None:
+            self.total_poke_exp = poke_total_exp
+        else:
+            old_exp = self.total_poke_exp
+            if poke_total_exp != old_exp:
+                exp_reward = np.abs(poke_total_exp - old_exp) / 100
+                self.total_poke_exp = poke_total_exp
+                # print("Party EXP:", poke_levels, self.party_exp, party_exp_reward)
         party_exp_reward = self.party_exp_reward
+
+        party_exp_reward += exp_reward
         party_exp = poke_levels
         # for poke in party:
         #     upper = int(poke[14]) << 8
@@ -603,7 +622,7 @@ class PyBoyEnv(gym.Env):
             # print("Party EXP:", party_exp, self.party_exp, party_exp_reward)
         self.party_exp = party_exp
 
-        
+
         reward = (
             (len(self.player_maps) + ((pokemon_owned * 2) * 10 + pokemon_seen * 10))
             + badge_reward
@@ -613,7 +632,7 @@ class PyBoyEnv(gym.Env):
 
         if old_money is not None and old_money != money:
             reward += np.abs(money - old_money) / 1000
-        
+
         self.party_exp_reward = party_exp_reward
         self.travel_reward = travel_reward
 
@@ -718,7 +737,7 @@ class PyBoyEnv(gym.Env):
         self.actions = f"{self.actions}{button[1]}"
         # self.actions = self.actions + (f"{button_name_1}")
         # Grab less frames to append if we're standing still.
-        
+
         # sprites = self.get_screen_tiles()
         reward, _ = self.calculate_reward()
         self.last_score = reward
@@ -752,7 +771,7 @@ class PyBoyEnv(gym.Env):
 
         self.travel_reward = 0
         self.last_chunk_id = None
-
+        self.total_poke_exp = None
         self.party_exp_reward = 0
         self.party_exp = [0, 0, 0, 0, 0, 0]
         self.step_count = 0
@@ -797,7 +816,7 @@ class PyBoyEnv(gym.Env):
         # self.last_n_frames = [self.pyboy.memory[MEM_START:MEM_END].copy() for _ in range(self.n)]
         # screen = self.pyboy.memory[MEM_START:MEM_END].copy()
         # observation = np.append(screen, reward)
-        reward, _ = self.calculate_reward()
+        _, _ = self.calculate_reward()
         # mem_block.append(sprites)
         # flat_mem_block = [item for sublist in mem_block for item in sublist]
         # observation = np.append(flat_mem_block, reward)
@@ -989,7 +1008,7 @@ if __name__ == "__main__":
     # max_frames = PRESS_FRAMES + RELEASE_FRAMES * runsteps
 
     # episodes = 13
-    episodes = 13
+    episodes = 8
 
     # batch_size = 512 // 4
 
@@ -1006,7 +1025,17 @@ if __name__ == "__main__":
     # )  # 8 hours * 60 minutes * 60 seconds * 60 frames per second * 32 // (PRESS_FRAMES + RELEASE_FRAMES)
 
     # total_steps = num_cpu * n_steps * batch_size * 4
-    total_steps = num_cpu * n_steps * 64
+    # easier calc based on duration
+    # total_steps = num_cpu * n_steps * 64
+
+    # hours of play
+    hours = 36
+    
+    
+    # each step is (PRESS_FRAMES + RELEASE_FRAMES) frames long, at 60fps.  
+    seconds = hours * 60 * 60 
+    total_steps = seconds * (60 // (PRESS_FRAMES + RELEASE_FRAMES))
+    
 
     if num_cpu == 1:
         run_env = DummyVecEnv([make_env(args.game_path, 0, device=device)])
