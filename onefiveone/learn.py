@@ -1033,7 +1033,7 @@ if __name__ == "__main__":
     # total_steps = num_cpu * n_steps * 64
 
     # hours of play
-    hours = 36
+    hours = 1
     
     
     # each step is (PRESS_FRAMES + RELEASE_FRAMES) frames long, at 60fps.  
