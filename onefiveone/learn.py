@@ -627,11 +627,15 @@ class PyBoyEnv(gym.Env):
             (len(self.player_maps) + ((pokemon_owned * 2) * 10 + pokemon_seen * 10))
             + badge_reward
             + party_exp_reward
-            + travel_reward
+            # + travel_reward
         )
 
         if old_money is not None and old_money != money:
-            reward += np.abs(money - old_money) / 1000
+            money_divider = 1000
+            if money > old_money:
+                money_divider = 500
+
+            reward += np.abs(money - old_money) / money_divider
 
         self.party_exp_reward = party_exp_reward
         self.travel_reward = travel_reward
