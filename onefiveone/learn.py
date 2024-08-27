@@ -327,6 +327,9 @@ class PyBoyEnv(gym.Env):
         self.screen_image = None
         self.money = None
         self.total_poke_exp = None
+        self.last_total_items = 0
+        self.last_items = []
+        self.item_points = {}
 
         self.recent_frames = []
 
@@ -623,10 +626,66 @@ class PyBoyEnv(gym.Env):
         self.party_exp = party_exp
 
 
+        item_counts = items[1 + 1::2]
+        item_types = items[0 + 1::2]
+
+        stored_item_counts = stored_items[1 + 1::2]
+        
+        carried_item_total = sum(item_counts)
+        stored_item_total = sum(stored_item_counts)
+
+        last_carried_item_total = self.last_carried_item_total
+        last_stored_item_total = self.last_stored_item_total
+
+        # prioritize pulling items from storage, collecting items, and using items from inventory.
+
+        self.last_stored_item_total = stored_item_total
+        self.last_carried_item_total = carried_item_total
+
+        last_total_items = self.last_total_items
+        if carried_item_total + stored_item_total != last_total_items:
+            self.last_total_items = carried_item_total + stored_item_total
+
+        
+
+        
+        # extract every 2 indexes from the list
+
+        # item_types = [items[i] for i in range(0, len(items), 2)]
+        # item_counts = [items[i] for i in range(1, len(items), 2)]
+
+        # calculate points of items based on the number of items added per step
+        last_items = self.last_items
+        if len(last_items) == 0:
+            last_items = [0] * len(item_counts)
+
+        item_diff = [
+            np.abs(item_counts[i] - last_items[i]) for i in range(len(item_counts))
+        ]
+        self.last_items = item_counts
+
+        # create tuple of item type and points
+        new_item_points = zip(item_types, item_diff)
+        # print(f"ITEMS: {items}")
+
+        for item, points in new_item_points:
+            if item == 0 or item == 255:
+                pass
+            elif item not in self.item_points:
+                self.item_points[item] = points
+                
+            else:
+                self.item_points[item] += points
+                
+
+        
+
+
         reward = (
             (len(self.player_maps) + ((pokemon_owned * 2) * 10 + pokemon_seen * 10))
             + badge_reward
             + party_exp_reward
+            + sum(self.item_points.values())
             # + travel_reward
         )
 
@@ -693,9 +752,9 @@ class PyBoyEnv(gym.Env):
             game_time_string = f"{clock_faces[game_hours % 12]} {game_hours:02d}:{game_minutes % 60:02d}:{game_seconds % 60:02d}"
             image_string = self.renderer.to_string(Ansi24HblockMethod)
             if target_index is not None:
-                render_string = f"{image_string}🧳 {self.episode} 🧠: {target_index:2d} 🥾 {self.step_count:10d} 🟢 {self.last_pokemon_count:3d} 👀 {self.last_seen_pokemon_count:3d} 🎉 {self.party_exp} 🌎 {len(self.visited_xy):3d}:{len(self.player_maps):3d} 🏆 {self.last_score:7.2f} 💪 {self.party_exp_reward:7.2f} 💰 {self.money:7d} \n[{self.last_player_x:3d},{self.last_player_y:3d},{self.last_player_x_block:3d},{self.last_player_y_block:3d}], 🗺️: {self.last_player_map:3d} Actions {' '.join(self.actions[-6:])} 🎬 {self.frames:6d} {game_time_string} {len(self.actions)}"
+                render_string = f"{image_string}🧳 {self.episode} 🧠: {target_index:2d} 🥾 {self.step_count:10d} 🟢 {self.last_pokemon_count:3d} 👀 {self.last_seen_pokemon_count:3d} 🎉 {self.party_exp} 🎒 {sum(self.item_points.values()):3d} 🌎 {len(self.visited_xy):3d}:{len(self.player_maps):3d} 🏆 {self.last_score:7.2f} 💪 {self.party_exp_reward:7.2f} 💰 {self.money:7d} \n[{self.last_player_x:3d},{self.last_player_y:3d},{self.last_player_x_block:3d},{self.last_player_y_block:3d}], 🗺️: {self.last_player_map:3d} Actions {' '.join(self.actions[-6:])} 🎬 {self.frames:6d} {game_time_string} {len(self.actions)}"
             else:
-                render_string = f"{image_string}🧳 {self.episode} 🛠️: {self.emunum:2d} 🥾 {self.step_count:10d} 🟢 {self.last_pokemon_count:3d} 👀 {self.last_seen_pokemon_count:3d} 🎉 {self.party_exp} 🌎 {len(self.visited_xy):3d}:{len(self.player_maps):3d} 🏆 {self.last_score:7.2f} 💪 {self.party_exp_reward:7.2f} 💰 {self.money:7d} \n[{self.last_player_x:3d},{self.last_player_y:3d},{self.last_player_x_block:3d},{self.last_player_y_block:3d}], 🗺️: {self.last_player_map:3d} Actions {' '.join(self.actions[-6:])} 🎬 {self.frames:6d} {len(self.actions)}"
+                render_string = f"{image_string}🧳 {self.episode} 🛠️: {self.emunum:2d} 🥾 {self.step_count:10d} 🟢 {self.last_pokemon_count:3d} 👀 {self.last_seen_pokemon_count:3d} 🎉 {self.party_exp} 🎒 {sum(self.item_points.values()):3d} 🌎 {len(self.visited_xy):3d}:{len(self.player_maps):3d} 🏆 {self.last_score:7.2f} 💪 {self.party_exp_reward:7.2f} 💰 {self.money:7d} \n[{self.last_player_x:3d},{self.last_player_y:3d},{self.last_player_x_block:3d},{self.last_player_y_block:3d}], 🗺️: {self.last_player_map:3d} Actions {' '.join(self.actions[-6:])} 🎬 {self.frames:6d} {len(self.actions)}"
 
             return render_string
 
@@ -772,7 +831,9 @@ class PyBoyEnv(gym.Env):
     def reset(self, seed=0, **kwargs):
         super().reset(seed=seed, **kwargs)
         self.last_memory_update_frame = 0
-
+        self.last_total_items = 0
+        self.last_items = []
+        self.item_points = {}
         self.travel_reward = 0
         self.last_chunk_id = None
         self.total_poke_exp = None
