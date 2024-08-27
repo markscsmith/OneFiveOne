@@ -555,6 +555,9 @@ class PyBoyEnv(gym.Env):
             poke_pairs = zip(poke_nums, [new_dex[p] for p in poke_nums])
             self.seen_and_capture_events[self.pyboy.frame_count] = list(poke_pairs)
             self.visited_xy = set()
+            # Special case: if I'm penalized for travelling backwards I should instead be rewarded for new pokemon.
+            if travel_reward < 0:
+                travel_reward = np.abs(travel_reward) * 10
 
         self.pokedex = new_dex
 
@@ -686,7 +689,7 @@ class PyBoyEnv(gym.Env):
             + badge_reward
             + party_exp_reward
             + sum(self.item_points.values())
-            # + travel_reward
+            + travel_reward
         )
 
         if old_money is not None and old_money != money:
@@ -944,8 +947,8 @@ def train_model(
         # features_extractor_class=CustomFeatureExtractor,
         # features_extractor_kwargs={},
         net_arch=dict(
-            pi=[first_layer_size, first_layer_size, first_layer_size],
-            vf=[first_layer_size, first_layer_size, first_layer_size],
+            pi=[(144 + 144 // 4) * 160, first_layer_size, 512, 8],
+            vf=[(144 + 144 // 4) * 160, first_layer_size, 512, 8],
         ),
     )
 
