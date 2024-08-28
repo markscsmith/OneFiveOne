@@ -606,11 +606,12 @@ class PyBoyEnv(gym.Env):
             opponent_pokemon[220:264],
         ]        
 
-        attack_reward = self.attack_reward
         opponent_pokemon_total_hp = sum([int.from_bytes(poke[1:3], byteorder='big') for poke in opponent_party])
         if self.opponent_pokemon_total_hp > opponent_pokemon_total_hp:
-            attack_reward = (self.opponent_pokemon_total_hp - opponent_pokemon_total_hp)
+            self.attack_reward += (self.opponent_pokemon_total_hp - opponent_pokemon_total_hp)
+            
         self.opponent_pokemon_total_hp = opponent_pokemon_total_hp
+        
         # level = 32 in per pokemon
         poke_levels = [poke[33] for poke in party]
         poke_party_bytes = [poke[16:18] for poke in party]
@@ -707,7 +708,7 @@ class PyBoyEnv(gym.Env):
             + party_exp_reward
             + sum(self.item_points.values())
             + travel_reward
-            + attack_reward
+            + self.attack_reward
         )
 
         if old_money is not None and old_money != money:
