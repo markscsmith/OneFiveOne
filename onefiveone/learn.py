@@ -331,6 +331,8 @@ class PyBoyEnv(gym.Env):
         self.last_items = []
         self.item_points = {}
 
+        self.opponent_pokemon_total_hp = 0
+
         self.recent_frames = []
 
         self.badges = 0
@@ -428,7 +430,7 @@ class PyBoyEnv(gym.Env):
         event_flags = []  # self.pyboy.memory[0xD72E + offset: 0xD7EE + offset + 1]
         ss_anne = []  # [self.pyboy.memory[0xD803] + offset]
         mewtwo = []  # [self.pyboy.memory[0xD85F] + offset]
-        opponent_pokemon = []  # self.pyboy.memory[0xD8A4 + offset: 0xD9AB + offset + 1]
+        opponent_pokemon = self.pyboy.memory[0xD8A4 + offset: 0xD9AB + offset + 1]
 
         return [
             pokemart,
@@ -594,6 +596,20 @@ class PyBoyEnv(gym.Env):
             my_pokemon[220:264],
         ]
 
+        opponent_party = [
+            opponent_pokemon[0:44],
+            opponent_pokemon[44:88],
+            opponent_pokemon[88:132],
+            opponent_pokemon[132:176],
+            opponent_pokemon[176:220],
+            opponent_pokemon[220:264],
+        ]        
+
+        attack_reward = 0
+        opponent_pokemon_total_hp = sum([poke[1:3] for poke in opponent_party])
+        if self.opponent_pokemon_total_hp > opponent_pokemon_total_hp:
+            attack_reward = (self.opponent_pokemon_total_hp - opponent_pokemon_total_hp)
+        self.opponent_pokemon_total_hp = opponent_pokemon_total_hp
         # level = 32 in per pokemon
         poke_levels = [poke[33] for poke in party]
         poke_party_bytes = [poke[16:18] for poke in party]
@@ -623,7 +639,7 @@ class PyBoyEnv(gym.Env):
         #     party_exp.append(exp)
 
         if sum(party_exp) > sum(self.party_exp):
-            party_exp_reward += sum(party_exp) - sum(self.party_exp)
+            party_exp_reward += (sum(party_exp) - sum(self.party_exp)) * 10
             # self.render()
             # print("Party EXP:", party_exp, self.party_exp, party_exp_reward)
         self.party_exp = party_exp
@@ -690,6 +706,7 @@ class PyBoyEnv(gym.Env):
             + party_exp_reward
             + sum(self.item_points.values())
             + travel_reward
+            + attack_reward
         )
 
         if old_money is not None and old_money != money:
@@ -1097,7 +1114,7 @@ if __name__ == "__main__":
     # total_steps = num_cpu * n_steps * 64
 
     # hours of play
-    hours = 48
+    hours = 2
     
     
     # each step is (PRESS_FRAMES + RELEASE_FRAMES) frames long, at 60fps.  
