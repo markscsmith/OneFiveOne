@@ -606,7 +606,7 @@ class PyBoyEnv(gym.Env):
         ]        
 
         attack_reward = 0
-        opponent_pokemon_total_hp = sum([poke[1:3] for poke in opponent_party])
+        opponent_pokemon_total_hp = sum([int.from_bytes(poke[1:3], byteorder='big') for poke in opponent_party])
         if self.opponent_pokemon_total_hp > opponent_pokemon_total_hp:
             attack_reward = (self.opponent_pokemon_total_hp - opponent_pokemon_total_hp)
         self.opponent_pokemon_total_hp = opponent_pokemon_total_hp
