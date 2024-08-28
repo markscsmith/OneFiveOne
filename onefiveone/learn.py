@@ -347,6 +347,7 @@ class PyBoyEnv(gym.Env):
         self.episode = episode
         self.seen_and_capture_events = {}
         self.travel_reward = 0
+        self.attack_reward = 0
 
         self.last_memory_update_frame = 0
         self.current_memory = None
@@ -605,7 +606,7 @@ class PyBoyEnv(gym.Env):
             opponent_pokemon[220:264],
         ]        
 
-        attack_reward = 0
+        attack_reward = self.attack_reward
         opponent_pokemon_total_hp = sum([int.from_bytes(poke[1:3], byteorder='big') for poke in opponent_party])
         if self.opponent_pokemon_total_hp > opponent_pokemon_total_hp:
             attack_reward = (self.opponent_pokemon_total_hp - opponent_pokemon_total_hp)
@@ -772,9 +773,9 @@ class PyBoyEnv(gym.Env):
             game_time_string = f"{clock_faces[game_hours % 12]} {game_hours:02d}:{game_minutes % 60:02d}:{game_seconds % 60:02d}"
             image_string = self.renderer.to_string(Ansi24HblockMethod)
             if target_index is not None:
-                render_string = f"{image_string}🧳 {self.episode} 🧠: {target_index:2d} 🥾 {self.step_count:10d} 🟢 {self.last_pokemon_count:3d} 👀 {self.last_seen_pokemon_count:3d} 🎉 {self.party_exp} 🎒 {sum(self.item_points.values()):3d} 🌎 {len(self.visited_xy):3d}:{len(self.player_maps):3d} 🏆 {self.last_score:7.2f} 💪 {self.party_exp_reward:7.2f} 💰 {self.money:7d} \n[{self.last_player_x:3d},{self.last_player_y:3d},{self.last_player_x_block:3d},{self.last_player_y_block:3d}], 🗺️: {self.last_player_map:3d} Actions {' '.join(self.actions[-6:])} 🎬 {self.frames:6d} {game_time_string} {len(self.actions)}"
+                render_string = f"{image_string}🧳 {self.episode} 🧠: {target_index:2d} 🥾 {self.step_count:10d} 🟢 {self.last_pokemon_count:3d} 👀 {self.last_seen_pokemon_count:3d} 🎒 {sum(self.item_points.values()):3d} 🌎 {len(self.visited_xy):3d}:{len(self.player_maps):3d} 🏆 {self.last_score:7.2f} 💪 {self.party_exp_reward:7.2f} 🥊 {self.attack_reward:7d} 💰 {self.money:7d} \n[{self.last_player_x:3d},{self.last_player_y:3d},{self.last_player_x_block:3d},{self.last_player_y_block:3d}], 🗺️: {self.last_player_map:3d} Actions {' '.join(self.actions[-6:])} 🎉 {self.party_exp} 🎬 {self.frames:6d} {game_time_string} {len(self.actions)}"
             else:
-                render_string = f"{image_string}🧳 {self.episode} 🛠️: {self.emunum:2d} 🥾 {self.step_count:10d} 🟢 {self.last_pokemon_count:3d} 👀 {self.last_seen_pokemon_count:3d} 🎉 {self.party_exp} 🎒 {sum(self.item_points.values()):3d} 🌎 {len(self.visited_xy):3d}:{len(self.player_maps):3d} 🏆 {self.last_score:7.2f} 💪 {self.party_exp_reward:7.2f} 💰 {self.money:7d} \n[{self.last_player_x:3d},{self.last_player_y:3d},{self.last_player_x_block:3d},{self.last_player_y_block:3d}], 🗺️: {self.last_player_map:3d} Actions {' '.join(self.actions[-6:])} 🎬 {self.frames:6d} {len(self.actions)}"
+                render_string = f"{image_string}🧳 {self.episode} 🛠️: {self.emunum:2d} 🥾 {self.step_count:10d} 🟢 {self.last_pokemon_count:3d} 👀 {self.last_seen_pokemon_count:3d} 🎒 {sum(self.item_points.values()):3d} 🌎 {len(self.visited_xy):3d}:{len(self.player_maps):3d} 🏆 {self.last_score:7.2f} 💪 {self.party_exp_reward:7.2f} 🥊 {self.attack_reward:7d}💰 {self.money:7d} \n[{self.last_player_x:3d},{self.last_player_y:3d},{self.last_player_x_block:3d},{self.last_player_y_block:3d}], 🗺️: {self.last_player_map:3d} Actions {' '.join(self.actions[-6:])} 🎉 {self.party_exp} 🎬 {self.frames:6d} {len(self.actions)}"
 
             return render_string
 
@@ -869,6 +870,8 @@ class PyBoyEnv(gym.Env):
         self.menu_value = 0
         self.money = None
         self.pokedex = "-" * 151
+        self.opponent_pokemon_total_hp = 0
+        self.attack_reward = 0
         self.pyboy = PyBoy(
             self.game_path,
             window="null",
