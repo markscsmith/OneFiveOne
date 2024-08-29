@@ -330,6 +330,7 @@ class PyBoyEnv(gym.Env):
         self.last_total_items = 0
         self.last_items = []
         self.item_points = {}
+        self.opponent_party = []
 
         self.opponent_pokemon_total_hp = 0
 
@@ -431,7 +432,7 @@ class PyBoyEnv(gym.Env):
         event_flags = []  # self.pyboy.memory[0xD72E + offset: 0xD7EE + offset + 1]
         ss_anne = []  # [self.pyboy.memory[0xD803] + offset]
         mewtwo = []  # [self.pyboy.memory[0xD85F] + offset]
-        opponent_pokemon = self.pyboy.memory[0xD8A4 + offset: 0xD9AB + offset + 1]
+        opponent_pokemon = self.pyboy.memory[0xCFE6 + offset : 0xCFE7 + offset + 1]
 
         return [
             pokemart,
@@ -481,7 +482,7 @@ class PyBoyEnv(gym.Env):
 
     def calculate_reward(self):
         offset = self.cart.cart_offset()  # + MEM_START
-        mem_block = self.get_mem_block(offset)
+        mem_block = self.get_mem_block(offset).copy()
         reward = 0
         old_money = self.money
         travel_reward = self.travel_reward
@@ -502,6 +503,8 @@ class PyBoyEnv(gym.Env):
             mewtwo,
             opponent_pokemon,
         ) = mem_block
+
+        self.opponent_party = opponent_pokemon
         self.money = money
         map_id = location[0]
 
@@ -597,17 +600,10 @@ class PyBoyEnv(gym.Env):
             my_pokemon[220:264],
         ]
 
-        opponent_party = [
-            opponent_pokemon[0:44],
-            opponent_pokemon[44:88],
-            opponent_pokemon[88:132],
-            opponent_pokemon[132:176],
-            opponent_pokemon[176:220],
-            opponent_pokemon[220:264],
-        ]        
 
-        opponent_pokemon_total_hp = sum([int.from_bytes(poke[1:3], byteorder='big') for poke in opponent_party])
-        if self.opponent_pokemon_total_hp > opponent_pokemon_total_hp:
+
+        opponent_pokemon_total_hp = int.from_bytes(opponent_pokemon, byteorder='big')
+        if opponent_pokemon_total_hp > 0 and self.opponent_pokemon_total_hp > opponent_pokemon_total_hp:
             self.attack_reward += (self.opponent_pokemon_total_hp - opponent_pokemon_total_hp)
             
         self.opponent_pokemon_total_hp = opponent_pokemon_total_hp
@@ -879,6 +875,7 @@ class PyBoyEnv(gym.Env):
             cgb=CGB,
             log_level="CRITICAL",
         )
+        self.opponent_party = []
 
         self.screen_image = np.copy(self.pyboy.screen.ndarray)
 
@@ -1103,11 +1100,11 @@ if __name__ == "__main__":
 
     # batch_size = 64
     # https://stackoverflow.com/questions/76076904/in-stable-baselines3-ppo-what-is-nsteps try using whole batch of n_steps as batch size?
-    batch_size = 512
+    batch_size = 256
 
     # n_steps = 2048
 
-    n_steps = 512
+    n_steps = 256
     # total_steps = n_steps * 1024 * 6
     # total_steps = (
     #     60 * 60 * (60 // (PRESS_FRAMES + RELEASE_FRAMES))
