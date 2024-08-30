@@ -977,7 +977,8 @@ def train_model(
     tensorboard_log = f"{save_path}/tensorboard/{os.uname()[1]}-{time.time()}"
 
     run_model = PPO(
-        policy="CnnPolicy",
+        # policy="CnnPolicy",
+        policy="MlpPolicy",
         # Reduce n_steps if too large; ensure not less than some minimum like 2048 for sufficient learning per update.
         n_steps=n_steps,
         # Reduce batch size if it's too large but ensure a minimum size for stability.
