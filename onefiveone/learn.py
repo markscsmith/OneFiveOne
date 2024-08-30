@@ -1104,7 +1104,7 @@ if __name__ == "__main__":
 
     # n_steps = 2048
 
-    n_steps = 2048
+    n_steps = 1024
     # total_steps = n_steps * 1024 * 6
     # total_steps = (
     #     60 * 60 * (60 // (PRESS_FRAMES + RELEASE_FRAMES))
