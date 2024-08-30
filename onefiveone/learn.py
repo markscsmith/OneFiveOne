@@ -965,8 +965,8 @@ def train_model(
         # features_extractor_class=CustomFeatureExtractor,
         # features_extractor_kwargs={},
         net_arch=dict(
-            pi=[(144 + 144 // 4) * 160, first_layer_size, 512, 8],
-            vf=[(144 + 144 // 4) * 160, first_layer_size, 512, 8],
+            pi=[first_layer_size, first_layer_size, 512, 8],
+            vf=[144 * 160, first_layer_size, 512, 8],
         ),
     )
 
@@ -1104,7 +1104,7 @@ if __name__ == "__main__":
 
     # n_steps = 2048
 
-    n_steps = 64
+    n_steps = 2048
     # total_steps = n_steps * 1024 * 6
     # total_steps = (
     #     60 * 60 * (60 // (PRESS_FRAMES + RELEASE_FRAMES))
