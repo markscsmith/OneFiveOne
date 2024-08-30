@@ -636,10 +636,10 @@ class PyBoyEnv(gym.Env):
         #     exp = upper + lower
         #     party_exp.append(exp)
 
-        if sum(party_exp) > sum(self.party_exp):
-            party_exp_reward += (sum(party_exp) - sum(self.party_exp)) * 10
-            # self.render()
-            # print("Party EXP:", party_exp, self.party_exp, party_exp_reward)
+        # if sum(party_exp) > sum(self.party_exp):
+        #     party_exp_reward += (sum(party_exp) - sum(self.party_exp)) * 10
+        #     # self.render()
+        #     # print("Party EXP:", party_exp, self.party_exp, party_exp_reward)
         self.party_exp = party_exp
 
 
