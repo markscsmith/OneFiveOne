@@ -966,7 +966,7 @@ def train_model(
         # features_extractor_kwargs={},
         net_arch=dict(
             pi=[first_layer_size, first_layer_size, 512, 8],
-            vf=[144 * 160, first_layer_size, 512, 8],
+            vf=[first_layer_size, first_layer_size, 512, 8],
         ),
     )
 
@@ -977,8 +977,7 @@ def train_model(
     tensorboard_log = f"{save_path}/tensorboard/{os.uname()[1]}-{time.time()}"
 
     run_model = PPO(
-        # policy="CnnPolicy",
-        policy="MlpPolicy",
+        policy="CnnPolicy",
         # Reduce n_steps if too large; ensure not less than some minimum like 2048 for sufficient learning per update.
         n_steps=n_steps,
         # Reduce batch size if it's too large but ensure a minimum size for stability.
