@@ -960,13 +960,17 @@ def train_model(
     device="cpu",
 ):
     # first_layer_size = (24 * 359) + 1
-    first_layer_size = 1024
+    first_layer_size = 144 *160 * 3 * 8
+    intermediate_layer_size = 1024
+    action_layer_size = 8  # 8 actions
+    output_layer_size = 1
     policy_kwargs = dict(
+        activation_fn=torch.nn.Hardswish,
         # features_extractor_class=CustomFeatureExtractor,
         # features_extractor_kwargs={},
         net_arch=dict(
-            pi=[first_layer_size, first_layer_size, 512, 8],
-            vf=[first_layer_size, first_layer_size, 512, 8],
+            pi=[first_layer_size, intermediate_layer_size, intermediate_layer_size, action_layer_size],
+            vf=[first_layer_size, intermediate_layer_size, intermediate_layer_size, output_layer_size],
         ),
     )
 
