@@ -1036,7 +1036,7 @@ def train_model(
         gae_lambda=0.98,
         # learning_rate=learning_rate_schedule,
         # learning_rate=learning_rate_decay_schedule,
-        # ent_coef=0.01,
+        ent_coef=0.07,
         env=env,
         policy_kwargs=policy_kwargs,
         verbose=0,
