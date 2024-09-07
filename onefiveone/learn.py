@@ -454,7 +454,7 @@ class PyBoyEnv(gym.Env):
         # multiple frames
 
         self.observation_space = Box(
-            low=0, high=255, shape=(144, 160, 4 * self.n), dtype=np.uint8
+            low=0, high=255, shape=(144, 160, 3 * self.n), dtype=np.uint8
         )
 
         self.action_space = Discrete(8, start=0)
