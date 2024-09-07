@@ -50,9 +50,15 @@ CGB = True
 NUM_CPU = multiprocessing.cpu_count()
 
 
-class CustomFeatureExtractor(nn.Module):
+import torch
+import torch.nn as nn
+import torch.nn.functional as F
+from gym.spaces import Box
+from stable_baselines3.common.torch_layers import BaseFeaturesExtractor
+
+class CustomFeatureExtractor(BaseFeaturesExtractor):
     def __init__(self, observation_space: Box):
-        super(CustomFeatureExtractor, self).__init__()
+        super(CustomFeatureExtractor, self).__init__(observation_space, features_dim=1)  # Temporary value for features_dim
         
         # Get the shape of the input (observation space)
         input_shape = observation_space.shape  # Should be (24, 144, 160) based on your input
@@ -62,10 +68,15 @@ class CustomFeatureExtractor(nn.Module):
         self.conv2 = nn.Conv2d(in_channels=32, out_channels=64, kernel_size=3, stride=2)
         self.pool = nn.MaxPool2d(kernel_size=2, stride=2)
 
-        # Calculate the output size after convolutions and pooling to determine the fully connected layer size
+        # Calculate the output size after convolutions and pooling
         convw = self._conv_output_size(input_shape[2], kernel_size=3, stride=2, pool_size=2)
         convh = self._conv_output_size(input_shape[1], kernel_size=3, stride=2, pool_size=2)
+
+        # The fully connected layer size will be based on the number of channels * height * width
         self.fc = nn.Linear(64 * convw * convh, 1024)
+
+        # Set the actual feature size (features_dim) to be used by the policy and value networks
+        self._features_dim = 1024
 
     def _conv_output_size(self, size, kernel_size, stride, pool_size):
         """Helper function to calculate output size after conv and pooling."""
@@ -79,6 +90,10 @@ class CustomFeatureExtractor(nn.Module):
         x = torch.flatten(x, 1)  # Flatten for fully connected layers
         x = F.hardswish(self.fc(x))
         return x
+
+    @property
+    def features_dim(self):
+        return self._features_dim
 
 class PokeCart:
     def __init__(self, cart_data) -> None:
