@@ -960,7 +960,7 @@ def train_model(
     device="cpu",
 ):
     # first_layer_size = (24 * 359) + 1
-    first_layer_size = 144 *160 * 3 * 8
+    first_layer_size = 144 * 160 * 4 * 4
     intermediate_layer_size = 1024
     action_layer_size = 8  # 8 actions
     output_layer_size = 1
