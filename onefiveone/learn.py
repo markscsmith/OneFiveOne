@@ -32,6 +32,8 @@ from timg import Renderer, Ansi24HblockMethod
 from PIL import Image, ImageDraw, ImageFont
 import glob
 
+from stable_baselines3.common.torch_layers import BaseFeaturesExtractor
+
 # Memory ranges to read in Pokemon Red/Blue (+ Yellow?)
 # MEM_START = 0xCC3C
 MEM_START = 0xD2F7
@@ -50,11 +52,6 @@ CGB = True
 NUM_CPU = multiprocessing.cpu_count()
 
 
-import torch
-import torch.nn as nn
-import torch.nn.functional as F
-from gym.spaces import Box
-from stable_baselines3.common.torch_layers import BaseFeaturesExtractor
 
 class CustomFeatureExtractor(BaseFeaturesExtractor):
     def __init__(self, observation_space: Box):
@@ -1012,8 +1009,8 @@ def train_model(
     action_layer_size = 8  # 8 actions
     output_layer_size = 1
     policy_kwargs = dict(
-        activation_fn=torch.nn.Hardswish,
-        features_extractor_class=CustomFeatureExtractor,
+        #activation_fn=torch.nn.Hardswish,
+        # features_extractor_class=CustomFeatureExtractor,
         # features_extractor_kwargs={},
         net_arch=dict(
             pi=[first_layer_size, intermediate_layer_size, intermediate_layer_size, action_layer_size],
