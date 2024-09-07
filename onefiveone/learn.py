@@ -57,8 +57,8 @@ class CustomFeatureExtractor(nn.Module):
         self.conv1 = nn.Conv2d(in_channels=24, out_channels=32, kernel_size=3, stride=2)
         self.conv2 = nn.Conv2d(in_channels=32, out_channels=64, kernel_size=3, stride=2)
         self.pool = nn.MaxPool2d(kernel_size=2, stride=2)
-        # Flattening and reducing the size for fully connected layers
-        self.fc = nn.Linear(64 * X * Y, 1024)  # X and Y will depend on final pooled size
+        # Estimate output size after conv and pooling to determine X and Y for fully connected layer
+        self.fc = nn.Linear(64 * 34 * 39, 1024)  # X and Y should be calculated based on output size after convolutions
 
     def forward(self, x):
         x = self.pool(F.hardswish(self.conv1(x)))
