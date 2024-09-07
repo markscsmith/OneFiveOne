@@ -886,7 +886,7 @@ class PyBoyEnv(gym.Env):
             "badges": self.badges,
         }
 
-        observation = np.concatenate(self.last_n_frames, axis=-1)
+        observation = np.stack(self.last_n_frames, axis=-1)
 
         return observation, reward, terminated, truncated, info
 
@@ -954,7 +954,7 @@ class PyBoyEnv(gym.Env):
         # flat_mem_block = [item for sublist in mem_block for item in sublist]
         # observation = np.append(flat_mem_block, reward)
         # observation = observation.astype(np.float32)
-        observation = np.concatenate(self.last_n_frames, axis=-1)
+        observation = np.stack(self.last_n_frames, axis=-1)
 
         # convert observation into float32s
         # if self.device == "mps":
