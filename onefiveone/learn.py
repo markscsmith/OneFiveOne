@@ -8,6 +8,8 @@ import multiprocessing
 # Compute and AI libs
 import numpy as np
 import torch
+import torch.nn as nn
+import torch.nn.functional as F
 
 
 import gymnasium as gym
@@ -47,6 +49,23 @@ RELEASE_FRAMES = 20
 CGB = True
 NUM_CPU = multiprocessing.cpu_count()
 
+
+class CustomFeatureExtractor(nn.Module):
+    def __init__(self):
+        super(CustomFeatureExtractor, self).__init__()
+        # Input: (batch_size, 24, 144, 160)
+        self.conv1 = nn.Conv2d(in_channels=24, out_channels=32, kernel_size=3, stride=2)
+        self.conv2 = nn.Conv2d(in_channels=32, out_channels=64, kernel_size=3, stride=2)
+        self.pool = nn.MaxPool2d(kernel_size=2, stride=2)
+        # Flattening and reducing the size for fully connected layers
+        self.fc = nn.Linear(64 * X * Y, 1024)  # X and Y will depend on final pooled size
+
+    def forward(self, x):
+        x = self.pool(F.hardswish(self.conv1(x)))
+        x = self.pool(F.hardswish(self.conv2(x)))
+        x = torch.flatten(x, 1)  # Flatten for fully connected layers
+        x = F.hardswish(self.fc(x))
+        return x
 
 class PokeCart:
     def __init__(self, cart_data) -> None:
@@ -966,7 +985,7 @@ def train_model(
     output_layer_size = 1
     policy_kwargs = dict(
         activation_fn=torch.nn.Hardswish,
-        # features_extractor_class=CustomFeatureExtractor,
+        features_extractor_class=CustomFeatureExtractor,
         # features_extractor_kwargs={},
         net_arch=dict(
             pi=[first_layer_size, intermediate_layer_size, intermediate_layer_size, action_layer_size],
