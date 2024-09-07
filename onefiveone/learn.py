@@ -51,14 +51,27 @@ NUM_CPU = multiprocessing.cpu_count()
 
 
 class CustomFeatureExtractor(nn.Module):
-    def __init__(self):
+    def __init__(self, observation_space: Box):
         super(CustomFeatureExtractor, self).__init__()
-        # Input: (batch_size, 24, 144, 160)
-        self.conv1 = nn.Conv2d(in_channels=24, out_channels=32, kernel_size=3, stride=2)
+        
+        # Get the shape of the input (observation space)
+        input_shape = observation_space.shape  # Should be (24, 144, 160) based on your input
+        
+        # Define the CNN layers based on input channels (24 channels from 8 frames of 3 channels each)
+        self.conv1 = nn.Conv2d(in_channels=input_shape[0], out_channels=32, kernel_size=3, stride=2)
         self.conv2 = nn.Conv2d(in_channels=32, out_channels=64, kernel_size=3, stride=2)
         self.pool = nn.MaxPool2d(kernel_size=2, stride=2)
-        # Estimate output size after conv and pooling to determine X and Y for fully connected layer
-        self.fc = nn.Linear(64 * 34 * 39, 1024)  # X and Y should be calculated based on output size after convolutions
+
+        # Calculate the output size after convolutions and pooling to determine the fully connected layer size
+        convw = self._conv_output_size(input_shape[2], kernel_size=3, stride=2, pool_size=2)
+        convh = self._conv_output_size(input_shape[1], kernel_size=3, stride=2, pool_size=2)
+        self.fc = nn.Linear(64 * convw * convh, 1024)
+
+    def _conv_output_size(self, size, kernel_size, stride, pool_size):
+        """Helper function to calculate output size after conv and pooling."""
+        size = ((size - kernel_size) // stride) + 1
+        size = size // pool_size
+        return size
 
     def forward(self, x):
         x = self.pool(F.hardswish(self.conv1(x)))
