@@ -1143,7 +1143,7 @@ if __name__ == "__main__":
     # max_frames = PRESS_FRAMES + RELEASE_FRAMES * runsteps
 
     # episodes = 13
-    episodes = 7
+    episodes = 13
 
     # batch_size = 512 // 4
 
@@ -1164,7 +1164,7 @@ if __name__ == "__main__":
     # total_steps = num_cpu * n_steps * 64
 
     # hours of play
-    hours = 8
+    hours = 16
     
     
     # each step is (PRESS_FRAMES + RELEASE_FRAMES) frames long, at 60fps.  
