@@ -396,6 +396,7 @@ class PyBoyEnv(gym.Env):
 
         self.last_memory_update_frame = 0
         self.current_memory = None
+        self.last_n_memories = []
 
         self.party_exp = [0, 0, 0, 0, 0, 0]
         # self.buttons = {
@@ -458,7 +459,7 @@ class PyBoyEnv(gym.Env):
         # flatten block into a single array
 
         self.observation_space = Box(
-            low=0, high=255, shape=(len(block),), dtype=np.uint8
+            low=0, high=255, shape=(self.n, len(block[-1])), dtype=np.uint8
         )
         self.observation_space
 
@@ -572,7 +573,10 @@ class PyBoyEnv(gym.Env):
             opponent_pokemon,
             combined_memory,
         ) = mem_block
-
+        if len(self.last_n_memories) == 0:
+            self.last_n_memories = [combined_memory] * self.n
+        else:
+            self.last_n_memories = self.last_n_memories[1:] + [combined_memory]
         self.opponent_party = opponent_pokemon
         self.money = money
         map_id = location[0]
@@ -794,7 +798,7 @@ class PyBoyEnv(gym.Env):
         self.last_player_y_block = pby
         self.last_player_map = map_id
 
-        return round(reward, 4), mem_block[-1]
+        return round(reward, 4), self.last_n_memories
 
     # TODO: Refactor so returns image instead of immediately rendering so PokeCaughtCallback can render instead.
     def render(self, target_index=None, reset=False):
@@ -1024,7 +1028,7 @@ def train_model(
 ):
     # first_layer_size = (24 * 359) + 1
     # first_layer_size = 144 * 160 * 4 * 4
-    first_layer_size = 1024
+    first_layer_size = 5608 
     intermediate_layer_size = 1024
     action_layer_size = 8  # 8 actions
     output_layer_size = 1
@@ -1162,7 +1166,7 @@ if __name__ == "__main__":
     # max_frames = PRESS_FRAMES + RELEASE_FRAMES * runsteps
 
     # episodes = 13
-    episodes = 169
+    episodes = 64
 
     # batch_size = 512 // 4
 
