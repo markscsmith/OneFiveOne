@@ -1083,8 +1083,8 @@ def train_model(
 
     # TODO checkpoints not being saved
 
-    # update_freq = n_steps * num_cpu
-    update_freq = n_steps
+    update_freq = n_steps * num_cpu
+    # update_freq = n_steps
 
     # callbacks = [current_stats, tbcallback]
     for episode in range(1, episodes + 1):
