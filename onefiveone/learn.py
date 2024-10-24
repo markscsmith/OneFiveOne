@@ -48,7 +48,7 @@ LOG_FREQ = 2048
 PRESS_FRAMES = 10
 RELEASE_FRAMES = 20
 
-CGB = True
+CGB = False
 NUM_CPU = multiprocessing.cpu_count()
 
 
@@ -450,9 +450,17 @@ class PyBoyEnv(gym.Env):
         # self.observation_space = Box(low=0, high=255, shape=(144,160,4), dtype=np.uint8)
         # multiple frames
 
+        # self.observation_space = Box(
+        #     low=0, high=255, shape=(144, 160, 4 * self.n), dtype=np.uint8
+        # )
+        # use chunk of memory the size of get_mem_block as input
+        block = self.calculate_reward()[-1]
+        # flatten block into a single array
+
         self.observation_space = Box(
-            low=0, high=255, shape=(144, 160, 4 * self.n), dtype=np.uint8
+            low=0, high=255, shape=(len(block),), dtype=np.uint8
         )
+        self.observation_space
 
         self.action_space = Discrete(8, start=0)
         # size = SPRITE_MAP_END - SPRITE_MAP_START + 1
@@ -460,7 +468,7 @@ class PyBoyEnv(gym.Env):
         # size = MEM_START MEM_END + 2
 
     def get_mem_block(self, offset):
-        pokemart = []  # self.pyboy.memory[0xCF7B + offset:0xCF85 + offset + 1]
+        pokemart = self.pyboy.memory[0xCF7B + offset:0xCF85 + offset + 1]
         my_pokemon = self.pyboy.memory[0xD16B + offset : 0xD272 + offset + 1]
         pokedex = self.pyboy.memory[0xD2F7 + offset : 0xD31C + offset + 1]
         items = self.pyboy.memory[0xD31D + offset : 0xD346 + offset + 1]
@@ -468,15 +476,30 @@ class PyBoyEnv(gym.Env):
         money = int(''.join(f'{byte:02x}' for byte in money_bytes))
         badges = [self.pyboy.memory[0xD356 + offset]]
         location = self.pyboy.memory[0xD35E + offset : 0xD365 + offset + 1]
-        stored_items = []  #  self.pyboy.memory[0xD53A + offset:0xD59F + offset + 1]
-        coins = []  # self.pyboy.memory[0xD5A4 + offset: 0xD5A5 + offset + 1]
-        missable_object_flags = (
-            []
-        )  # self.pyboy.memory[0xD5A6 + offset: 0xD5C5 + offset + 1]
-        event_flags = []  # self.pyboy.memory[0xD72E + offset: 0xD7EE + offset + 1]
-        ss_anne = []  # [self.pyboy.memory[0xD803] + offset]
-        mewtwo = []  # [self.pyboy.memory[0xD85F] + offset]
+        stored_items = self.pyboy.memory[0xD53A + offset:0xD59F + offset + 1]
+        coins = self.pyboy.memory[0xD5A4 + offset: 0xD5A5 + offset + 1]
+        missable_object_flags = self.pyboy.memory[0xD5A6 + offset: 0xD5C5 + offset + 1]
+        event_flags = self.pyboy.memory[0xD72E + offset: 0xD7EE + offset + 1]
+        ss_anne =[self.pyboy.memory[0xD803] + offset]
+        mewtwo = [self.pyboy.memory[0xD85F] + offset]
         opponent_pokemon = self.pyboy.memory[0xCFE6 + offset : 0xCFE7 + offset + 1]
+        
+        combined_memory = []
+        combined_memory.extend(pokemart)
+        combined_memory.extend(my_pokemon)
+        combined_memory.extend(pokedex)
+        combined_memory.extend(items)
+        combined_memory.extend(money_bytes)
+        combined_memory.append(money)
+        combined_memory.extend(badges)
+        combined_memory.extend(location)
+        combined_memory.extend(stored_items)
+        combined_memory.extend(coins)
+        combined_memory.extend(missable_object_flags)
+        combined_memory.extend(event_flags)
+        combined_memory.extend(ss_anne)
+        combined_memory.extend(mewtwo)
+        combined_memory.extend(opponent_pokemon)
 
         return [
             pokemart,
@@ -493,6 +516,7 @@ class PyBoyEnv(gym.Env):
             ss_anne,
             mewtwo,
             opponent_pokemon,
+            combined_memory,
         ]
 
     def get_screen_tiles(self):
@@ -546,6 +570,7 @@ class PyBoyEnv(gym.Env):
             ss_anne,
             mewtwo,
             opponent_pokemon,
+            combined_memory,
         ) = mem_block
 
         self.opponent_party = opponent_pokemon
@@ -769,7 +794,7 @@ class PyBoyEnv(gym.Env):
         self.last_player_y_block = pby
         self.last_player_map = map_id
 
-        return round(reward, 4), mem_block
+        return round(reward, 4), mem_block[-1]
 
     # TODO: Refactor so returns image instead of immediately rendering so PokeCaughtCallback can render instead.
     def render(self, target_index=None, reset=False):
@@ -777,10 +802,10 @@ class PyBoyEnv(gym.Env):
             terminal_size = os.get_terminal_size()
             terminal_offset = 7
 
-            image = Image.fromarray(self.last_n_frames[-1])
+            image = self.pyboy.screen.image
             w = 160
             h = 144
-            memories = self.last_n_frames
+            
             # convert list of ndarrays into a single ndarray
 
             # convert memories into an image
@@ -788,18 +813,7 @@ class PyBoyEnv(gym.Env):
             new_image = Image.new(
                 "RGB", (image.width, image.height + image.height // 2)
             )
-            for i, memory in enumerate(memories):
-                # shrink image to 1/4 size
-                memory = Image.fromarray(memory)
-                memory = memory.resize((w // 4, h // 4))
-                if i < 4:
-                    new_image.paste(memory, ((i * w // 4), h))
-                else:
-                    new_image.paste(memory, (((i - 4) * w // 4), h + h // 4))
-
             new_image.paste(image, (0, 0))
-            image = new_image
-
             self.renderer.load_image(image)
             self.renderer.resize(
                 terminal_size.columns, terminal_size.lines * 2 - terminal_offset
@@ -835,7 +849,7 @@ class PyBoyEnv(gym.Env):
         # if action != 0:
         #    self.pyboy.button_release(button[0])
         # self.pyboy.tick(RELEASE_FRAMES, True)
-        screen_image = np.copy(self.pyboy.screen.ndarray)
+        # screen_image = np.copy(self.pyboy.screen.ndarray)
         # .5 seconds = 1 step
         # 5 seconds = 10 steps
         # 10 seconds = 20 steps
@@ -853,8 +867,8 @@ class PyBoyEnv(gym.Env):
 
         # 0 1 2 3 4 5 6 7
         # 0 1 2 3 = 4 5 6 7
-        self.last_n_frames[: -(n - i)] = self.last_n_frames[1 : i + 1]
-        self.last_n_frames[-1] = screen_image
+        # self.last_n_frames[: -(n - i)] = self.last_n_frames[1 : i + 1]
+        # self.last_n_frames[-1] = screen_image
 
         # if it's the same button it's held.  If it's a different button it's a different button.
         # In theory this means it'll figure out how to hold buttons down and how to not
@@ -864,7 +878,7 @@ class PyBoyEnv(gym.Env):
         # Grab less frames to append if we're standing still.
 
         # sprites = self.get_screen_tiles()
-        reward, _ = self.calculate_reward()
+        reward, observation = self.calculate_reward()
         self.last_score = reward
 
         truncated = False
@@ -883,7 +897,7 @@ class PyBoyEnv(gym.Env):
             "badges": self.badges,
         }
 
-        observation = np.concatenate(self.last_n_frames, axis=-1)
+        
 
         return observation, reward, terminated, truncated, info
 
@@ -929,7 +943,7 @@ class PyBoyEnv(gym.Env):
             self.pyboy.load_state(open(self.save_state_path, "rb"))
         else:
             print(
-                f"Error: No state file found for {self.save_state_path}",
+                f"No state file. Starting from title screen.",
                 file=sys.stderr,
             )
 
@@ -946,12 +960,12 @@ class PyBoyEnv(gym.Env):
         # self.last_n_frames = [self.pyboy.memory[MEM_START:MEM_END].copy() for _ in range(self.n)]
         # screen = self.pyboy.memory[MEM_START:MEM_END].copy()
         # observation = np.append(screen, reward)
-        _, _ = self.calculate_reward()
+        _, observation = self.calculate_reward()
         # mem_block.append(sprites)
         # flat_mem_block = [item for sublist in mem_block for item in sublist]
         # observation = np.append(flat_mem_block, reward)
         # observation = observation.astype(np.float32)
-        observation = np.concatenate(self.last_n_frames, axis=-1)
+        
 
         # convert observation into float32s
         # if self.device == "mps":
@@ -986,7 +1000,12 @@ def make_env(game_path, emunum, max_frames=500_000, device="cpu"):
             new_env.pyboy.load_state(open(game_path + ext, "rb"))
         else:
             print(f"Error: No state file found for {game_path}.state")
-            exit(1)
+            new_env = PyBoyEnv(
+                game_path,
+                emunum=emunum,
+                max_frames=max_frames,
+                device=device,
+            )
 
         return new_env
 
@@ -1026,7 +1045,7 @@ def train_model(
     tensorboard_log = f"{save_path}/tensorboard/{os.uname()[1]}-{time.time()}"
 
     run_model = PPO(
-        policy="CnnPolicy",
+        policy="MlpPolicy",
         # Reduce n_steps if too large; ensure not less than some minimum like 2048 for sufficient learning per update.
         n_steps=n_steps,
         # Reduce batch size if it's too large but ensure a minimum size for stability.
@@ -1164,7 +1183,7 @@ if __name__ == "__main__":
     # total_steps = num_cpu * n_steps * 64
 
     # hours of play
-    hours = 16
+    hours = 8
     
     
     # each step is (PRESS_FRAMES + RELEASE_FRAMES) frames long, at 60fps.  
