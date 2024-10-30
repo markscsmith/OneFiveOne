@@ -1054,7 +1054,7 @@ def train_model(
         n_steps=n_steps,
         # Reduce batch size if it's too large but ensure a minimum size for stability.
         batch_size=batch_size,
-        n_epochs=3,
+        n_epochs=1,
         gamma=0.998,
         gae_lambda=0.98,
         # learning_rate=learning_rate_schedule,
@@ -1172,7 +1172,7 @@ if __name__ == "__main__":
 
     # batch_size = 64
     # https://stackoverflow.com/questions/76076904/in-stable-baselines3-ppo-what-is-nsteps try using whole batch of n_steps as batch size?
-    batch_size = 64
+    batch_size = 128
 
     # n_steps = 2048
 
