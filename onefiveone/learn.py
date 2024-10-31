@@ -484,6 +484,7 @@ class PyBoyEnv(gym.Env):
         ss_anne =[self.pyboy.memory[0xD803] + offset]
         mewtwo = [self.pyboy.memory[0xD85F] + offset]
         opponent_pokemon = self.pyboy.memory[0xCFE6 + offset : 0xCFE7 + offset + 1]
+        tiles = self.get_screen_tiles().flatten()
         
         combined_memory = []
         combined_memory.extend(pokemart)
@@ -501,6 +502,15 @@ class PyBoyEnv(gym.Env):
         combined_memory.extend(ss_anne)
         combined_memory.extend(mewtwo)
         combined_memory.extend(opponent_pokemon)
+        combined_memory.extend(tiles)
+        
+        # convert the screen to a 1d array of booleans for all values over and under 128
+        # switch from (144,160,3) to (144,160,1)
+        
+        
+        # convert to a 1d array
+        
+        
 
         return [
             pokemart,
@@ -521,7 +531,8 @@ class PyBoyEnv(gym.Env):
         ]
 
     def get_screen_tiles(self):
-        return self.pyboy.memory[SPRITE_MAP_START:SPRITE_MAP_END].copy()
+        
+        return self.pyboy.game_area()
 
     def generate_image(self):
         return self.pyboy.screen.ndarray
