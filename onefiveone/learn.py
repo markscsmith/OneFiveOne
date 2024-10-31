@@ -1177,13 +1177,13 @@ if __name__ == "__main__":
     # max_frames = PRESS_FRAMES + RELEASE_FRAMES * runsteps
 
     # episodes = 13
-    episodes = 64
+    episodes = 4
 
     # batch_size = 512 // 4
 
     # batch_size = 64
     # https://stackoverflow.com/questions/76076904/in-stable-baselines3-ppo-what-is-nsteps try using whole batch of n_steps as batch size?
-    batch_size = 128
+    batch_size = 16
 
     # n_steps = 2048
 
@@ -1198,7 +1198,7 @@ if __name__ == "__main__":
     # total_steps = num_cpu * n_steps * 64
 
     # hours of play
-    hours = 4
+    hours = 1
     
     
     # each step is (PRESS_FRAMES + RELEASE_FRAMES) frames long, at 60fps.  
