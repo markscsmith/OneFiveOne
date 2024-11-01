@@ -747,9 +747,7 @@ class PyBoyEnv(gym.Env):
         if carried_item_total + stored_item_total != last_total_items:
             self.last_total_items = carried_item_total + stored_item_total
 
-        
 
-        
         # extract every 2 indexes from the list
 
         # item_types = [items[i] for i in range(0, len(items), 2)]
@@ -777,10 +775,6 @@ class PyBoyEnv(gym.Env):
                 
             else:
                 self.item_points[item] += points
-                
-
-        
-
 
         reward = (
             (len(self.player_maps) + ((pokemon_owned * 2) * 10 + pokemon_seen * 10))
@@ -1039,10 +1033,11 @@ def train_model(
 ):
     # first_layer_size = (24 * 359) + 1
     # first_layer_size = 144 * 160 * 4 * 4
-    first_layer_size = 5608 
+    first_layer_size = 5608 + SPRITE_MAP_END - SPRITE_MAP_START + 1
     intermediate_layer_size = 1024
     action_layer_size = 8  # 8 actions
     output_layer_size = 1
+    # Get length of get_memory_block
     policy_kwargs = dict(
         #activation_fn=torch.nn.Hardswish,
         # features_extractor_class=CustomFeatureExtractor,
