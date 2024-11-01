@@ -1178,7 +1178,7 @@ if __name__ == "__main__":
 
     # batch_size = 64
     # https://stackoverflow.com/questions/76076904/in-stable-baselines3-ppo-what-is-nsteps try using whole batch of n_steps as batch size?
-    batch_size = 32
+    batch_size = 128
 
     # n_steps = 2048
 
