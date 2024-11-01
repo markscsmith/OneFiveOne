@@ -484,7 +484,7 @@ class PyBoyEnv(gym.Env):
         ss_anne =[self.pyboy.memory[0xD803] + offset]
         mewtwo = [self.pyboy.memory[0xD85F] + offset]
         opponent_pokemon = self.pyboy.memory[0xCFE6 + offset : 0xCFE7 + offset + 1]
-        sprites = self.get_screen_sprites()
+        # sprites = self.get_screen_sprites()
         
         combined_memory = []
         combined_memory.extend(pokemart)
@@ -502,7 +502,7 @@ class PyBoyEnv(gym.Env):
         combined_memory.extend(ss_anne)
         combined_memory.extend(mewtwo)
         combined_memory.extend(opponent_pokemon)
-        combined_memory.extend(sprites)
+        # combined_memory.extend(sprites)
         
         # convert the screen to a 1d array of booleans for all values over and under 128
         # switch from (144,160,3) to (144,160,1)
@@ -1033,7 +1033,7 @@ def train_model(
 ):
     # first_layer_size = (24 * 359) + 1
     # first_layer_size = 144 * 160 * 4 * 4
-    first_layer_size = 5608 + SPRITE_MAP_END - SPRITE_MAP_START + 1
+    first_layer_size = 5608
     intermediate_layer_size = 1024
     action_layer_size = 8  # 8 actions
     output_layer_size = 1
