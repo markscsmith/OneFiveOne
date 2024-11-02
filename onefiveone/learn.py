@@ -616,15 +616,19 @@ class PyBoyEnv(gym.Env):
 
         # Calculate reward from exploring the game world by counting maps, doesn't need to store counter
         if self.last_player_map != map_id:
+            if map_id not in self.player_maps:
+                travel_reward += 1
+            else:
+                travel_reward += 0.010
             self.player_maps.add(map_id)
-            travel_reward += 1
+            
 
         chunk_id = f"{px}:{py}:{pbx}:{pby}:{map_id}"
 
         visited_score = 0
         if self.last_chunk_id != chunk_id:
             if chunk_id in self.visited_xy:
-                visited_score = -0.005
+                visited_score = 0
             else:
                 self.visited_xy.add(chunk_id)
                 visited_score =  0.050
