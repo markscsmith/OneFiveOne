@@ -399,6 +399,7 @@ class PyBoyEnv(gym.Env):
         self.last_n_memories = []
 
         self.party_exp = [0, 0, 0, 0, 0, 0]
+        self.poke_levels = [0, 0, 0, 0, 0, 0]
         # self.buttons = {
         #     0: (utils.WindowEvent.PASS, "-"),
         #     1: (utils.WindowEvent.PRESS_ARROW_UP, "U"),
@@ -565,7 +566,7 @@ class PyBoyEnv(gym.Env):
         mem_block = self.get_mem_block(offset).copy()
         reward = 0
         old_money = self.money
-        travel_reward = self.travel_reward
+        travel_reward = 0
 
         (
             pokemart,
@@ -588,6 +589,7 @@ class PyBoyEnv(gym.Env):
             self.last_n_memories = [combined_memory] * self.n
         else:
             self.last_n_memories = self.last_n_memories[1:] + [combined_memory]
+        
         self.opponent_party = opponent_pokemon
         self.money = money
         map_id = location[0]
@@ -603,17 +605,19 @@ class PyBoyEnv(gym.Env):
         caught_pokemon_end = self.caught_pokemon_end
         seen_pokemon_start = self.seen_pokemon_start
         # seen_pokemon_end = self.seen_pokemon_end
-
-        # Calculate badge reward total
-        badge_count = sum(bin(badge).count("1") for badge in badges)
-        self.badges = badge_count
-        badge_reward = badge_count * 10
+        # badge_reward = 0
+        # # Calculate badge reward total
+        # badge_count = sum(bin(badge).count("1") for badge in badges)
+        # if badge_count > self.badges:
+        #     self.badges = badge_count
+        #     badge_reward = badge_count * 10
 
         # Calculate reward from flags / missable objects / events
 
         # Calculate reward from exploring the game world by counting maps, doesn't need to store counter
         if self.last_player_map != map_id:
             self.player_maps.add(map_id)
+            travel_reward += 1
 
         chunk_id = f"{px}:{py}:{pbx}:{pby}:{map_id}"
 
@@ -645,9 +649,6 @@ class PyBoyEnv(gym.Env):
             poke_pairs = zip(poke_nums, [new_dex[p] for p in poke_nums])
             self.seen_and_capture_events[self.pyboy.frame_count] = list(poke_pairs)
             self.visited_xy = set()
-            # Special case: if I'm penalized for travelling backwards I should instead be rewarded for new pokemon.
-            if travel_reward < 0:
-                travel_reward = np.abs(travel_reward) * 10
 
         self.pokedex = new_dex
 
@@ -665,10 +666,12 @@ class PyBoyEnv(gym.Env):
                 pokemon_owned,
                 pokemon_seen,
             )
+            reward += (pokemon_owned - last_poke) * 10
             self.last_pokemon_count = pokemon_owned
 
         if pokemon_seen > last_poke_seen:
             self.last_seen_pokemon_count = pokemon_seen
+            reward += (pokemon_seen - last_poke_seen) * 10
 
         self.last_pokemon_count = pokemon_owned
         self.last_seen_pokemon_count = pokemon_seen
@@ -688,7 +691,9 @@ class PyBoyEnv(gym.Env):
 
         opponent_pokemon_total_hp = int.from_bytes(opponent_pokemon, byteorder='big')
         if opponent_pokemon_total_hp > 0 and self.opponent_pokemon_total_hp > opponent_pokemon_total_hp:
-            self.attack_reward += (self.opponent_pokemon_total_hp - opponent_pokemon_total_hp)
+            self.attack_reward = (self.opponent_pokemon_total_hp - opponent_pokemon_total_hp)
+        else:
+            self.attack_reward = 0
             
         self.opponent_pokemon_total_hp = opponent_pokemon_total_hp
         
@@ -710,10 +715,9 @@ class PyBoyEnv(gym.Env):
                 exp_reward = np.abs(poke_total_exp - old_exp) / 100
                 self.total_poke_exp = poke_total_exp
                 # print("Party EXP:", poke_levels, self.party_exp, party_exp_reward)
-        party_exp_reward = self.party_exp_reward
+        
 
-        party_exp_reward += exp_reward
-        party_exp = poke_levels
+        party_exp_reward = exp_reward
         # for poke in party:
         #     upper = int(poke[14]) << 8
         #     lower = int(poke[15])
@@ -724,7 +728,7 @@ class PyBoyEnv(gym.Env):
         #     party_exp_reward += (sum(party_exp) - sum(self.party_exp)) * 10
         #     # self.render()
         #     # print("Party EXP:", party_exp, self.party_exp, party_exp_reward)
-        self.party_exp = party_exp
+        self.poke_levels = poke_levels
 
 
         item_counts = items[1 + 1::2]
@@ -770,16 +774,12 @@ class PyBoyEnv(gym.Env):
         for item, points in new_item_points:
             if item == 0 or item == 255:
                 pass
-            elif item not in self.item_points:
-                self.item_points[item] = points
-                
             else:
-                self.item_points[item] += points
+                self.item_points[item] = points
 
         reward = (
-            (len(self.player_maps) + ((pokemon_owned * 2) * 10 + pokemon_seen * 10))
-            + badge_reward
-            + party_exp_reward / 500
+            
+            party_exp_reward / 500
             + sum(self.item_points.values())
             + travel_reward
             + self.attack_reward
@@ -1093,7 +1093,7 @@ def train_model(
 
     # TODO checkpoints not being saved
 
-    update_freq = n_steps * num_cpu
+    update_freq = n_steps * num_cpu // 4
     # update_freq = n_steps
 
     # callbacks = [current_stats, tbcallback]
@@ -1178,7 +1178,7 @@ if __name__ == "__main__":
 
     # batch_size = 64
     # https://stackoverflow.com/questions/76076904/in-stable-baselines3-ppo-what-is-nsteps try using whole batch of n_steps as batch size?
-    batch_size = 32
+    batch_size = 64
 
     # n_steps = 2048
 
