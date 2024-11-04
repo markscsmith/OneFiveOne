@@ -620,10 +620,10 @@ class PyBoyEnv(gym.Env):
         # Calculate reward from exploring the game world by counting maps, doesn't need to store counter
         if self.last_player_map != map_id:
             if map_id not in self.player_maps:
-                travel_reward += 1
+                travel_reward += 0.02
+                self.player_maps.add(map_id)
             else:
-                travel_reward += 0.010
-            self.player_maps.add(map_id)
+                travel_reward += 0
         
         event_reward = 0
 
@@ -643,7 +643,7 @@ class PyBoyEnv(gym.Env):
                 visited_score = 0
             else:
                 self.visited_xy.add(chunk_id)
-                visited_score =  0.050
+                visited_score =  0.0
 
         self.last_chunk_id = chunk_id
 
@@ -665,6 +665,7 @@ class PyBoyEnv(gym.Env):
             poke_pairs = zip(poke_nums, [new_dex[p] for p in poke_nums])
             self.seen_and_capture_events[self.pyboy.frame_count] = list(poke_pairs)
             self.visited_xy = set()
+            self.player_maps = set()
 
         self.pokedex = new_dex
 
@@ -796,7 +797,7 @@ class PyBoyEnv(gym.Env):
         item_points = sum(self.item_points.values())
         self.total_item_points += item_points
 
-        reward = (
+        reward += (
             
             party_exp_reward / 500
             + item_points
