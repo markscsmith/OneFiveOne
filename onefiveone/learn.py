@@ -396,6 +396,7 @@ class PyBoyEnv(gym.Env):
         self.travel_reward = 0
         self.attack_reward = 0
         self.flags = []
+        self.flag_score = 0
 
         self.last_memory_update_frame = 0
         self.current_memory = None
@@ -473,6 +474,31 @@ class PyBoyEnv(gym.Env):
         # size = MEM_START MEM_END + 2
 
     def get_mem_block(self, offset):
+
+        event_addresses = [
+                            0xD5AB, # Starters Back?
+                            0xD5C0, # 0=Mewtwo appears, 1=Doesn't (See D85F)
+                            0xD5F3, # Have Town map?
+                            0xD60D, # Have Oak's Parcel?
+                            0xD710, # Fossilized Pokémon?
+                            0xD72E, # Did you get Lapras Yet?
+                            0xD751, # Fought Giovanni Yet?
+                            0xD755, # Fought Brock Yet?
+                            0xD75E, # Fought Misty Yet?
+                            0xD773, # Fought Lt. Surge Yet?
+                            0xD77C, # Fought Erika Yet?
+                            0xD782, # Fought Articuno Yet?
+                            0xD792, # Fought Koga Yet?
+                            0xD79A, # Fought Blaine Yet?
+                            0xD7B3, # Fought Sabrina Yet?
+                            0xD7D4, # Fought Zapdos Yet?
+                            0xD7D8, # Fought Snorlax Yet (Vermilion)
+                            0xD7E0, # Fought Snorlax Yet? (Celadon)
+                            0xD7EE, # Fought Moltres Yet?
+                            0xD803, # Is SS Anne here?
+                            0xD85F, # Mewtwo can be caught if bit 2 clear # Needs D5C0 bit 1 clear, too
+                            ]
+
         pokemart = self.pyboy.memory[0xCF7B + offset:0xCF85 + offset + 1]
         my_pokemon = self.pyboy.memory[0xD16B + offset : 0xD272 + offset + 1]
         pokedex = self.pyboy.memory[0xD2F7 + offset : 0xD31C + offset + 1]
@@ -484,7 +510,7 @@ class PyBoyEnv(gym.Env):
         stored_items = self.pyboy.memory[0xD53A + offset:0xD59F + offset + 1]
         coins = self.pyboy.memory[0xD5A4 + offset: 0xD5A5 + offset + 1]
         missable_object_flags = self.pyboy.memory[0xD5A6 + offset: 0xD5C5 + offset + 1]
-        event_flags = self.pyboy.memory[0xD72E + offset: 0xD7EE + offset + 1]
+        event_flags = [self.pyboy.memory[address + offset] for address in event_addresses]
         ss_anne =[self.pyboy.memory[0xD803] + offset]
         mewtwo = [self.pyboy.memory[0xD85F] + offset]
         opponent_pokemon = self.pyboy.memory[0xCFE6 + offset : 0xCFE7 + offset + 1]
@@ -592,6 +618,8 @@ class PyBoyEnv(gym.Env):
             self.last_n_memories = [combined_memory] * self.n
         else:
             self.last_n_memories = self.last_n_memories[1:] + [combined_memory]
+
+        
         
         self.opponent_party = opponent_pokemon
         self.money = money
@@ -627,13 +655,17 @@ class PyBoyEnv(gym.Env):
         
         event_reward = 0
 
-        if len(self.flags) == 0:
-            self.flags = event_flags
+        if len(self.flags) == 0 or sum(self.flags) == 0:
+            self.flags = event_flags + missable_object_flags
         else:
-            flag_diff = diff_flags(self.flags, event_flags)
+            flag_diff = diff_flags(self.flags, event_flags + missable_object_flags)
             if len(flag_diff) > 0:
-                self.flags = event_flags
                 event_reward += 1 * len(flag_diff)
+                self.flags = event_flags + missable_object_flags
+                self.flag_score += event_reward
+        
+
+        
 
         chunk_id = f"{px}:{py}:{pbx}:{pby}:{map_id}"
 
@@ -803,6 +835,7 @@ class PyBoyEnv(gym.Env):
             + item_points
             + travel_reward
             + attack_reward
+            + event_reward
         )
 
         if old_money is not None and old_money != money:
@@ -859,9 +892,9 @@ class PyBoyEnv(gym.Env):
             game_time_string = f"{clock_faces[game_hours % 12]} {game_hours:02d}:{game_minutes % 60:02d}:{game_seconds % 60:02d}"
             image_string = self.renderer.to_string(Ansi24HblockMethod)
             if target_index is not None:
-                render_string = f"{image_string}🧳 {self.episode} 🧠: {target_index:2d} 🥾 {self.step_count:10d} 🟢 {self.last_pokemon_count:3d} 👀 {self.last_seen_pokemon_count:3d} 🎒 {sum(self.item_points.values()):3d} 🌎 {len(self.visited_xy):3d}:{len(self.player_maps):3d} 🏆 {self.total_reward:7.2f} 💪 {self.party_exp_reward:7.2f} 🥊 {self.attack_reward:7d} 💰 {self.money:7d} \n[{self.last_player_x:3d},{self.last_player_y:3d},{self.last_player_x_block:3d},{self.last_player_y_block:3d}], 🗺️: {self.last_player_map:3d} Actions {' '.join(self.actions[-6:])} 🎉 {self.poke_levels} 🎬 {self.frames:6d} {game_time_string} {len(self.actions)}"
+                render_string = f"{image_string}🧳 {self.episode} 🧠: {target_index:2d} 🥾 {self.step_count:10d} 🟢 {self.last_pokemon_count:3d} 👀 {self.last_seen_pokemon_count:3d} 🎒 {self.total_item_points:3d} 🌎 {len(self.visited_xy):3d}:{len(self.player_maps):3d} 🏆 {self.total_reward:7.2f} 💪 {self.party_exp_reward:7.2f} 🥊 {self.attack_reward:7d} 💰 {self.money:7d} 📫 {self.flag_score} \n[{self.last_player_x:3d},{self.last_player_y:3d},{self.last_player_x_block:3d},{self.last_player_y_block:3d}], 🗺️: {self.last_player_map:3d} Actions {' '.join(self.actions[-6:])} 🎉 {self.poke_levels} 🎬 {self.frames:6d} {game_time_string} {len(self.actions)}"
             else:
-                render_string = f"{image_string}🧳 {self.episode} 🛠️: {self.emunum:2d} 🥾 {self.step_count:10d} 🟢 {self.last_pokemon_count:3d} 👀 {self.last_seen_pokemon_count:3d} 🎒 {sum(self.item_points.values()):3d} 🌎 {len(self.visited_xy):3d}:{len(self.player_maps):3d} 🏆 {self.total_reward:7.2f} 💪 {self.party_exp_reward:7.2f} 🥊 {self.attack_reward:7d}💰 {self.money:7d} \n[{self.last_player_x:3d},{self.last_player_y:3d},{self.last_player_x_block:3d},{self.last_player_y_block:3d}], 🗺️: {self.last_player_map:3d} Actions {' '.join(self.actions[-6:])} 🎉 {self.poke_levels} 🎬 {self.frames:6d} {len(self.actions)}"
+                render_string = f"{image_string}🧳 {self.episode} 🛠️: {self.emunum:2d} 🥾 {self.step_count:10d} 🟢 {self.last_pokemon_count:3d} 👀 {self.last_seen_pokemon_count:3d} 🎒 {self.total_item_points:3d} 🌎 {len(self.visited_xy):3d}:{len(self.player_maps):3d} 🏆 {self.total_reward:7.2f} 💪 {self.party_exp_reward:7.2f} 🥊 {self.attack_reward:7d}💰 {self.money:7d} 📫 {self.flag_score} \n[{self.last_player_x:3d},{self.last_player_y:3d},{self.last_player_x_block:3d},{self.last_player_y_block:3d}], 🗺️: {self.last_player_map:3d} Actions {' '.join(self.actions[-6:])} 🎉 {self.poke_levels} 🎬 {self.frames:6d} {len(self.actions)}"
 
             return render_string
 
@@ -960,6 +993,8 @@ class PyBoyEnv(gym.Env):
         self.opponent_pokemon_total_hp = 0
         self.attack_reward = 0
         self.total_reward = 0
+        self.flag_score = 0
+        self.flags = []
         self.pyboy = PyBoy(
             self.game_path,
             window="null",
