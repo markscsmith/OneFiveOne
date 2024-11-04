@@ -374,6 +374,7 @@ class PyBoyEnv(gym.Env):
         self.last_total_items = 0
         self.last_items = []
         self.item_points = {}
+        self.total_item_points = 0
         self.opponent_party = []
         self.total_reward = 0
 
@@ -394,6 +395,7 @@ class PyBoyEnv(gym.Env):
         self.seen_and_capture_events = {}
         self.travel_reward = 0
         self.attack_reward = 0
+        self.flags = []
 
         self.last_memory_update_frame = 0
         self.current_memory = None
@@ -622,7 +624,16 @@ class PyBoyEnv(gym.Env):
             else:
                 travel_reward += 0.010
             self.player_maps.add(map_id)
-            
+        
+        event_reward = 0
+
+        if len(self.flags) == 0:
+            self.flags = event_flags
+        else:
+            flag_diff = diff_flags(self.flags, event_flags)
+            if len(flag_diff) > 0:
+                self.flags = event_flags
+                event_reward += 1 * len(flag_diff)
 
         chunk_id = f"{px}:{py}:{pbx}:{pby}:{map_id}"
 
@@ -782,10 +793,13 @@ class PyBoyEnv(gym.Env):
             else:
                 self.item_points[item] = points
 
+        item_points = sum(self.item_points.values())
+        self.total_item_points += item_points
+
         reward = (
             
             party_exp_reward / 500
-            + sum(self.item_points.values())
+            + item_points
             + travel_reward
             + attack_reward
         )
@@ -974,6 +988,7 @@ class PyBoyEnv(gym.Env):
         self.last_player_y = 0
         self.last_player_x_block = 0
         self.last_player_y_block = 0
+        self.total_item_points = 0
 
         # self.last_n_frames = [self.pyboy.memory[MEM_START:MEM_END].copy() for _ in range(self.n)]
         # screen = self.pyboy.memory[MEM_START:MEM_END].copy()
@@ -1187,11 +1202,11 @@ if __name__ == "__main__":
 
     # batch_size = 64
     # https://stackoverflow.com/questions/76076904/in-stable-baselines3-ppo-what-is-nsteps try using whole batch of n_steps as batch size?
-    batch_size = 64
+    batch_size = 128
 
     # n_steps = 2048
 
-    n_steps = 1024
+    n_steps = 2048
     # total_steps = n_steps * 1024 * 6
     # total_steps = (
     #     60 * 60 * (60 // (PRESS_FRAMES + RELEASE_FRAMES))
