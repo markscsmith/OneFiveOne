@@ -961,8 +961,6 @@ class PyBoyEnv(gym.Env):
             "badges": self.badges,
         }
 
-        
-
         return observation, reward, terminated, truncated, info
 
     def set_episode(self, episode):
@@ -1049,11 +1047,11 @@ class PyBoyEnv(gym.Env):
         return observation, {"seed": seed}
 
 
-def make_env(game_path, emunum, max_frames=500_000, device="cpu"):
+def make_env(game_path, emunum, max_frames=500_000, device="cpu", state_file=None):
     def _init():
-        if os.path.exists(game_path + ".state"):
+        # TODO: Add a parameter to allow choosing whether or not to load a state file
+        if state_file is not None and os.path.exists(state_file):
             print(f"Loading state {game_path}.state")
-
             if CGB:
                 ext = ".state"
             else:
@@ -1068,7 +1066,7 @@ def make_env(game_path, emunum, max_frames=500_000, device="cpu"):
             )
             new_env.pyboy.load_state(open(game_path + ext, "rb"))
         else:
-            print(f"Error: No state file found for {game_path}.state")
+            
             new_env = PyBoyEnv(
                 game_path,
                 emunum=emunum,
@@ -1217,6 +1215,7 @@ if __name__ == "__main__":
     # TODO: be "quiet" when parameters are passed and work as expected, but "chatty" when the parameter is skipped and the application is doing "defaulty" things.
     # TODO: DIRECTORY CLEANUP INCLUDING LOGROTATINON.
     parser.add_argument("--game_path", type=str, default="/home/mscs/PokemonYellow.gb")
+    parser.add_argument("--state_file", type=str, default=None)
     # TODO: fix multi-host model merge.  Can we train across multiple instances of the same cart? Can we train across DIFFERENT pokemon carts?
     # TODO: Expirement: If we can train on DIFFERENT pokemon carts, can we train on multiple GB games at a time and build a generally good base "gameboy game" model for training specific games?
 
@@ -1254,8 +1253,8 @@ if __name__ == "__main__":
 
     # hours of play
     hours = 4
-    
-    
+
+
     # each step is (PRESS_FRAMES + RELEASE_FRAMES) frames long, at 60fps.  
     seconds = hours * 64 * 64
     total_steps = seconds * (60 // (PRESS_FRAMES + RELEASE_FRAMES)) * num_cpu
@@ -1266,7 +1265,7 @@ if __name__ == "__main__":
     else:
         run_env = SubprocVecEnv(
             [
-                make_env(args.game_path, emunum, device=device)
+                make_env(args.game_path, emunum, device=device, state_file=args.state_file)
                 for emunum in range(num_cpu)
             ]
         )
