@@ -7,15 +7,13 @@
   </tr>
 </table>
 
+### Can I build an AI to catch 'em all?
+
 In the example above, running OneFiveOne using three [BennVenn Joey Jr. V2++](https://bennvenn.myshopify.com/products/usb-gb-c-cart-dumper-the-joey-jr) cartridge adapters to run Pokemon Red, Yellow, and Blue from their respective cartridges.
 
 ### Ahead of its time, or just ahead of mine?
 
-In the U.S. releases of the original Pokémon games for the Nintendo Gameboy, there are 150 normally catchable pokemon spread across the 2 (and eventually 3) games:
-
-Pokémon Red
-Pokémon Blue
-Pokémon Yellow
+In the U.S. releases of the original Pokémon games for the Nintendo Gameboy, there are 150 normally catchable pokemon spread across the 2 (and eventually 3) games: Pokémon Red, Pokémon Blue, and Pokémon Yellow.  Each version had a different set of Pokémon that you could (and could not!) catch.  Pokemon Yellow came later, and added extra Pikachu-specific features to more closely align with the TV show.
 
 However, it was rare in my circle of friends for someone to have all three of 
 1) a gameboy
