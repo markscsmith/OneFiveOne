@@ -1,11 +1,9 @@
 # OneFiveOne: AI + Pokémon = Nostalgia
 
-<table>
-  <tr>
-    <td><img src="docs/assets/demo.gif" alt="Demo" height="300px"></td>
-    <td><img src="docs/assets/carts.jpeg" alt="Carts" height="300px"></td>
-  </tr>
-</table>
+<div style="display: flex; align-items: center;">
+  <img src="docs/assets/demo.gif" alt="Demo" style="height: 300px; flex: 1; margin-right: 10px;">
+  <img src="docs/assets/carts.jpeg" alt="Carts" style="height: 300px; flex: 1;">
+</div>
 
 In the example above, running OneFiveOne using three [BennVenn Joey Jr. V2++](https://bennvenn.myshopify.com/products/usb-gb-c-cart-dumper-the-joey-jr) cartridge adapters to run Pokemon Red, Yellow, and Blue from their respective cartridges.
 
