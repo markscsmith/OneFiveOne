@@ -1222,10 +1222,10 @@ if __name__ == "__main__":
     # TODO: Visual gif of map as it exapnds over time, with frames of the game as it is played, so the map is faded gray in the spot the AI isn't currently at.  Should be updated in frame order.  BIG PROJECT.
     # TODO: 5529600 frames is roughly 10 seconds of gametime (144h * 160w * 24fps * 10) and about 5.2mb of data. 10m of data is about 317MB. Math OK? 144 * 160 * 24 * 60 * 10 / 1024 / 1024
     parser.add_argument("--output_dir", type=str, default="ofo")
-    parser.add_argument("--num_hosts", type=int, default=1)
+    parser.add_argument("--num_envs", type=int, default=NUM_CPU)
     args = parser.parse_args()
 
-    num_cpu = NUM_CPU
+    num_cpu = args.num_envs
 
     run_env = None
     # max_frames = PRESS_FRAMES + RELEASE_FRAMES * runsteps
