@@ -2,10 +2,8 @@
 
 <table>
 <tr>
-<div style="display: flex; align-items: center;">
   <img src="docs/assets/demo.gif" alt="Demo" style="height: 300px; flex: 1; margin-right: 10px;">
   <img src="docs/assets/carts.jpeg" alt="Carts" style="height: 300px; flex: 1;">
-</div>
 </tr>
 </table>
 
