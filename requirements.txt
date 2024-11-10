@@ -8,7 +8,7 @@ Pillow
 pyboy>=2.0.0
 scipy
 Shimmy
-stable-baselines3==2.2.1
+stable-baselines3==2.3.2
 tensorboard
 tensorflow
 timg
