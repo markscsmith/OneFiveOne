@@ -2,7 +2,7 @@
 
 <table>
   <tr>
-    <td><img src="docs/assets/demo.gif" alt="Demo" height="300px"></td>
+    <td><img src="docs/assets/demo.gif" alt="Demo" height="300px" width=533px></td>
     <td><img src="docs/assets/carts.jpeg" alt="Carts" height="300px" width="220px"></td>
   </tr>
 </table>
