@@ -42,7 +42,9 @@ class PyBoyEnv(gym.Env):
     ):
         super(PyBoyEnv, self).__init__()
         
+        # Configuring the emulator environment
         self.game_path = game_path
+        self.save_state_path = save_state_path
 
         self.renderer = Renderer()
         self.cart = PokeCart(open(self.game_path, "rb").read())
@@ -50,12 +52,11 @@ class PyBoyEnv(gym.Env):
 
         self.cgb = cgb
         
-        # Configuring the emulator environment
+        # Configuring the details of this instance of the emulator environment
         self.n = 8  # number of frames to store in the observation space
         self.emunum = emunum
         self.device = device
         self.episode = episode
-        self.save_state_path = save_state_path
 
         # Format the datetime as a string suitable for a Unix filename
         current_datetime = datetime.datetime.now()
@@ -96,17 +97,17 @@ class PyBoyEnv(gym.Env):
         
 
         self.actions = None # Actions pressed in this episode (string)
-        self.party_exp_reward = None # Total reward given for party exp
         self.last_pokemon_count = None # Last count of pokemon caught
         self.last_seen_pokemon_count = None # Last count of pokemon seen
         self.seen_and_capture_events = None # List of seen and captured pokemon and when they occured
 
         # Score data
         self.flag_score = None # Total reward given for flags
-        self.total_poke_exp = None # Total reward given for party exp
+        
+        self.party_exp_reward = None # Total reward given for party exp
         self.total_travel_reward = None # Total reward given for travel
         self.attack_reward = None # Total reward given damage done to opponent pokemon
-
+        
         self.total_reward = None # Tracking total reward accumulated this run
 
         
@@ -121,7 +122,6 @@ class PyBoyEnv(gym.Env):
         self.last_chunk_id = None # Last chunk of visited XY coordinates
         
         # Player data
-        self.my_pokemon = None
         self.money = None # Current money in wallet
         self.pokedex = None
         
@@ -134,54 +134,16 @@ class PyBoyEnv(gym.Env):
         self.last_carried_item_total = None
         self.last_stored_item_total = None
 
+        # Pokemon Data
+        self.total_poke_exp = None # Total exp across pokemon in party
+
         # Opponent data
         self.opponent_pokemon_total_hp = None # total amount of damage done to opponent pokemon
 
     def reset(self, seed=0, **kwargs):
         super().reset(seed=seed, **kwargs)
-        # TODO: Issue 10, ensure reset captures all critical variables as well
-        # Variables here have been found in __init__ but not reset:
-        self.last_seen_pokemon_count = 0
-        self.last_carried_item_total = 0
-        self.last_stored_item_total = 0
-        self.seen_and_capture_events = {}
-        self.last_n_memories = []
-
-        # Variables below were already here:
-
-        
-        self.last_total_items = 0
-        self.last_items = []
-        self.item_points = {}
-        self.total_travel_reward = 0
-        self.last_chunk_id = None
-        self.total_poke_exp = 0
-        self.party_exp_reward = 0
-        
-        self.poke_levels = [0, 0, 0, 0, 0, 0]
-        self.step_count = 0
-        self.visited_xy = set()
-        self.player_maps = set()
-        self.last_player_x = 0
-        self.last_player_y = 0
-        self.last_player_x_block = 0
-        self.last_player_y_block = 0
-        
-        self.money = None
-        self.pokedex = "-" * 151
-        self.opponent_pokemon_total_hp = 0
-        self.attack_reward = 0
-        self.total_reward = 0
-        self.flag_score = 0
-        self.flags = []
-        self.pyboy = PyBoy(
-            self.game_path,
-            window="null",
-            cgb=self.cgb,
-            log_level="CRITICAL",
-        )
-        
-
+    
+        self.pyboy.game_wrapper.reset_game()
         if self.save_state_path is not None:
             self.pyboy.load_state(open(self.save_state_path, "rb"))
         else:
@@ -189,20 +151,63 @@ class PyBoyEnv(gym.Env):
                 f"No state file. Starting from title screen.",
                 file=sys.stderr,
             )
+        # Tracking variables for progress
+        self.frames = 0
+        self.step_count = 0
+        self.flags = []
+
+        self.last_n_memories = []
+        self.poke_levels = [0, 0, 0, 0, 0, 0]
+
 
         self.actions = ""
         self.last_pokemon_count = 0
-        self.frames = 0
+        self.last_seen_pokemon_count = 0
+        self.seen_and_capture_events = {}
+        
+
+        # Score Data
+        self.flag_score = 0
+
+        self.party_exp_reward = 0
+        self.total_travel_reward = 0
+        self.attack_reward = 0
+
+        self.total_reward = 0
+        
+        # Player Location Data
         self.last_player_x = 0
         self.last_player_y = 0
         self.last_player_x_block = 0
         self.last_player_y_block = 0
-        self.total_item_points = 0
+        self.last_player_map = 0
+        self.visited_xy = set()
+        self.player_maps = set()
+        self.last_chunk_id = None
 
+        # Player Data
+        self.money = 0
+        self.pokedex = "-" * 151
+
+        # Item Data
+        self.last_total_items = 0
+        self.last_items = []
+        self.item_points = {}
+        self.total_item_points = 0
+        self.last_carried_item_total = 0
+        self.last_stored_item_total = 0
+
+
+        # Pokemon Data
+        self.total_poke_exp = 0
+        
+        # Opponent Data
+        self.opponent_pokemon_total_hp = 0
 
         _, observation = self.calculate_reward()
 
         return observation, {"seed": seed}
+
 
     def step(self, action):
         self.step_count += 1
