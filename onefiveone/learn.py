@@ -336,6 +336,12 @@ if __name__ == "__main__":
 
     parser.add_argument("--output_dir", type=str, default="ofo")
     parser.add_argument("--num_envs", type=int, default=NUM_CPU)
+
+    parser.add_argument("--episodes", type=int, default=16)
+    parser.add_argument("--batch_size", type=int, default=128)
+    parser.add_argument("--n_steps", type=int, default=2048)
+    parser.add_argument("--hours", type=float, default=4)
+
     args = parser.parse_args()
 
     num_cpu = args.num_envs
@@ -345,15 +351,15 @@ if __name__ == "__main__":
     # TODO: Various hyperparameter tuning:
     # https://stackoverflow.com/questions/76076904/in-stable-baselines3-ppo-what-is-nsteps try using whole batch of n_steps as batch size?
 
-    episodes = 16
+    episodes = args.episodes
 
-    batch_size = 128
+    batch_size = args.batch_size
 
-    n_steps = 2048
+    n_steps = args.n_steps
 
     # approximate hours of play according to in-game timer per env per episode
     # (certain actions stop the in-game timer)
-    hours = 4
+    hours = args.hours
 
 
     # each step is (PRESS_FRAMES + RELEASE_FRAMES) frames long, at 60fps.  
