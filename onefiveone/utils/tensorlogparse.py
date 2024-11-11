@@ -10,83 +10,11 @@ import glob
 from tqdm import tqdm
 from pyboy import PyBoy
 
-CGB = False
-PRESS_FRAMES = 5
-RELEASE_FRAMES = 10
+from ..emulator.pyboy_env import PyBoyEnv
 
-def emulate_game(action_chunk, game_path="PokemonRed.gb"):
-    pb = PyBoy(game_path, window_type="headless")
-    buttons = {
-        0: ("", "-"),
-        1: ("up", "U"),
-        2: ("down", "D"),
-        3: ("left", "L"),
-        4: ("right", "R"),
-        5: ("a", "A"),
-        6: ("b", "B"),
-        7: ("start", "S"),
-    }
-    
-    offset = -1 if game_path == "PokemonYellow.gb" else 0
-    
-    caught_pokemon_start = 0xD2F7 + offset
-    caught_pokemon_end = 0xD309 + 1 + offset
-    seen_pokemon_start = 0xD30A + offset
-    seen_pokemon_end = 0xD31C + 1 + offset
-    
-    button_map = {v[1]: v[0] for k, v in buttons.items()}
-    ext = ".state" if CGB else ".ogb_state"
-    save_state_path = f"{game_path}{ext}"
-    
-    pb.load_state(open(save_state_path, "rb"))
-    pb.set_emulation_speed(0)
-    
-    print("action_check", len(action_chunk))
-    env, step, actions, rew, caught, seen = action_chunk
-    
-    def get_pokedex_status_string(data_seen, data_owned):
-        def get_status(data, poke_num):
-            byte_index = poke_num // 8
-            bit_index = poke_num % 8
-            return (data[byte_index] >> bit_index) & 1
-        
-        status_string = ""
-        for poke_num in range(151):
-            seen = get_status(data_seen, poke_num)
-            owned = get_status(data_owned, poke_num)
-            if owned and seen:
-                status_string += 'O'
-            elif seen:
-                status_string += 'S'
-            elif owned:
-                status_string += '?'
-            else:
-                status_string += '-'
-        return status_string
-    
-    for action in tqdm(actions):
-        button = button_map[action]
-        if action != "-":
-            pb.button_press(button)
-        for _ in range(PRESS_FRAMES):
-            pb.tick()
-        if action != "-":
-            pb.button_release(button)
-        for _ in range(RELEASE_FRAMES):
-            pb.tick()
-        
-        caught_pokedex = list(pb.memory[caught_pokemon_start:caught_pokemon_end])
-        seen_pokedex = list(pb.memory[seen_pokemon_start:seen_pokemon_end])
-        
-        pokedex_status_string = get_pokedex_status_string(seen_pokedex, caught_pokedex)
-        
-        print("Caught Pokédex:", caught_pokedex)
-        print("Seen Pokédex:", seen_pokedex)
-        print("Pokédex Status String:", pokedex_status_string)
-        print(pb.frame_count, action, pokedex_status_string)
-    
-    pb.stop()
-    del pb
+CGB = False
+PRESS_FRAMES = 10
+RELEASE_FRAMES = 20
 
 
 def extract_tensorboard_data(
@@ -197,6 +125,9 @@ def extract_action_data(
 
 
 if __name__ == "__main__":
+
+    round = 0
+    print("Usage: python3 -m onefiveone.utils.tensorlogparse --log_dir ofo/")
     parser = argparse.ArgumentParser(description="Extract and print TensorBoard data.")
     parser.add_argument(
         "--log_dir", type=str, help="Path to the TensorBoard log directory"
@@ -237,7 +168,61 @@ if __name__ == "__main__":
             to_emulate, key=lambda x: float(x[3].split("=")[-1]), reverse=True
         )
         for item in to_emulate:
+            round += 1
+            frames = []
             print(item)
-            emulate_game(item, args.rom)
+            env = PyBoyEnv(args.rom, emunum=0, cgb=CGB)
+            env.reset()
+            buttons = {
+                0: ("", "-"),
+                1: ("up", "U"),
+                2: ("down", "D"),
+                3: ("left", "L"),
+                4: ("right", "R"),
+                5: ("a", "A"),
+                6: ("b", "B"),
+                7: ("start", "S"),
+                }
+            
+            buttons_to_action_map = {
+                "-": 0,
+                "U": 1,
+                "D": 2,
+                "L": 3,
+                "R": 4,
+                "A": 5,
+                "B": 6,
+                "S": 7,
+            }
+            max_frame = len(item[2])
+            curr_frame = 0
+            for action in tqdm(item[2]):
+                curr_frame += 1
+                button = buttons_to_action_map[action]
+                env.step(button)
+                image = env.render_screen_image(target_index=0, frame=curr_frame, max_frame=max_frame, action=action)
+                frames.append(image.copy())
+                # Save the list of frame PIL images as a gif
+            print("There are", len(frames), "frames.")
+            # frames[0].save(
+            #     "output.gif",
+            #     save_all=True,
+            #     append_images=frames[1:],
+            #     duration=len(frames) // 60,
+            #     loop=0,
+            
+            # )
+            # output gifs in blocks of 128 steps
+            frames[0].save(
+                    f"gif/output_{round}.gif",
+                    save_all=True,
+                    format="GIF",
+                    append_images=frames[1:],
+                    duration=1,
+                    loop=0,
+                )
+    
     else:
         print(f"The directory {args.log_dir} does not exist.")
+
+
