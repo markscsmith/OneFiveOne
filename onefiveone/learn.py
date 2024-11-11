@@ -286,7 +286,7 @@ def train_model(
 
         print(f"Checkpoint path: {checkpoint_file_path}")
         checkpoint_callback = CheckpointCallback(
-            save_freq=total_steps // (NUM_CPU * 2),
+            save_freq=total_steps // (num_cpu * 2),
             save_path=f"{checkpoint_file_path}",
             name_prefix="poke",
             verbose=2,

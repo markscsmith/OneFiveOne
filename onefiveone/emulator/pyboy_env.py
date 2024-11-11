@@ -41,31 +41,23 @@ class PyBoyEnv(gym.Env):
         super(PyBoyEnv, self).__init__()
         self.pyboy = PyBoy(game_path, window="null", cgb=cgb, log_level="CRITICAL")
         self.game_path = game_path
-        self.menu_value = None
         self.n = 8  # number of frames to store
-        self.screen_image = np.copy(self.pyboy.screen.ndarray)
-        self.last_n_frames = [self.screen_image] * self.n
+        
         self.renderer = Renderer()
         self.cgb = cgb
         self.actions = ""
-        self.reset_unlocked = False
 
         self.cart = PokeCart(open(game_path, "rb").read())
         offset = self.cart.cart_offset()
-        self.caught_pokemon_start = 0xD2F7 + offset
-        self.caught_pokemon_end = 0xD309 + 1 + offset
-        self.seen_pokemon_start = 0xD30A + offset
-        self.seen_pokemon_end = 0xD31C + 1 + offset
-        self.player_x_mem = 0xD361 + offset
-        self.player_y_mem = 0xD362 + offset
-        self.player_x_block_mem = 0xD363 + offset
-        self.player_y_block_mem = 0xD364 + offset
-        self.player_map_mem = 0xD35E + offset
-        self.party_exp_reward = 0
-        self.seen_events = set()
+
+        # Pokedex memory locations
+
+        self.party_exp_reward = None
+
         self.emunum = emunum
         self.save_state_path = save_state_path
-        self.visited_xy = set()
+        
+        self.visited_xy = None
         self.last_score = 0
         self.last_pokemon_count = 0
         self.last_seen_pokemon_count = 0
@@ -80,7 +72,6 @@ class PyBoyEnv(gym.Env):
         self.step_count = 0
         self.backtrack_reward = 0
         self.last_chunk_id = None
-        self.screen_image = None
         self.money = None
         self.total_poke_exp = None
         self.last_total_items = 0
@@ -139,10 +130,10 @@ class PyBoyEnv(gym.Env):
         size = 1327
 
     
-        block = self.calculate_reward()[-1]
+        block = self.get_mem_block(offset=offset)[-1]
 
         self.observation_space = Box(
-            low=0, high=255, shape=(self.n, len(block[-1])), dtype=np.uint8
+            low=0, high=255, shape=(self.n, len(block)), dtype=np.uint8
         )
         self.observation_space
 
@@ -293,10 +284,6 @@ class PyBoyEnv(gym.Env):
 
         self.my_pokemon = my_pokemon
 
-        caught_pokemon_start = self.caught_pokemon_start
-        caught_pokemon_end = self.caught_pokemon_end
-        seen_pokemon_start = self.seen_pokemon_start
- 
         # Calculate reward from exploring the game world by counting maps, doesn't need to store counter
         if self.last_player_map != map_id:
             if map_id not in self.player_maps:
@@ -324,20 +311,25 @@ class PyBoyEnv(gym.Env):
         visited_score = 0
         if self.last_chunk_id != chunk_id:
             if chunk_id in self.visited_xy:
-                visited_score = 0
+                # TODO: restore negative and positive rewards for visiting new chunks and revisiting cold ones
+                # Targeted for after issue #10 is resolved.
+                # visited_score = -0.1
+                pass
             else:
                 self.visited_xy.add(chunk_id)
-                visited_score =  0.0
+                # visited_score =  0.1
+                pass
 
         self.last_chunk_id = chunk_id
 
         travel_reward += visited_score
 
         # convert binary chunks into a single string
+        dex_blocks = 19 # (152 possible bloocks, but only 151 pokemon.)
 
         full_dex = pokedex
-        caught_pokedex = list(full_dex[: caught_pokemon_end - caught_pokemon_start])
-        seen_pokedex = list(full_dex[seen_pokemon_start - caught_pokemon_start :])
+        caught_pokedex = list(full_dex[:dex_blocks])
+        seen_pokedex = list(full_dex[dex_blocks:])
         self.seen_pokedex = seen_pokedex
         self.caught_pokedex = caught_pokedex
         last_dex = self.pokedex
@@ -474,7 +466,7 @@ class PyBoyEnv(gym.Env):
 
             reward += np.abs(money - old_money) / money_divider
 
-        self.party_exp_reward += party_exp_reward
+        self.party_exp_reward += party_exp_reward / 500
         self.travel_reward = travel_reward
 
         self.last_player_x = px
@@ -579,7 +571,6 @@ class PyBoyEnv(gym.Env):
         self.last_player_y = 0
         self.last_player_x_block = 0
         self.last_player_y_block = 0
-        self.menu_value = 0
         self.money = None
         self.pokedex = "-" * 151
         self.opponent_pokemon_total_hp = 0
@@ -595,10 +586,6 @@ class PyBoyEnv(gym.Env):
         )
         self.opponent_party = []
 
-        self.screen_image = np.copy(self.pyboy.screen.ndarray)
-
-        self.last_n_frames = [self.screen_image] * self.n
-
         if self.save_state_path is not None:
             self.pyboy.load_state(open(self.save_state_path, "rb"))
         else:
@@ -608,7 +595,6 @@ class PyBoyEnv(gym.Env):
             )
 
         self.actions = ""
-        self.visited_xy = set()
         self.last_score = 0
         self.last_pokemon_count = 0
         self.frames = 0
