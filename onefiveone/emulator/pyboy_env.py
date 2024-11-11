@@ -20,6 +20,8 @@ import hashlib
 from pyboy import PyBoy
 
 
+# This allows the bot to press a button and wait for the game state to "settle" before pressing another button.
+# 30 frames seems to be a good balance between throughput of the game and allowing the AI to still progress quickly.
 PRESS_FRAMES = 10 # Press button for this many frames
 RELEASE_FRAMES = 20 # Wait this many frames before pressing again
 
@@ -39,65 +41,37 @@ class PyBoyEnv(gym.Env):
         **kwargs,
     ):
         super(PyBoyEnv, self).__init__()
-        self.pyboy = PyBoy(game_path, window="null", cgb=cgb, log_level="CRITICAL")
-        self.game_path = game_path
-        self.n = 8  # number of frames to store
         
+        self.game_path = game_path
+
         self.renderer = Renderer()
+        self.cart = PokeCart(open(self.game_path, "rb").read())
+        self.pyboy = PyBoy(self.game_path, window="null", cgb=cgb, log_level="CRITICAL")
+
         self.cgb = cgb
-        self.actions = ""
-
-        self.cart = PokeCart(open(game_path, "rb").read())
-        offset = self.cart.cart_offset()
-
+        
+        # Configuring the emulator environment
+        self.n = 8  # number of frames to store in the observation space
         self.emunum = emunum
         self.device = device
         self.episode = episode
         self.save_state_path = save_state_path
 
-        # Tracking variabels for progress
-        self.party_exp_reward = None
+        # Format the datetime as a string suitable for a Unix filename
+        current_datetime = datetime.datetime.now()
+        self.filename_datetime = current_datetime.strftime("%Y-%m-%d_%H-%M-%S")
         
-        self.visited_xy = None
-        self.last_pokemon_count = None
-        self.last_seen_pokemon_count = None
-        self.frames = None
-        self.last_player_x = None
-        self.last_player_y = None
-        self.last_player_x_block = None
-        self.last_player_y_block = None
-        self.last_player_map = None
-        self.my_pokemon = None
-        self.step_count = None
-        self.last_chunk_id = None
-        self.money = None # Current money in wallet
-        self.total_poke_exp = None # Total reward given for party exp
-        self.last_total_items = None
-        self.last_items = None
-        self.item_points = None
-        self.total_item_points = None
-        self.total_reward = None # Tracking total reward accumulated this run
+        # Configure observation and action spaces to match size of memory block used to calculate reward
+        offset = self.cart.cart_offset()
+        block = self.get_mem_block(offset=offset)[-1]
+        
+        self.observation_space = Box(
+            low=0, high=255, shape=(self.n, len(block)), dtype=np.uint8
+        )
 
-        self.opponent_pokemon_total_hp = None # total amount of damage done to opponent pokemon
-
-        self.player_maps = None
-        self.pokedex = None
-        self.last_carried_item_total = None
-        self.last_stored_item_total = None
-
-        self.seen_and_capture_events = None
-        self.total_travel_reward = None
-        self.attack_reward = 0
-        self.flags = []
-        self.flag_score = 0
-
-        self.last_memory_update_frame = 0
-        self.current_memory = None
-        self.last_n_memories = []
-
-        self.party_exp = [0, 0, 0, 0, 0, 0]
-        self.poke_levels = [0, 0, 0, 0, 0, 0]
-
+        self.action_space = Discrete(8, start=0) # 8 buttons to press, only one pressed at a time
+        
+        # Define the mapping of those buttons to the 8 discrete actions
         self.buttons = {
             0: ("", "-"),
             1: ("up", "U"),
@@ -111,26 +85,64 @@ class PyBoyEnv(gym.Env):
 
         self.buttons_names = "UDLRABS!_udlrabs.-"
 
-        # Get the current date and time
-        current_datetime = datetime.datetime.now()
+        # Tracking variabels for progress
+        self.frames = None # Total frames elapsed
+        self.step_count = None
+        self.flags = None
+        
 
-        # Format the datetime as a string suitable for a Unix filename
-        self.filename_datetime = current_datetime.strftime("%Y-%m-%d_%H-%M-%S")
+        self.last_n_memories = None
+        self.poke_levels = None
+        
 
-        size = 1327
+        self.actions = None # Actions pressed in this episode (string)
+        self.party_exp_reward = None # Total reward given for party exp
+        self.last_pokemon_count = None # Last count of pokemon caught
+        self.last_seen_pokemon_count = None # Last count of pokemon seen
+        self.seen_and_capture_events = None # List of seen and captured pokemon and when they occured
 
-    
-        block = self.get_mem_block(offset=offset)[-1]
+        # Score data
+        self.flag_score = None # Total reward given for flags
+        self.total_poke_exp = None # Total reward given for party exp
+        self.total_travel_reward = None # Total reward given for travel
+        self.attack_reward = None # Total reward given damage done to opponent pokemon
 
-        self.observation_space = Box(
-            low=0, high=255, shape=(self.n, len(block)), dtype=np.uint8
-        )
-        self.observation_space
+        self.total_reward = None # Tracking total reward accumulated this run
 
-        self.action_space = Discrete(8, start=0)
+        
+        # Player location data
+        self.last_player_x = None
+        self.last_player_y = None
+        self.last_player_x_block = None
+        self.last_player_y_block = None
+        self.last_player_map = None
+        self.visited_xy = None # Set of visited XY coordinates
+        self.player_maps = None # Set of visited maps
+        self.last_chunk_id = None # Last chunk of visited XY coordinates
+        
+        # Player data
+        self.my_pokemon = None
+        self.money = None # Current money in wallet
+        self.pokedex = None
+        
+
+        # Item data
+        self.last_total_items = None
+        self.last_items = None
+        self.item_points = None
+        self.total_item_points = None
+        self.last_carried_item_total = None
+        self.last_stored_item_total = None
+
+        # Opponent data
+        self.opponent_pokemon_total_hp = None # total amount of damage done to opponent pokemon
+        
+
+
+
 
     def get_mem_block(self, offset):
-
+        # Magic addresses sourced from: https://datacrystal.tcrf.net/wiki/Pokémon_Red_and_Blue/RAM_map
         event_addresses = [
                             0xD5AB, # Starters Back?
                             0xD5C0, # 0=Mewtwo appears, 1=Doesn't (See D85F)
@@ -155,38 +167,52 @@ class PyBoyEnv(gym.Env):
                             0xD85F, # Mewtwo can be caught if bit 2 clear # Needs D5C0 bit 1 clear, too
                             ]
 
-        pokemart = self.pyboy.memory[0xCF7B + offset:0xCF85 + offset + 1]
-        my_pokemon = self.pyboy.memory[0xD16B + offset : 0xD272 + offset + 1]
-        pokedex = self.pyboy.memory[0xD2F7 + offset : 0xD31C + offset + 1]
-        items = self.pyboy.memory[0xD31D + offset : 0xD346 + offset + 1]
-        money_bytes = self.pyboy.memory[0xD347 + offset : 0xD349 + offset + 1]
-        money = int(''.join(f'{byte:02x}' for byte in money_bytes))
-        badges = [self.pyboy.memory[0xD356 + offset]]
+        # Player data
         location = self.pyboy.memory[0xD35E + offset : 0xD365 + offset + 1]
-        stored_items = self.pyboy.memory[0xD53A + offset:0xD59F + offset + 1]
-        coins = self.pyboy.memory[0xD5A4 + offset: 0xD5A5 + offset + 1]
-        missable_object_flags = self.pyboy.memory[0xD5A6 + offset: 0xD5C5 + offset + 1]
-        event_flags = [self.pyboy.memory[address + offset] for address in event_addresses]
-        ss_anne =[self.pyboy.memory[0xD803] + offset]
-        mewtwo = [self.pyboy.memory[0xD85F] + offset]
+
+        # Player Objectives
+        pokedex = self.pyboy.memory[0xD2F7 + offset : 0xD31C + offset + 1]
+        badges = [self.pyboy.memory[0xD356 + offset]]  # Currently not used
+
+        # Pokemon party data for player and opponent
+        my_pokemon = self.pyboy.memory[0xD16B + offset : 0xD272 + offset + 1]
         opponent_pokemon = self.pyboy.memory[0xCFE6 + offset : 0xCFE7 + offset + 1]
         
-        combined_memory = []
-        combined_memory.extend(pokemart)
-        combined_memory.extend(my_pokemon)
-        combined_memory.extend(pokedex)
-        combined_memory.extend(items)
-        combined_memory.extend(money_bytes)
-        combined_memory.append(money)
-        combined_memory.extend(badges)
-        combined_memory.extend(location)
-        combined_memory.extend(stored_items)
-        combined_memory.extend(coins)
-        combined_memory.extend(missable_object_flags)
-        combined_memory.extend(event_flags)
-        combined_memory.extend(ss_anne)
-        combined_memory.extend(mewtwo)
-        combined_memory.extend(opponent_pokemon)
+        
+        # Items and money
+        items = self.pyboy.memory[0xD31D + offset : 0xD346 + offset + 1]
+        stored_items = self.pyboy.memory[0xD53A + offset:0xD59F + offset + 1]
+
+        pokemart = self.pyboy.memory[0xCF7B + offset:0xCF85 + offset + 1]
+        money_bytes = self.pyboy.memory[0xD347 + offset : 0xD349 + offset + 1]
+        money = int(''.join(f'{byte:02x}' for byte in money_bytes))
+        
+        # Casino coins
+        chips = self.pyboy.memory[0xD5A4 + offset: 0xD5A5 + offset + 1]
+        
+        # Flags for various events:
+        missable_object_flags = self.pyboy.memory[0xD5A6 + offset: 0xD5C5 + offset + 1]
+        event_flags = [self.pyboy.memory[address + offset] for address in event_addresses]
+        ss_anne = [event_flags[-2]]
+        mewtwo = [event_flags[1] + event_flags[-1]]
+
+        combined_memory = (
+            list(pokemart) +
+            list(my_pokemon) +
+            list(pokedex) +
+            list(items) +
+            list(money_bytes) +
+            [money] +
+            list(badges) +
+            list(location) +
+            list(stored_items) +
+            list(chips) +
+            list(missable_object_flags) +
+            list(event_flags) +
+            list(ss_anne) +
+            list(mewtwo) +
+            list(opponent_pokemon)
+        )
 
         return [
             pokemart,
@@ -197,7 +223,7 @@ class PyBoyEnv(gym.Env):
             badges,
             location,
             stored_items,
-            coins,
+            chips,
             missable_object_flags,
             event_flags,
             ss_anne,
@@ -205,12 +231,6 @@ class PyBoyEnv(gym.Env):
             opponent_pokemon,
             combined_memory,
         ]
-
-    def generate_image(self):
-        return self.pyboy.screen.ndarray
-
-    def generate_screen_ndarray(self):
-        return self.pyboy.screen.ndarray
 
     def get_pokedex_status_string(self, data_seen, data_owned):
         def get_status(data, poke_num):
@@ -233,7 +253,7 @@ class PyBoyEnv(gym.Env):
         return status_string
 
     def calculate_reward(self):
-        offset = self.cart.cart_offset()  # + MEM_START
+        offset = self.cart.cart_offset()
         mem_block = self.get_mem_block(offset).copy()
         reward = 0
         old_money = self.money
@@ -260,13 +280,13 @@ class PyBoyEnv(gym.Env):
             self.last_n_memories = [combined_memory] * self.n
         else:
             self.last_n_memories = self.last_n_memories[1:] + [combined_memory]
+        
+        
 
-        
-        
-        
-        self.money = money
+
+        # ---- Location data to calculate travel reward ----
+
         map_id = location[0]
-
         px = location[1]
         py = location[2]
         pbx = location[3]
@@ -284,18 +304,6 @@ class PyBoyEnv(gym.Env):
         
         event_reward = 0
 
-        if len(self.flags) == 0 or sum(self.flags) == 0:
-            self.flags = event_flags + missable_object_flags
-        else:
-            flag_diff = diff_flags(self.flags, event_flags + missable_object_flags)
-            if len(flag_diff) > 0:
-                event_reward += 1 * len(flag_diff)
-                self.flags = event_flags + missable_object_flags
-                self.flag_score += event_reward
-        
-
-        
-
         chunk_id = f"{px}:{py}:{pbx}:{pby}:{map_id}"
 
         visited_score = 0
@@ -312,7 +320,17 @@ class PyBoyEnv(gym.Env):
 
         self.last_chunk_id = chunk_id
 
+        self.last_player_x = px
+        self.last_player_y = py
+        self.last_player_x_block = pbx
+        self.last_player_y_block = pby
+        self.last_player_map = map_id
+
         travel_reward += visited_score
+        self.total_travel_reward += travel_reward
+
+
+        # ----Pokedex data to calculate reward for pokemon seen and caught----
 
         # convert binary chunks into a single string
         dex_blocks = 19 # (152 possible bloocks, but only 151 pokemon.)
@@ -365,17 +383,7 @@ class PyBoyEnv(gym.Env):
             my_pokemon[176:220],
             my_pokemon[220:264],
         ]
-
-
-        attack_reward = 0
-        opponent_pokemon_total_hp = int.from_bytes(opponent_pokemon, byteorder='big')
-        if opponent_pokemon_total_hp > 0 and self.opponent_pokemon_total_hp > opponent_pokemon_total_hp:
-            attack_reward = (self.opponent_pokemon_total_hp - opponent_pokemon_total_hp)
-        
-        self.attack_reward += attack_reward
-            
-        self.opponent_pokemon_total_hp = opponent_pokemon_total_hp
-        
+           
         poke_levels = [poke[33] for poke in party]
         poke_party_bytes = [poke[16:18] for poke in party]
         poke_total_exp = 0
@@ -391,7 +399,20 @@ class PyBoyEnv(gym.Env):
 
         party_exp_reward = exp_reward
         self.poke_levels = poke_levels
+        self.party_exp_reward += party_exp_reward / 500
 
+
+        # ---- Opponent data to calculate attack rewards ----
+        attack_reward = 0
+        opponent_pokemon_total_hp = int.from_bytes(opponent_pokemon, byteorder='big')
+        if opponent_pokemon_total_hp > 0 and self.opponent_pokemon_total_hp > opponent_pokemon_total_hp:
+            attack_reward = (self.opponent_pokemon_total_hp - opponent_pokemon_total_hp)
+        
+        self.attack_reward += attack_reward
+            
+        self.opponent_pokemon_total_hp = opponent_pokemon_total_hp
+     
+        # ---- Item data to calculate reward for items collected ----
 
         item_counts = items[1 + 1::2]
         item_types = items[0 + 1::2]
@@ -430,6 +451,30 @@ class PyBoyEnv(gym.Env):
         item_points = sum(self.item_points.values())
         self.total_item_points += item_points
 
+        # ---- Event data to calculate reward for flags ----
+        if len(self.flags) == 0 or sum(self.flags) == 0:
+            self.flags = event_flags + missable_object_flags
+        else:
+            flag_diff = diff_flags(self.flags, event_flags + missable_object_flags)
+            if len(flag_diff) > 0:
+                event_reward += 1 * len(flag_diff)
+                self.flags = event_flags + missable_object_flags
+                self.flag_score += event_reward
+
+
+
+        # ---- Money data to calculate reward for money collected ----
+
+        self.money = money
+        money_reward = 0
+        if old_money is not None and old_money != money:
+            money_divider = 1000
+            if money > old_money:
+                money_divider = 500
+
+            money_reward = np.abs(money - old_money) / money_divider
+
+        
         reward += (
             
             party_exp_reward / 500
@@ -437,23 +482,8 @@ class PyBoyEnv(gym.Env):
             + travel_reward
             + attack_reward
             + event_reward
+            + money_reward
         )
-
-        if old_money is not None and old_money != money:
-            money_divider = 1000
-            if money > old_money:
-                money_divider = 500
-
-            reward += np.abs(money - old_money) / money_divider
-
-        self.party_exp_reward += party_exp_reward / 500
-        self.total_travel_reward += travel_reward
-
-        self.last_player_x = px
-        self.last_player_y = py
-        self.last_player_x_block = pbx
-        self.last_player_y_block = pby
-        self.last_player_map = map_id
 
         self.total_reward += reward
 
@@ -538,10 +568,11 @@ class PyBoyEnv(gym.Env):
         self.last_carried_item_total = 0
         self.last_stored_item_total = 0
         self.seen_and_capture_events = {}
+        self.last_n_memories = []
 
         # Variables below were already here:
 
-        self.last_memory_update_frame = 0
+        
         self.last_total_items = 0
         self.last_items = []
         self.item_points = {}
@@ -549,7 +580,7 @@ class PyBoyEnv(gym.Env):
         self.last_chunk_id = None
         self.total_poke_exp = 0
         self.party_exp_reward = 0
-        self.party_exp = [0, 0, 0, 0, 0, 0]
+        
         self.poke_levels = [0, 0, 0, 0, 0, 0]
         self.step_count = 0
         self.visited_xy = set()
