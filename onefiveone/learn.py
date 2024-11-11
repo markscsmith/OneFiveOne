@@ -34,62 +34,17 @@ import glob
 
 from stable_baselines3.common.torch_layers import BaseFeaturesExtractor
 
-
-MEM_START = 0xD2F7
-MEM_END = 0xDEE1
-SPRITE_MAP_START = 0xC100
-SPRITE_MAP_END = 0xC2FF
-
-FRAME_BUFFER_SIZE = 3600
-
 LOG_FREQ = 2048
 
 PRESS_FRAMES = 10
 RELEASE_FRAMES = 20
 
+# TODO: Convert to parameter to allow user to toggle between emulating on a CGB or DMG
+# (CGB is the Gameboy Color, DMG is the original Gameboy)
 CGB = False
+
+# Set the default number of CPU cores to use for training
 NUM_CPU = multiprocessing.cpu_count()
-
-
-
-class CustomFeatureExtractor(BaseFeaturesExtractor):
-    def __init__(self, observation_space: Box):
-        super(CustomFeatureExtractor, self).__init__(observation_space, features_dim=1)  # Temporary value for features_dim
-        
-        # Get the shape of the input (observation space)
-        input_shape = observation_space.shape  # Should be (24, 144, 160) based on your input
-        
-        # Define the CNN layers based on input channels (24 channels from 8 frames of 3 channels each)
-        self.conv1 = nn.Conv2d(in_channels=input_shape[0], out_channels=32, kernel_size=3, stride=2)
-        self.conv2 = nn.Conv2d(in_channels=32, out_channels=64, kernel_size=3, stride=2)
-        self.pool = nn.MaxPool2d(kernel_size=2, stride=2)
-
-        # Calculate the output size after convolutions and pooling
-        convw = self._conv_output_size(input_shape[2], kernel_size=3, stride=2, pool_size=2)
-        convh = self._conv_output_size(input_shape[1], kernel_size=3, stride=2, pool_size=2)
-
-        # The fully connected layer size will be based on the number of channels * height * width
-        self.fc = nn.Linear(64 * convw * convh, 1024)
-
-        # Set the actual feature size (features_dim) to be used by the policy and value networks
-        self._features_dim = 1024
-
-    def _conv_output_size(self, size, kernel_size, stride, pool_size):
-        """Helper function to calculate output size after conv and pooling."""
-        size = ((size - kernel_size) // stride) + 1
-        size = size // pool_size
-        return size
-
-    def forward(self, x):
-        x = self.pool(F.hardswish(self.conv1(x)))
-        x = self.pool(F.hardswish(self.conv2(x)))
-        x = torch.flatten(x, 1)  # Flatten for fully connected layers
-        x = F.hardswish(self.fc(x))
-        return x
-
-    @property
-    def features_dim(self):
-        return self._features_dim
 
 class PokeCart:
     def __init__(self, cart_data) -> None:
@@ -151,12 +106,6 @@ def learning_rate_schedule(progress):
 
 def learning_rate_decay_schedule(progress):
     return 0.0003 * (1 - progress)
-
-
-class CustomNetwork(ActorCriticPolicy):
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-        self.lr_schedule = learning_rate_schedule
 
 
 class TensorboardLoggingCallback(BaseCallback):
@@ -223,25 +172,17 @@ class TensorboardLoggingCallback(BaseCallback):
                 self.logger.record("reward/max_reward", max_reward)
                 self.logger.record("reward/max_seen", max_seen)
                 self.logger.record("reward/max_caught", max_caught)
-
                 self.logger.record("reward/max_badges", max(badges))
 
         return True  # Returning True means we will continue training, returning False will stop training
 
 
 class PokeCaughtCallback(BaseCallback):
-    def __init__(self, total_timesteps, multiplier=1, verbose=0):
-        super(PokeCaughtCallback, self).__init__(verbose)
-        self.total_timesteps = total_timesteps
-        self.timg_render = Renderer()
-        self.filename_datetime = datetime.datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
-        self.multiplier = multiplier
-        self.step_count = 0
+    def __init__(self):
+        super().__init__()
 
     def _on_step(self) -> bool:
         rewards = self.training_env.get_attr("total_reward")
-        self.step_count += 1
-
         best_env_idx = rewards.index(max(rewards))
         print(self.training_env.env_method("render", best_env_idx)[best_env_idx])
         return True
@@ -451,7 +392,6 @@ class PyBoyEnv(gym.Env):
         ss_anne =[self.pyboy.memory[0xD803] + offset]
         mewtwo = [self.pyboy.memory[0xD85F] + offset]
         opponent_pokemon = self.pyboy.memory[0xCFE6 + offset : 0xCFE7 + offset + 1]
-        # sprites = self.get_screen_sprites()
         
         combined_memory = []
         combined_memory.extend(pokemart)
@@ -487,10 +427,6 @@ class PyBoyEnv(gym.Env):
             opponent_pokemon,
             combined_memory,
         ]
-
-    def get_screen_sprites(self):
-        
-        return self.pyboy.memory[SPRITE_MAP_START + self.cart.offset:SPRITE_MAP_END + self.cart.offset + 1]
 
     def generate_image(self):
         return self.pyboy.screen.ndarray
@@ -998,9 +934,7 @@ def train_model(
         )
         current_stats = EveryNTimesteps(
             n_steps=update_freq,
-            callback=PokeCaughtCallback(
-                total_steps + (update_freq * 16), multiplier=update_freq, verbose=1
-            ),
+            callback=PokeCaughtCallback(),
         )
         tbcallback = TensorboardLoggingCallback(tensorboard_log)
         env.set_attr("episode", episode)
