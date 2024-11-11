@@ -391,12 +391,11 @@ class PyBoyEnv(gym.Env):
             if chunk_id in self.visited_xy:
                 # TODO: restore negative and positive rewards for visiting new chunks and revisiting cold ones
                 # Targeted for after issue #10 is resolved.
-                # visited_score = -0.1
+                visited_score = -0.1
                 pass
             else:
                 self.visited_xy.add(chunk_id)
-                # visited_score =  0.1
-                pass
+                visited_score =  0.1
 
         self.last_chunk_id = chunk_id
 
