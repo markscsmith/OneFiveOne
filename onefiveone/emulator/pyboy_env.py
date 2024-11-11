@@ -136,9 +136,104 @@ class PyBoyEnv(gym.Env):
 
         # Opponent data
         self.opponent_pokemon_total_hp = None # total amount of damage done to opponent pokemon
+
+    def reset(self, seed=0, **kwargs):
+        super().reset(seed=seed, **kwargs)
+        # TODO: Issue 10, ensure reset captures all critical variables as well
+        # Variables here have been found in __init__ but not reset:
+        self.last_seen_pokemon_count = 0
+        self.last_carried_item_total = 0
+        self.last_stored_item_total = 0
+        self.seen_and_capture_events = {}
+        self.last_n_memories = []
+
+        # Variables below were already here:
+
+        
+        self.last_total_items = 0
+        self.last_items = []
+        self.item_points = {}
+        self.total_travel_reward = 0
+        self.last_chunk_id = None
+        self.total_poke_exp = 0
+        self.party_exp_reward = 0
+        
+        self.poke_levels = [0, 0, 0, 0, 0, 0]
+        self.step_count = 0
+        self.visited_xy = set()
+        self.player_maps = set()
+        self.last_player_x = 0
+        self.last_player_y = 0
+        self.last_player_x_block = 0
+        self.last_player_y_block = 0
+        
+        self.money = None
+        self.pokedex = "-" * 151
+        self.opponent_pokemon_total_hp = 0
+        self.attack_reward = 0
+        self.total_reward = 0
+        self.flag_score = 0
+        self.flags = []
+        self.pyboy = PyBoy(
+            self.game_path,
+            window="null",
+            cgb=self.cgb,
+            log_level="CRITICAL",
+        )
         
 
+        if self.save_state_path is not None:
+            self.pyboy.load_state(open(self.save_state_path, "rb"))
+        else:
+            print(
+                f"No state file. Starting from title screen.",
+                file=sys.stderr,
+            )
 
+        self.actions = ""
+        self.last_pokemon_count = 0
+        self.frames = 0
+        self.last_player_x = 0
+        self.last_player_y = 0
+        self.last_player_x_block = 0
+        self.last_player_y_block = 0
+        self.total_item_points = 0
+
+
+        _, observation = self.calculate_reward()
+
+        return observation, {"seed": seed}
+
+    def step(self, action):
+        self.step_count += 1
+        self.frames = self.pyboy.frame_count
+
+        button = self.buttons[action]
+        if action != 0:
+            self.pyboy.button(button[0], delay=2)
+
+        self.pyboy.tick(PRESS_FRAMES + RELEASE_FRAMES, True)
+
+        self.actions = f"{self.actions}{button[1]}"
+       
+        reward, observation = self.calculate_reward()
+
+        truncated = False
+        terminated = False
+
+        info = {
+            "reward": reward,
+            "actions": self.actions,
+            "emunum": self.emunum,
+            "frames": self.frames,
+            "pokemon_caught": self.last_pokemon_count,
+            "pokemon_seen": self.last_seen_pokemon_count,
+            "visited_xy": self.visited_xy,
+            "pokedex": self.pokedex,
+            "seen_and_capture_events": self.seen_and_capture_events,
+        }
+
+        return observation, reward, terminated, truncated, info
 
 
     def get_mem_block(self, offset):
@@ -231,26 +326,6 @@ class PyBoyEnv(gym.Env):
             opponent_pokemon,
             combined_memory,
         ]
-
-    def get_pokedex_status_string(self, data_seen, data_owned):
-        def get_status(data, poke_num):
-            byte_index = poke_num // 8
-            bit_index = poke_num % 8
-            return (data[byte_index] >> bit_index) & 1
-
-        status_string = ""
-        for poke_num in range(151):
-            seen = get_status(data_seen, poke_num)
-            owned = get_status(data_owned, poke_num)
-            if owned and seen:
-                status_string += "O"
-            elif seen:
-                status_string += "S"
-            elif owned:
-                status_string += "?"
-            else:
-                status_string += "-"
-        return status_string
 
     def calculate_reward(self):
         offset = self.cart.cart_offset()
@@ -489,7 +564,7 @@ class PyBoyEnv(gym.Env):
 
         return round(reward, 4), self.last_n_memories
 
-    # TODO: Refactor so returns image instead of immediately rendering so PokeCaughtCallback can render instead.
+
     def render(self, target_index=None, reset=False):
         if target_index is not None and target_index == self.emunum or reset:
             terminal_size = os.get_terminal_size()
@@ -526,106 +601,26 @@ class PyBoyEnv(gym.Env):
     # 🧠: 19 🟢  64 👀  64 🌎  27:  4 🏆 19270.00 🎒   1 🐆   20.00
     # TODO: build expanding pixel map to show extents of game travelled. (minimap?) Use 3d numpy array to store visited pixels. performance?
 
-    def step(self, action):
-        self.step_count += 1
-        self.frames = self.pyboy.frame_count
+    def get_pokedex_status_string(self, data_seen, data_owned):
+        def get_status(data, poke_num):
+            byte_index = poke_num // 8
+            bit_index = poke_num % 8
+            return (data[byte_index] >> bit_index) & 1
 
-        button = self.buttons[action]
-        if action != 0:
-            self.pyboy.button(button[0], delay=2)
+        status_string = ""
+        for poke_num in range(151):
+            seen = get_status(data_seen, poke_num)
+            owned = get_status(data_owned, poke_num)
+            if owned and seen:
+                status_string += "O"
+            elif seen:
+                status_string += "S"
+            elif owned:
+                status_string += "?"
+            else:
+                status_string += "-"
+        return status_string
 
-        self.pyboy.tick(PRESS_FRAMES + RELEASE_FRAMES, True)
-
-        self.actions = f"{self.actions}{button[1]}"
-       
-        reward, observation = self.calculate_reward()
-
-        truncated = False
-        terminated = False
-
-        info = {
-            "reward": reward,
-            "actions": self.actions,
-            "emunum": self.emunum,
-            "frames": self.frames,
-            "pokemon_caught": self.last_pokemon_count,
-            "pokemon_seen": self.last_seen_pokemon_count,
-            "visited_xy": self.visited_xy,
-            "pokedex": self.pokedex,
-            "seen_and_capture_events": self.seen_and_capture_events,
-        }
-
-        return observation, reward, terminated, truncated, info
-
-    def set_episode(self, episode):
-        self.episode = episode
-
-    def reset(self, seed=0, **kwargs):
-        super().reset(seed=seed, **kwargs)
-        # TODO: Issue 10, ensure reset captures all critical variables as well
-        # Variables here have been found in __init__ but not reset:
-        self.last_seen_pokemon_count = 0
-        self.last_carried_item_total = 0
-        self.last_stored_item_total = 0
-        self.seen_and_capture_events = {}
-        self.last_n_memories = []
-
-        # Variables below were already here:
-
-        
-        self.last_total_items = 0
-        self.last_items = []
-        self.item_points = {}
-        self.total_travel_reward = 0
-        self.last_chunk_id = None
-        self.total_poke_exp = 0
-        self.party_exp_reward = 0
-        
-        self.poke_levels = [0, 0, 0, 0, 0, 0]
-        self.step_count = 0
-        self.visited_xy = set()
-        self.player_maps = set()
-        self.last_player_x = 0
-        self.last_player_y = 0
-        self.last_player_x_block = 0
-        self.last_player_y_block = 0
-        
-        self.money = None
-        self.pokedex = "-" * 151
-        self.opponent_pokemon_total_hp = 0
-        self.attack_reward = 0
-        self.total_reward = 0
-        self.flag_score = 0
-        self.flags = []
-        self.pyboy = PyBoy(
-            self.game_path,
-            window="null",
-            cgb=self.cgb,
-            log_level="CRITICAL",
-        )
-        
-
-        if self.save_state_path is not None:
-            self.pyboy.load_state(open(self.save_state_path, "rb"))
-        else:
-            print(
-                f"No state file. Starting from title screen.",
-                file=sys.stderr,
-            )
-
-        self.actions = ""
-        self.last_pokemon_count = 0
-        self.frames = 0
-        self.last_player_x = 0
-        self.last_player_y = 0
-        self.last_player_x_block = 0
-        self.last_player_y_block = 0
-        self.total_item_points = 0
-
-
-        _, observation = self.calculate_reward()
-
-        return observation, {"seed": seed}
 
 class PokeCart:
     def __init__(self, cart_data) -> None:
