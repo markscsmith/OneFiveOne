@@ -27,7 +27,6 @@ from pyboy import PyBoy
 
 # Output libs
 from timg import Renderer, Ansi24HblockMethod
-from PIL import Image, ImageDraw, ImageFont
 import glob
 
 LOG_FREQ = 2048
@@ -79,11 +78,11 @@ class TensorboardLoggingCallback(BaseCallback):
             for _, info in sorted(enumerate(infos)):
                 # TODO: ADD POKEMON CAUGHT TO INFO
                 if all(
-                    key in info for key in ["actions", "emunum", "reward", "frames"]
+                    key in info for key in ["actions", "emunum", "total_reward", "frames"]
                 ):
                     actions = info["actions"]
                     emunum = info["emunum"]
-                    reward = info["reward"]
+                    reward = info["total_reward"]
                     frames = info["frames"]
                     caught = info["pokemon_caught"]
                     seen = info["pokemon_seen"]
@@ -136,47 +135,7 @@ class PokeCaughtCallback(BaseCallback):
         return True
 
 
-def add_string_overlay(
-    image, display_string, position=(20, 20), font_size=40, color=(255, 0, 0)
-):
-    """
-    Add a number as an overlay on the image.
 
-    Parameters:
-    - image: PIL.Image.Image
-        The image to which the number will be added
-    - number: int or str
-        The number to add
-    - position: tuple of int, optional (default=(20, 20))
-        The (x, y) position at which to add the number
-    - font_size: int, optional (default=40)
-        The font size of the number
-    - color: tuple of int, optional (default=(255, 0, 0))
-        The RGB color of the number
-
-    Returns:
-    PIL.Image.Image
-        The image with the number added
-    """
-    # Initialize a drawing context
-    draw = ImageDraw.Draw(image)
-
-    try:
-        # Use a truetype or opentype font file
-        # font = ImageFont.truetype("arial.ttf", font_size)
-        font = ImageFont.truetype(
-            "arial.ttf",
-            font_size,
-        )
-    except IOError:
-        # If the font file is not available, the default PIL font is used
-        font = ImageFont.load_default()
-
-    # Draw the text
-    # print(f"Drawing string {display_string} at {position} in color {color} on image of size {image.size}")
-    draw.text(position, str(display_string), font=font, fill=color)
-
-    return image
 
 
 
