@@ -14,7 +14,7 @@ from pyboy import PyBoy
 
 # Output libs
 from timg import Renderer, Ansi24HblockMethod
-from PIL import Image
+from PIL import Image, ImageDraw, ImageFont
 
 import hashlib
 from pyboy import PyBoy
@@ -28,6 +28,48 @@ RELEASE_FRAMES = 20 # Wait this many frames before pressing again
 
 def diff_flags(s1, s2):
     return [i for i, (c1, c2) in enumerate(zip(s1, s2)) if c1 != c2]
+
+def add_string_overlay(
+    image, display_string, position=(20, 20), font_size=40, color=(255, 0, 0)
+):
+    """
+    Add a number as an overlay on the image.
+
+    Parameters:
+    - image: PIL.Image.Image
+        The image to which the number will be added
+    - number: int or str
+        The number to add
+    - position: tuple of int, optional (default=(20, 20))
+        The (x, y) position at which to add the number
+    - font_size: int, optional (default=40)
+        The font size of the number
+    - color: tuple of int, optional (default=(255, 0, 0))
+        The RGB color of the number
+
+    Returns:
+    PIL.Image.Image
+        The image with the number added
+    """
+    # Initialize a drawing context
+    draw = ImageDraw.Draw(image)
+
+    try:
+        # Use a truetype or opentype font file
+        # font = ImageFont.truetype("arial.ttf", font_size)
+        font = ImageFont.truetype(
+            "arial.ttf",
+            font_size,
+        )
+    except IOError:
+        # If the font file is not available, the default PIL font is used
+        font = ImageFont.load_default()
+
+    # Draw the text
+    # print(f"Drawing string {display_string} at {position} in color {color} on image of size {image.size}")
+    draw.text(position, str(display_string), font=font, fill=color)
+
+    return image
 
 class PyBoyEnv(gym.Env):
     def __init__(
@@ -227,7 +269,7 @@ class PyBoyEnv(gym.Env):
         terminated = False
 
         info = {
-            "reward": reward,
+            "total_reward": reward,
             "actions": self.actions,
             "emunum": self.emunum,
             "frames": self.frames,
@@ -391,11 +433,13 @@ class PyBoyEnv(gym.Env):
             if chunk_id in self.visited_xy:
                 # TODO: restore negative and positive rewards for visiting new chunks and revisiting cold ones
                 # Targeted for after issue #10 is resolved.
-                visited_score = -0.1
+                visited_score = -0.2
                 pass
             else:
                 self.visited_xy.add(chunk_id)
                 visited_score =  0.1
+        else:
+            visited_score = -0.01
 
         self.last_chunk_id = chunk_id
 
@@ -601,6 +645,18 @@ class PyBoyEnv(gym.Env):
                 render_string = f"{image_string}🧳 {self.episode} 🛠️: {self.emunum:2d} 🥾 {self.step_count:10d} 🟢 {self.last_pokemon_count:3d} 👀 {self.last_seen_pokemon_count:3d} 🎒 {self.total_item_points:3d} 🌎 {len(self.visited_xy):3d}:{len(self.player_maps):3d} 🏆 {self.total_reward:7.2f} 💪 {self.party_exp_reward:7.2f} 🥊 {self.attack_reward:7d}💰 {self.money:7d} 📫 {self.flag_score} \n 🚀 {self.total_travel_reward:4.2f} [{self.last_player_x:3d},{self.last_player_y:3d},{self.last_player_x_block:3d},{self.last_player_y_block:3d}], 🗺️: {self.last_player_map:3d} Actions {' '.join(self.actions[-6:])} 🎉 {self.poke_levels} 🎬 {self.frames:6d} {len(self.actions)}"
 
             return render_string
+        
+    def render_screen_image(self, target_index=None, reset=False, frame=None, max_frame=None, action=None):
+        if target_index is not None and target_index == self.emunum or reset:
+            image = self.pyboy.screen.image
+            if frame is not None and max_frame is not None:
+                image = add_string_overlay(image, f"{frame}/{max_frame}", position=(20, 20))
+            if action is not None:
+                image = add_string_overlay(image, action, position=(20, 60))
+            
+            image = add_string_overlay(image, f"{self.total_reward:7.2f}", position=(20, 40), color=(255, 0, 255))
+            return image
+        return None
 
     # 🧠: 19 🟢  64 👀  64 🌎  27:  4 🏆 19270.00 🎒   1 🐆   20.00
     # TODO: build expanding pixel map to show extents of game travelled. (minimap?) Use 3d numpy array to store visited pixels. performance?
