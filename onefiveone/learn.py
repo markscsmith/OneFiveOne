@@ -88,7 +88,6 @@ class TensorboardLoggingCallback(BaseCallback):
                     caught = info["pokemon_caught"]
                     seen = info["pokemon_seen"]
                     pokedex = info["pokedex"]
-                    badges = info["badges"]
                     seen_and_capture_events = info["seen_and_capture_events"]
 
                     # TODO: pad emunumber with 0s to match number of digits in possible emunum
@@ -98,7 +97,6 @@ class TensorboardLoggingCallback(BaseCallback):
                     )
                     self.logger.record(f"caught/{emunum}", f"{caught}")
                     self.logger.record(f"seen/{emunum}", f"{seen}")
-                    self.logger.record(f"badges/{emunum}", f"{badges}")
                     self.logger.record(f"reward/{emunum}", f"{reward}")
 
                     self.logger.record(
@@ -114,7 +112,6 @@ class TensorboardLoggingCallback(BaseCallback):
             if len(rewards) > 0:  # Check if rewards list is not empty
                 average_reward = sum(rewards) / len(rewards)
 
-                badges = [info["badges"] for info in infos]
 
                 max_reward = max(rewards)
                 max_seen = max([info["pokemon_seen"] for info in infos])
@@ -124,7 +121,6 @@ class TensorboardLoggingCallback(BaseCallback):
                 self.logger.record("reward/max_reward", max_reward)
                 self.logger.record("reward/max_seen", max_seen)
                 self.logger.record("reward/max_caught", max_caught)
-                self.logger.record("reward/max_badges", max(badges))
 
         return True  # Returning True means we will continue training, returning False will stop training
 
