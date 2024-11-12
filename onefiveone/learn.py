@@ -59,12 +59,13 @@ def learning_rate_decay_schedule(progress):
     return 0.0003 * (1 - progress)
 
 
+# TODO: better understand why tb logging isn't recording all actions.
 class TensorboardLoggingCallback(BaseCallback):
-    def __init__(self, verbose=0):
+    def __init__(self, verbose=0, n_steps=2048):
         super().__init__(verbose)
         # We set the frequency at which the callback will be called
         # This could be set to be called at each step by setting it to 1
-        self.log_freq = LOG_FREQ
+        self.log_freq = n_steps
         self.buttons_names = "UDLRABS!-udlrabs.-"
 
     def _on_step(self) -> bool:
@@ -74,6 +75,7 @@ class TensorboardLoggingCallback(BaseCallback):
             # Log scalar value (here a random variable)
             rewards = self.locals["rewards"]
             infos = self.locals["infos"]
+            actions = self.locals["actions"]
 
             for _, info in sorted(enumerate(infos)):
                 # TODO: ADD POKEMON CAUGHT TO INFO
@@ -105,6 +107,8 @@ class TensorboardLoggingCallback(BaseCallback):
                     self.logger.record(
                         f"seen_and_capture/{emunum}", f"{seen_and_capture_events}"
                     )
+            for emunum, actions in sorted(enumerate(actions)):
+                self.logger.record(f"actions_debug/{emunum}", f"{actions}")
 
             # TODO: record each progress/reward separately like I do the actions?
 
@@ -257,6 +261,12 @@ def train_model(
             total_timesteps=total_steps, callback=callbacks, progress_bar=True
         )
         run_model.save(f"{checkpoint_path}/{file_name}-{episode}.zip")
+        actions_set = env.get_attr("actions")
+        for emunum, actions in enumerate(actions_set):
+            # write the actions to a file
+            with open(f"{checkpoint_file_path}/actions-{emunum}.txt", "w") as f:
+                f.write(actions)
+        
 
         del callbacks
         del checkpoint_callback
