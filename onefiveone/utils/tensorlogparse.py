@@ -156,16 +156,16 @@ def process_item(item, args, round, position=0, tfevents_file=""):
     print("I:", item[-5:])
     max_frame = len(item)
     curr_frame = 0
-    for action in item: # tqdm(item, position=round):
+    for action in tqdm(item): # tqdm(item, position=round):
         curr_frame += 1
         button = buttons_to_action_map[action[1]]
         env.step(button)
-        print("E:", env.actions.split('|')[-1], ">", ":".join(action).replace("=",""))
+        # print("E:", env.actions.split('|')[-1], ">", ":".join(action).replace("=",""))
         image = env.render_screen_image(target_index=0, frame=curr_frame, max_frame=max_frame, action=action[2], other_info=action[-2:])
         frames.append(image.copy())
     # Save the list of frame PIL images as a gif
     # print("There are", len(frames), "frames.")
-    seen = item[-1][-1].split("=")[-1]
+    seen = item[-1][-2].split("=")[-1]
     caught = item[-1][-1].split("=")[-1]
     tf_filename = "_".join(tfevents_file.split("/")[-2:])
     frames[0].save(
@@ -195,7 +195,6 @@ def action_data_parser(filename, env_num):
         # match original format
         caught = caught[0] + "=" + caught[1:]
         seen = seen[0] + "=" + seen[1:]
-        print(max_seen, max_caught, final_score)
         if int(caught.split("=")[-1]) > int(str(max_caught).split("=")[-1]):
             max_caught = caught
         if int(seen.split("=")[-1]) > int(str(max_seen).split("=")[-1]):
