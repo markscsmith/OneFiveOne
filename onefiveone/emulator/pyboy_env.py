@@ -420,11 +420,6 @@ class PyBoyEnv(gym.Env):
         py = location[2]
         pbx = location[3]
         pby = location[4]
-
-        # Early escape for starting maps
-        if (map_id == 38 and (px == 6 and py == 3 and pbx == 0 and pby == 1) or (px == 6 and py == 1 and pbx == 0 and pby == 1)) or map_id == 0 and ((px == 0 and py == 0 and pbx == 0 and pby == 0) or (px == 6 and py == 4 and pbx == 0 and pby == 0)):
-            reward = 0
-            return round(reward, 4), self.last_n_memories
         
         self.my_pokemon = my_pokemon
 
@@ -610,8 +605,7 @@ class PyBoyEnv(gym.Env):
             money_divider = 1000
             if money > old_money:
                 money_divider = 500
-
-            money_reward = np.abs(money - old_money) / money_divider
+                money_reward = np.abs(money - old_money) / money_divider
 
         
         reward += (
