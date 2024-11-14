@@ -187,7 +187,7 @@ class PyBoyEnv(gym.Env):
 
     def reset(self, seed=0, **kwargs):
         super().reset(seed=seed, **kwargs)
-        self.pyboy.stop()
+        self.pyboy.stop(save=False)
         del self.pyboy
         self.pyboy = PyBoy(self.game_path, window="null", cgb=self.cgb, log_level="CRITICAL")
         if self.save_state_path is not None:
@@ -264,13 +264,12 @@ class PyBoyEnv(gym.Env):
             self.pyboy.button(button[0], delay=2)
 
         self.pyboy.tick(PRESS_FRAMES + RELEASE_FRAMES, True)
+       
+        reward, observation = self.calculate_reward()
         if len(self.actions) == 0:
             self.actions = f"{button[1]}:{self.step_count}:{self.total_reward:.2f}:C{self.last_pokemon_count}:S{self.last_seen_pokemon_count}"
         else:
             self.actions = f"{self.actions}|{button[1]}:{self.step_count}:{self.total_reward:.2f}:C{self.last_pokemon_count}:S{self.last_seen_pokemon_count}"
-       
-        reward, observation = self.calculate_reward()
-
         truncated = False
         terminated = False
 

@@ -187,16 +187,25 @@ def action_data_parser(filename, env_num):
     # Button, Step, Reward, Caught, Seen
     action_blocks_raw = data.split("|")
     action_blocks = [None] * len(action_blocks_raw)
+    max_seen = 0
+    max_caught = 0
+    final_score = 0
     for i, block in enumerate(action_blocks_raw):
         button, step, score, caught, seen = block.split(":")
         # match original format
         caught = caught[0] + "=" + caught[1:]
         seen = seen[0] + "=" + seen[1:]
+        print(max_seen, max_caught, final_score)
+        if int(caught.split("=")[-1]) > int(str(max_caught).split("=")[-1]):
+            max_caught = caught
+        if int(seen.split("=")[-1]) > int(str(max_seen).split("=")[-1]):
+            max_seen = seen
+        final_score = score
         action_blocks[i] = (env_num, button, step, score, caught, seen)
         
     # print(action_blocks)
 
-    return action_blocks
+    return action_blocks, max_seen, max_caught, final_score
 
 
 if __name__ == "__main__":
@@ -223,8 +232,9 @@ if __name__ == "__main__":
             # action_data = extract_action_data(data)
             env_num = tfevents_file.split("/")[-1].split("-")[1].split(".")[0]
             print(f"Processing environment {env_num}")
-            action_data = action_data_parser(tfevents_file, env_num)
-            to_emulate.append(action_data)
+            action_data, seen, caught, final_score = action_data_parser(tfevents_file, env_num)
+            if int(str(seen).split("=")[-1]) > 0:
+                to_emulate.append(action_data)
             
             
             
