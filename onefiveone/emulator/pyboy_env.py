@@ -524,16 +524,16 @@ class PyBoyEnv(gym.Env):
         for party_byte in poke_party_bytes:
             poke_total_exp += int.from_bytes(party_byte, byteorder='big')
 
-        exp_reward = 0
+        party_exp_reward = 0
         old_exp = self.total_poke_exp
         if poke_total_exp != old_exp:
-            exp_reward = np.abs(poke_total_exp - old_exp) / 100
+            party_exp_reward = np.abs(poke_total_exp - old_exp) / 100
             self.total_poke_exp = poke_total_exp
         
 
-        party_exp_reward = exp_reward
+        
         self.poke_levels = poke_levels
-        self.party_exp_reward += party_exp_reward / 500
+        self.party_exp_reward += party_exp_reward
 
 
         # ---- Opponent data to calculate attack rewards ----
@@ -609,8 +609,7 @@ class PyBoyEnv(gym.Env):
 
         
         reward += (
-            
-            party_exp_reward / 500
+            party_exp_reward
             + item_points
             + travel_reward
             + attack_reward
