@@ -201,9 +201,9 @@ def train_model(
 
     # make sure we take care of accidental trailing slashes in the save path which
     # would cause the checkpoint path to be incorrect.
-    checkpoint_path = f"{save_path.rstrip('/')}_chkpt"
+    checkpoint_path = f"{save_path.rstrip('/')}"
     env.set_attr("episode", 0)
-    tensorboard_log = f"{save_path}/tensorboard/{os.uname()[1]}-{time.time()}"
+    # tensorboard_log = f"{save_path}/tensorboard/{os.uname()[1]}-{time.time()}"
 
     run_model = PPO(
         policy="MlpPolicy",
@@ -221,14 +221,19 @@ def train_model(
         policy_kwargs=policy_kwargs,
         verbose=0,
         device=device,
-        tensorboard_log=tensorboard_log,
+        # tensorboard_log=tensorboard_log,
     )
-    checkpoints = glob.glob(f"{checkpoint_path.rstrip('/')}/*/*.zip")
+
+
+    starting_episode = 1
+
+    checkpoints = glob.glob(f"{checkpoint_path.rstrip('/')}/*.zip")
     if len(checkpoints) > 0:
         print(f"Checkpoints found: {checkpoints}")
         # get the newest checkpoint
         newest_checkpoint = max(checkpoints, key=os.path.getctime)
         print(f"Newest checkpoint: {newest_checkpoint}")
+        starting_episode = int(newest_checkpoint.split("-")[-2]) + 1
         run_model.load(newest_checkpoint)
 
         print("\ncheckpoint loaded")
@@ -237,10 +242,10 @@ def train_model(
 
     update_freq = n_steps * num_cpu // 4
 
-    for episode in range(1, episodes + 1):
+    for episode in range(starting_episode, episodes + 1):
         print(f"Starting episode {episode}")
         checkpoint_file_path = (
-            f"{checkpoint_path.rstrip('/')}/{os.uname()[1]}-{time.time()}-{episode}/"
+            f"{checkpoint_path.rstrip('/')}/{os.uname()[1]}-{time.time()}-{episode}"
         )
 
         print(f"Checkpoint path: {checkpoint_file_path}")
@@ -254,24 +259,25 @@ def train_model(
             n_steps=update_freq,
             callback=PokeCaughtCallback(),
         )
-        tbcallback = TensorboardLoggingCallback(tensorboard_log)
+        # tbcallback = TensorboardLoggingCallback(tensorboard_log)
         env.set_attr("episode", episode)
-        callbacks = [checkpoint_callback, current_stats, tbcallback]
+        # callbacks = [checkpoint_callback, current_stats, tbcallback]
+        callbacks = [current_stats]
         run_model.learn(
             total_timesteps=total_steps, callback=callbacks, progress_bar=True
         )
-        run_model.save(f"{checkpoint_path}/{file_name}-{episode}.zip")
+        run_model.save(f"{checkpoint_file_path}-model.zip")
         actions_set = env.get_attr("actions")
         for emunum, actions in enumerate(actions_set):
             # write the actions to a file
-            with open(f"{checkpoint_file_path}/actions-{emunum}.txt", "w") as f:
+            with open(f"{checkpoint_file_path.rstrip("/")}-actions-{emunum}.txt", "w") as f:
                 f.write(actions)
         
 
         del callbacks
         del checkpoint_callback
         del current_stats
-        del tbcallback
+        # del tbcallback
 
     return run_model
 
