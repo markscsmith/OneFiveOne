@@ -657,7 +657,7 @@ class PyBoyEnv(gym.Env):
         
     def render_screen_image(self, target_index=None, reset=False, frame=None, max_frame=None, action=None, other_info=None):
         if target_index is not None and target_index == self.emunum or reset:
-            image = self.pyboy.screen.image
+            image = Image.fromarray(self.pyboy.screen.ndarray)
             if frame is not None and max_frame is not None:
                 image = add_string_overlay(image, f"{frame}/{max_frame}", position=(20, 20))
             if action is not None:
