@@ -27,14 +27,44 @@ def parse_file(file_path, gif_file):
     
     previous_map = None
     moving_frames = []
+    maps = [None] * 256
     reward_countdown = 0
-    for i, line in tqdm(enumerate(lines)):
+
+    map_extents = {}
+
+
+    term_image = ""
+    for i, line in enumerate(tqdm(lines)):
 
         # refresh the screen to avoid weird output distortion from newlines
-        print("\033[H\033[J")
+#        print("\033[H\033[J")
 
-        x, y, xblock, yblock, map_name, reward = line.strip()[1:-1].split(',')
-        x, y, xblock, yblock, reward = int(x), int(y), int(xblock), int(yblock), float(reward)
+        y, x, xblock, yblock, map_name, reward = line.strip()[1:-1].split(',')
+        y, x, xblock, yblock, map_name, reward = int(y), int(x), int(xblock), int(yblock), int(map_name), float(reward)
+        
+        if maps[map_name] is None:
+            new_map = Image.new("RGB", (4096, 4096))
+            new_map.paste(frames[i], (x * 16, y * 16))
+            maps[map_name] = new_map
+            renderer.load_image(new_map)
+            renderer.resize(
+                terminal_size.columns, terminal_size.lines * 2 - terminal_offset
+            )
+            term_image = renderer.to_string(method_class=Ansi24HblockMethod)
+            
+        
+        if map_name not in map_extents:
+            map_extents[map_name] = {"min_x": x, "max_x": x, "min_y": y, "max_y": y}
+        else:
+            if x < map_extents[map_name]["min_x"]:
+                map_extents[map_name]["min_x"] = x
+            if x > map_extents[map_name]["max_x"]:
+                map_extents[map_name]["max_x"] = x
+            if y < map_extents[map_name]["min_y"]:
+                map_extents[map_name]["min_y"] = y
+            if y > map_extents[map_name]["max_y"]:
+                map_extents[map_name]["max_y"] = y
+        
         if previous_map is not None:
             dx = x - previous_x
             dy = y - previous_y
@@ -48,7 +78,7 @@ def parse_file(file_path, gif_file):
             if dreward > 0.5:
                 reward_countdown = 10
             
-            if dx > 0 or dy > 0 or dxblock > 0 or dyblock > 0 or map_name != previous_map or reward_countdown > 0:
+            if dx != 0 or dy != 0 or dxblock != 0 or dyblock != 0 or map_name != previous_map or reward_countdown > 0:
                 image = frames[i]
                 moving_frames.append(image)
                 new_image = Image.new(
@@ -61,13 +91,22 @@ def parse_file(file_path, gif_file):
                 )
                 # term_image = renderer.to_string(method_class=Ansi24HblockMethod)
                 # renderer.render(Ansi24HblockMethod)
-                term_image=""
-                print(f"{term_image}\nStep: {i} Delta x: {dx}, Delta y: {dy}, Delta xblock: {dxblock}, Delta yblock: {dyblock}, Map: {map_name}, Reward:{dreward}")
+                # term_image=""
+                
+
+                maps[int(map_name)].paste(frames[i], (x * 16, y * 16))
+                # renderer.load_image(maps[int(map_name)])
+                # renderer.resize(
+                #     terminal_size.columns, terminal_size.lines * 2 - terminal_offset
+                # )
+                # term_image = renderer.to_string(method_class=Ansi24HblockMethod)
+                # print(f"{term_image}\nStep: {i} Delta x: {dx}, Delta y: {dy}, Delta xblock: {dxblock}, Delta yblock: {dyblock}, Map: {map_name}, Reward:{round(dreward,3)}")
 
 
 
         previous_x, previous_y, previous_xblock, previous_yblock, previous_map, previous_reward = x, y, xblock, yblock, map_name, reward
     # save the moving_frames to a new gif with the same name + "_moving.gif"
+    print(f"{term_image}\nMap extents: {map_extents}")
     moving_frames[0].save(
         f"{".".join(gif_file.split('.')[:-1])}_moving.gif",
         save_all=True,
@@ -76,6 +115,11 @@ def parse_file(file_path, gif_file):
         duration=1,
         loop=0,
     )
+    for map_name, map_image in enumerate(maps):
+        if map_image is not None:
+
+            map_image = map_image.crop((map_extents[map_name]["min_x"] * 16, map_extents[map_name]["min_y"] * 16, map_extents[map_name]["max_x"] * 16 + 160, map_extents[map_name]["max_y"] * 16 + 144))
+            map_image.save(f"{".".join(gif_file.split('.')[:-1])}_map_{map_name}.png")
 
 
 if __name__ == "__main__":
@@ -122,5 +166,5 @@ if __name__ == "__main__":
                     parse_file(txt_file_path, gif_file_path)
                 else:
                     print(f"Error: No corresponding GIF file for {txt_file_path}")
-    else:
-        parse_file(input_file, gif_file)
+    # else:
+    #     parse_file(input_file, gif_file)
