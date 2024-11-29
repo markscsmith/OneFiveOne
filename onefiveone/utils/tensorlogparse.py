@@ -144,13 +144,11 @@ def main():
         for tfevents_file in tqdm(tfevents_files):
             env_num = tfevents_file.split("/")[-1].split("-")[1].split(".")[0]
             action_data, seen, caught, final_score = action_data_parser(tfevents_file, env_num)
-            to_emulate.append((tfevents_file, final_score, seen, caught))
+            to_emulate.append(tfevents_file)
         try:
-            to_emulate = sorted(to_emulate, key=lambda x: x[1], reverse=True)
-
             with ProcessPoolExecutor(max_workers=cpu_count()) as executor:
                 futures = []
-                for position, (tfevents_file, final_score, seen, caught) in enumerate(to_emulate):
+                for position, tfevents_file in enumerate(to_emulate):
                     futures.append(executor.submit(process_item, args, position, position, tfevents_file, len(to_emulate)))
 
                 for future in as_completed(futures):
