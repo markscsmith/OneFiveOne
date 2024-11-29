@@ -17,7 +17,7 @@ from timg import Renderer, Ansi24HblockMethod
 from PIL import Image, ImageDraw, ImageFont
 
 import hashlib
-from pyboy import PyBoy
+
 
 
 # This allows the bot to press a button and wait for the game state to "settle" before pressing another button.
@@ -30,7 +30,7 @@ def diff_flags(s1, s2):
     return [i for i, (c1, c2) in enumerate(zip(s1, s2)) if c1 != c2]
 
 def add_string_overlay(
-    image, display_string, position=(20, 20), font_size=40, color=(255, 0, 0)
+    image : Image, display_string, position=(20, 20), font_size=40, color=(255, 0, 0)
 ):
     """
     Add a number as an overlay on the image.
@@ -90,7 +90,7 @@ class PyBoyEnv(gym.Env):
 
         self.renderer = Renderer()
         self.cart = PokeCart(open(self.game_path, "rb").read())
-        self.pyboy = PyBoy(self.game_path, window="null", cgb=cgb, log_level="CRITICAL")
+        self.pyboy = PyBoy(self.game_path, window="null", cgb=cgb)
 
         self.cgb = cgb
         
@@ -189,7 +189,7 @@ class PyBoyEnv(gym.Env):
         super().reset(seed=seed, **kwargs)
         self.pyboy.stop(save=False)
         del self.pyboy
-        self.pyboy = PyBoy(self.game_path, window="null", cgb=self.cgb, log_level="CRITICAL")
+        self.pyboy = PyBoy(self.game_path, window="null", cgb=self.cgb)
         if self.save_state_path is not None:
             self.pyboy.load_state(open(self.save_state_path, "rb"))
         else:
@@ -520,6 +520,8 @@ class PyBoyEnv(gym.Env):
            
         poke_levels = [poke[33] for poke in party]
         poke_party_bytes = [poke[16:18] for poke in party]
+        # TODO: Add HP score to reward calculation: losing HP shouldn't be a reward, but gaining HP should be.
+        # Area in memory where the HP is stored is 18:20 for each pokemon. (NEEDS VERIFICATION)
         poke_total_exp = 0
         for party_byte in poke_party_bytes:
             poke_total_exp += int.from_bytes(party_byte, byteorder='big')
@@ -670,7 +672,7 @@ class PyBoyEnv(gym.Env):
             image = add_string_overlay(image, f"{seen:3d}/{owned:3d}", position=(20, 100))
             image = add_string_overlay(image, f"{self.episode}, {other_info}", position=(20, 120))
             return image
-        return None
+        return Image.new("RGB", (160, 144))
 
     # 🧠: 19 🟢  64 👀  64 🌎  27:  4 🏆 19270.00 🎒   1 🐆   20.00
     # TODO: build expanding pixel map to show extents of game travelled. (minimap?) Use 3d numpy array to store visited pixels. performance?

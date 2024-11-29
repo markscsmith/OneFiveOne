@@ -1,3 +1,5 @@
+# TODO: Memory usage per thread goes up to like 15gb while processing to gif. This is tooooo much!
+
 import os
 import sys
 import tensorflow as tf
@@ -62,6 +64,8 @@ def process_item(item, args, roundnum, position=0, tfevents_file="", total=0):
     # Assign unique position to each tqdm instance for multi-line display
     locations = [None] * len(item)
     pos = (position % (cpu_count()))
+    tf_filename = "_".join(tfevents_file.split("/")[-2:])
+    phase = 0
     for action in tqdm(item, position=pos, desc=f"Processing {position:3d} of {total}"):
         if curr_frame % 50 == 0 and random.randint(0, 100) < 20:
             print("\033[H\033[J")
@@ -81,18 +85,24 @@ def process_item(item, args, roundnum, position=0, tfevents_file="", total=0):
         locations[curr_frame - 1] = location
 
         frames.append(image.copy())
+        if len(frames) > 10000 or curr_frame == max_frame:
+            seen = item[-1][-1].split("=")[-1]
+            caught = item[-1][-2].split("=")[-1]
+            if not os.path.exists(f"gif/{tf_filename}_output_{roundnum}"):
+                os.makedirs(f"gif/{tf_filename}_output_{roundnum}")
+            frames[0].save(
+                f"gif/{tf_filename}_output_{roundnum}/{phase}_S{seen}_C{caught}.gif",
+                save_all=True,
+                format="GIF",
+                append_images=frames[1:],
+                duration=1,
+                loop=0,
+                )
+            phase += 1
+            frames = []
 
-    seen = item[-1][-1].split("=")[-1]
-    caught = item[-1][-2].split("=")[-1]
-    tf_filename = "_".join(tfevents_file.split("/")[-2:])
-    frames[0].save(
-        f"gif/{tf_filename}_output_{roundnum}_S{seen}_C{caught}.gif",
-        save_all=True,
-        format="GIF",
-        append_images=frames[1:],
-        duration=1,
-        loop=0,
-    )
+    
+
     print(locations)
     # write locations out to a file next to the gif
     with open(f"gif/{tf_filename}_output_{roundnum}_S{seen}_C{caught}.txt", "w") as file:
