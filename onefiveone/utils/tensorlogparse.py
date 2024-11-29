@@ -68,8 +68,8 @@ def process_item(args, roundnum, position=0, tfevents_file="", total=0):
     tf_filename = "_".join(tfevents_file.split("/")[-2:])
     phase = 0
     for action in tqdm(item, position=pos, desc=f"Processing {position:3d} of {total}"):
-        if curr_frame % 50 == 0 and random.randint(0, 100) < 20:
-            print("\033[H\033[J")
+        # if curr_frame % 50 == 0 and random.randint(0, 100) < 20:
+        #     print("\033[H\033[J")
         curr_frame += 1
         button = buttons_to_action_map[action[1]]
         env.step(button)
