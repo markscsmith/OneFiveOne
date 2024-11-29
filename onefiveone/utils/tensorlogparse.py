@@ -52,12 +52,13 @@ def extract_tensorboard_data(log_dir: str) -> Dict[str, Dict[str, List[Tuple[flo
         "tensors": tensor_data,
     }
 
-def process_item(item, args, roundnum, position=0, tfevents_file="", total=0):
+def process_item(args, roundnum, position=0, tfevents_file="", total=0):
     print(f"Processing item {tfevents_file}...")
     env = PyBoyEnv(args.rom, emunum=0, cgb=CGB, log_level="CRITICAL")
     env.reset()
     frames = []
     buttons_to_action_map = {"-": 0, "U": 1, "D": 2, "L": 3, "R": 4, "A": 5, "B": 6, "S": 7}
+    item, final_score, seen, caught = action_data_parser(tfevents_file, position)
     max_frame = len(item)
     curr_frame = 0
 
@@ -143,15 +144,14 @@ def main():
         for tfevents_file in tqdm(tfevents_files):
             env_num = tfevents_file.split("/")[-1].split("-")[1].split(".")[0]
             action_data, seen, caught, final_score = action_data_parser(tfevents_file, env_num)
-            to_emulate.append((action_data, tfevents_file, final_score, seen, caught))
+            to_emulate.append((tfevents_file, final_score, seen, caught))
         try:
-            # Filter the top 10 to_emulates based on final_score
-            to_emulate = sorted(to_emulate, key=lambda x: x[2], reverse=True)[:10]
+            to_emulate = sorted(to_emulate, key=lambda x: x[1], reverse=True)
 
             with ProcessPoolExecutor(max_workers=cpu_count()) as executor:
                 futures = []
-                for position, (item, tfevents_file, final_score, seen, caught) in enumerate(to_emulate):
-                    futures.append(executor.submit(process_item, item, args, position, position, tfevents_file, len(to_emulate)))
+                for position, (tfevents_file, final_score, seen, caught) in enumerate(to_emulate):
+                    futures.append(executor.submit(process_item, args, position, position, tfevents_file, len(to_emulate)))
 
                 for future in as_completed(futures):
                     try:
