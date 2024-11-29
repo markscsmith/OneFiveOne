@@ -1,3 +1,5 @@
+# TODO: Memory usage per thread goes up to like 15gb while processing to gif. This is tooooo much!
+
 import os
 import sys
 import tensorflow as tf
@@ -9,6 +11,8 @@ from multiprocessing import cpu_count
 from concurrent.futures import ProcessPoolExecutor, as_completed
 from typing import Dict, List, Tuple
 from ..emulator.pyboy_env import PyBoyEnv
+
+import random
 
 CGB = False
 PRESS_FRAMES = 10
@@ -48,7 +52,7 @@ def extract_tensorboard_data(log_dir: str) -> Dict[str, Dict[str, List[Tuple[flo
         "tensors": tensor_data,
     }
 
-def process_item(item, args, round, position=0, tfevents_file=""):
+def process_item(item, args, roundnum, position=0, tfevents_file="", total=0):
     print(f"Processing item {tfevents_file}...")
     env = PyBoyEnv(args.rom, emunum=0, cgb=CGB, log_level="CRITICAL")
     env.reset()
@@ -58,24 +62,52 @@ def process_item(item, args, round, position=0, tfevents_file=""):
     curr_frame = 0
 
     # Assign unique position to each tqdm instance for multi-line display
-    for action in item:
+    locations = [None] * len(item)
+    pos = (position % (cpu_count()))
+    tf_filename = "_".join(tfevents_file.split("/")[-2:])
+    phase = 0
+    for action in tqdm(item, position=pos, desc=f"Processing {position:3d} of {total}"):
+        if curr_frame % 50 == 0 and random.randint(0, 100) < 20:
+            print("\033[H\033[J")
         curr_frame += 1
         button = buttons_to_action_map[action[1]]
         env.step(button)
         image = env.render_screen_image(target_index=0, frame=curr_frame, max_frame=max_frame, action=action[1], other_info=action[-2:])
-        frames.append(image.copy())
+        tr = env.total_reward
+        if tr > 0:
+            tr = round(tr, 3)
+        location = [env.last_player_x,
+                    env.last_player_y,
+                    env.last_player_x_block,
+                    env.last_player_y_block,
+                    env.last_player_map,
+                    tr,]
+        locations[curr_frame - 1] = location
 
-    seen = item[-1][-1].split("=")[-1]
-    caught = item[-1][-2].split("=")[-1]
-    tf_filename = "_".join(tfevents_file.split("/")[-2:])
-    frames[0].save(
-        f"gif/{tf_filename}_output_{round}_S{seen}_C{caught}.gif",
-        save_all=True,
-        format="GIF",
-        append_images=frames[1:],
-        duration=1,
-        loop=0,
-    )
+        frames.append(image.copy())
+        if len(frames) > 10000 or curr_frame == max_frame:
+            seen = item[-1][-1].split("=")[-1]
+            caught = item[-1][-2].split("=")[-1]
+            if not os.path.exists(f"gif/{tf_filename}_output_{roundnum}"):
+                os.makedirs(f"gif/{tf_filename}_output_{roundnum}")
+            frames[0].save(
+                f"gif/{tf_filename}_output_{roundnum}/{phase}_S{seen}_C{caught}.gif",
+                save_all=True,
+                format="GIF",
+                append_images=frames[1:],
+                duration=1,
+                loop=0,
+                )
+            phase += 1
+            frames = []
+
+    
+
+    print(locations)
+    # write locations out to a file next to the gif
+    with open(f"gif/{tf_filename}_output_{roundnum}_S{seen}_C{caught}.txt", "w") as file:
+        for location in locations:
+            file.write(f"{location}\n")
     print("Done processing", tfevents_file)
 
 def action_data_parser(filename, env_num):
@@ -111,14 +143,15 @@ def main():
         for tfevents_file in tqdm(tfevents_files):
             env_num = tfevents_file.split("/")[-1].split("-")[1].split(".")[0]
             action_data, seen, caught, final_score = action_data_parser(tfevents_file, env_num)
-            if int(str(seen).split("=")[-1]) > 0:
-                to_emulate.append((action_data, tfevents_file))
-
+            to_emulate.append((action_data, tfevents_file, final_score, seen, caught))
         try:
+            # Filter the top 10 to_emulates based on final_score
+            to_emulate = sorted(to_emulate, key=lambda x: x[2], reverse=True)[:10]
+
             with ProcessPoolExecutor(max_workers=cpu_count()) as executor:
                 futures = []
-                for position, (item, tfevents_file) in enumerate(to_emulate, 1):
-                    futures.append(executor.submit(process_item, item, args, position, position, tfevents_file))
+                for position, (item, tfevents_file, final_score, seen, caught) in enumerate(to_emulate):
+                    futures.append(executor.submit(process_item, item, args, position, position, tfevents_file, len(to_emulate)))
 
                 for future in as_completed(futures):
                     try:
