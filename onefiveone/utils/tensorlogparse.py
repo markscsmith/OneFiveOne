@@ -17,6 +17,7 @@ import random
 CGB = False
 PRESS_FRAMES = 10
 RELEASE_FRAMES = 20
+FRAME_BATCH_SIZE = 5000
 
 def extract_tensorboard_data(log_dir: str) -> Dict[str, Dict[str, List[Tuple[float, int, any]]]]:
     event_acc = event_accumulator.EventAccumulator(log_dir)
@@ -86,7 +87,7 @@ def process_item(args, roundnum, position=0, tfevents_file="", total=0):
         locations[curr_frame - 1] = location
 
         frames.append(image.copy())
-        if len(frames) > 10000 or curr_frame == max_frame:
+        if len(frames) > FRAME_BATCH_SIZE or curr_frame == max_frame:
             seen = item[-1][-1].split("=")[-1]
             caught = item[-1][-2].split("=")[-1]
             if not os.path.exists(f"gif/{tf_filename}_output_{roundnum}"):
