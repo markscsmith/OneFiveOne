@@ -143,7 +143,7 @@ def main():
         tfevents_files = glob.glob(os.path.join(args.log_dir, "**/*actions-*.txt"), recursive=True)
         for tfevents_file in tqdm(tfevents_files):
             env_num = tfevents_file.split("/")[-1].split("-")[1].split(".")[0]
-            action_data, seen, caught, final_score = action_data_parser(tfevents_file, env_num)
+            # action_data, seen, caught, final_score = action_data_parser(tfevents_file, env_num)
             to_emulate.append(tfevents_file)
         try:
             with ProcessPoolExecutor(max_workers=cpu_count()) as executor:
