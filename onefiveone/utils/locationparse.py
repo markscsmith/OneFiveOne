@@ -41,8 +41,8 @@ def parse_file(file_path, gif_files = []):
         # refresh the screen to avoid weird output distortion from newlines
 #        print("\033[H\033[J")
 
-        y, x, xblock, yblock, map_name, reward = line.strip()[1:-1].split(',')
-        y, x, xblock, yblock, map_name, reward = int(y), int(x), int(xblock), int(yblock), int(map_name), float(reward)
+        x, y, map_name, reward = line.strip()[1:-1].split(',')
+        x, y, map_name, reward = int(x), int(y), int(map_name), float(reward)
         
         if maps[map_name] is None:
             new_map = Image.new("RGB", (4096, 4096))
@@ -70,8 +70,6 @@ def parse_file(file_path, gif_files = []):
         if previous_map is not None:
             dx = x - previous_x
             dy = y - previous_y
-            dxblock = xblock - previous_xblock
-            dyblock = yblock - previous_yblock
             dreward = reward - previous_reward
 
             if reward_countdown > 0:
@@ -80,7 +78,7 @@ def parse_file(file_path, gif_files = []):
             if dreward > 0.5:
                 reward_countdown = 10
             
-            if dx != 0 or dy != 0 or dxblock != 0 or dyblock != 0 or map_name != previous_map or reward_countdown > 0:
+            if dx != 0 or dy != 0 or map_name != previous_map or reward_countdown > 0:
                 image = frames[i]
                 moving_frames.append(image)
                 new_image = Image.new(
@@ -106,7 +104,7 @@ def parse_file(file_path, gif_files = []):
 
 
 
-        previous_x, previous_y, previous_xblock, previous_yblock, previous_map, previous_reward = x, y, xblock, yblock, map_name, reward
+        previous_x, previous_y, previous_map, previous_reward = x, y, map_name, reward
     # save the moving_frames to a new gif with the same name + "_moving.gif"
     print(f"{term_image}\nMap extents: {map_extents}")
 
@@ -117,10 +115,11 @@ def parse_file(file_path, gif_files = []):
         format="GIF",
         append_images=moving_frames[1:],
         duration=1,
+        optimise=False,
         loop=0,
     )
     
-    gif_to_movie(output_gif, f"{".".join(output_gif.split('.')[:-1])}.mp4")
+    # gif_to_movie(output_gif, f"{".".join(output_gif.split('.')[:-1])}.mp4")
 
     for map_name, map_image in enumerate(maps):
         if map_image is not None:
