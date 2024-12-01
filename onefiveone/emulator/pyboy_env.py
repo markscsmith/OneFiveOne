@@ -267,9 +267,9 @@ class PyBoyEnv(gym.Env):
        
         reward, observation = self.calculate_reward()
         if len(self.actions) == 0:
-            self.actions = f"{button[1]}:{self.step_count}:{self.total_reward:.2f}:C{self.last_pokemon_count}:S{self.last_seen_pokemon_count}"
+            self.actions = f"{button[1]}:{self.step_count}:{self.total_reward:.2f}:C{self.last_pokemon_count}:S{self.last_seen_pokemon_count}:X{self.last_player_x}:Y{self.last_player_y}:M{self.last_player_map}"
         else:
-            self.actions = f"{self.actions}|{button[1]}:{self.step_count}:{self.total_reward:.2f}:C{self.last_pokemon_count}:S{self.last_seen_pokemon_count}"
+            self.actions = f"{self.actions}|{button[1]}:{self.step_count}:{self.total_reward:.2f}:C{self.last_pokemon_count}:S{self.last_seen_pokemon_count}:X{self.last_player_x}:Y{self.last_player_y}:M{self.last_player_map}"
         truncated = False
         terminated = False
 
@@ -287,6 +287,17 @@ class PyBoyEnv(gym.Env):
         }
 
         return observation, reward, terminated, truncated, info
+    
+    def speed_step(self, action):
+        self.step_count += 1
+        self.frames = self.pyboy.frame_count
+
+        button = self.buttons[action]
+        if action != 0:
+            self.pyboy.button(button[0], delay=2)
+
+        self.pyboy.tick(PRESS_FRAMES + RELEASE_FRAMES, True)
+        return self.pyboy.screen.image
 
 
     def get_mem_block(self, offset):

@@ -11,12 +11,56 @@ from multiprocessing import cpu_count
 from concurrent.futures import ProcessPoolExecutor, as_completed
 from typing import Dict, List, Tuple
 from ..emulator.pyboy_env import PyBoyEnv
+from PIL import Image, ImageDraw, ImageFont
 
 import random
 
 CGB = False
 PRESS_FRAMES = 10
 RELEASE_FRAMES = 20
+FRAME_BATCH_SIZE = 5000
+
+def add_string_overlay(
+    image : Image, display_string, position=(20, 20), font_size=40, color=(255, 0, 0)
+):
+    """
+    Add a number as an overlay on the image.
+
+    Parameters:
+    - image: PIL.Image.Image
+        The image to which the number will be added
+    - number: int or str
+        The number to add
+    - position: tuple of int, optional (default=(20, 20))
+        The (x, y) position at which to add the number
+    - font_size: int, optional (default=40)
+        The font size of the number
+    - color: tuple of int, optional (default=(255, 0, 0))
+        The RGB color of the number
+
+    Returns:
+    PIL.Image.Image
+        The image with the number added
+    """
+    # Initialize a drawing context
+    draw = ImageDraw.Draw(image)
+
+    try:
+        # Use a truetype or opentype font file
+        # font = ImageFont.truetype("arial.ttf", font_size)
+        font = ImageFont.truetype(
+            "arial.ttf",
+            font_size,
+        )
+    except IOError:
+        # If the font file is not available, the default PIL font is used
+        font = ImageFont.load_default()
+
+    # Draw the text
+    # print(f"Drawing string {display_string} at {position} in color {color} on image of size {image.size}")
+    draw.text(position, str(display_string), font=font, fill=color)
+
+    return image
 
 def extract_tensorboard_data(log_dir: str) -> Dict[str, Dict[str, List[Tuple[float, int, any]]]]:
     event_acc = event_accumulator.EventAccumulator(log_dir)
@@ -52,12 +96,15 @@ def extract_tensorboard_data(log_dir: str) -> Dict[str, Dict[str, List[Tuple[flo
         "tensors": tensor_data,
     }
 
-def process_item(item, args, roundnum, position=0, tfevents_file="", total=0):
+def process_item(args, roundnum, position=0, tfevents_file="", total=0):
     print(f"Processing item {tfevents_file}...")
     env = PyBoyEnv(args.rom, emunum=0, cgb=CGB, log_level="CRITICAL")
     env.reset()
     frames = []
     buttons_to_action_map = {"-": 0, "U": 1, "D": 2, "L": 3, "R": 4, "A": 5, "B": 6, "S": 7}
+    item, final_score, seen, caught = action_data_parser(tfevents_file, position)
+    seen = item[-1][4].split("=")[-1]
+    caught = item[-1][5].split("=")[-1]
     max_frame = len(item)
     curr_frame = 0
 
@@ -67,43 +114,48 @@ def process_item(item, args, roundnum, position=0, tfevents_file="", total=0):
     tf_filename = "_".join(tfevents_file.split("/")[-2:])
     phase = 0
     for action in tqdm(item, position=pos, desc=f"Processing {position:3d} of {total}"):
-        if curr_frame % 50 == 0 and random.randint(0, 100) < 20:
-            print("\033[H\033[J")
-        curr_frame += 1
+        # if curr_frame % 50 == 0 and random.randint(0, 100) < 20:
+        #     print("\033[H\033[J")
+        
         button = buttons_to_action_map[action[1]]
-        env.step(button)
-        image = env.render_screen_image(target_index=0, frame=curr_frame, max_frame=max_frame, action=action[1], other_info=action[-2:])
-        tr = env.total_reward
-        if tr > 0:
-            tr = round(tr, 3)
-        location = [env.last_player_x,
-                    env.last_player_y,
-                    env.last_player_x_block,
-                    env.last_player_y_block,
-                    env.last_player_map,
+        image = env.speed_step(button)
+        # image = env.render_screen_image(target_index=0, frame=curr_frame, max_frame=max_frame, action=action[1], other_info=action[-2:])
+        tr = round(env.total_reward, 3)
+        _, button, _, _, _, _, x, y, map_num = action
+        location = [x,
+                    y,
+                    map_num,
                     tr,]
-        locations[curr_frame - 1] = location
+        locations[curr_frame] = location
+        curr_frame += 1
+        image = add_string_overlay(image, f"Step: {curr_frame}/{max_frame}", position=(20, 20))
+        frames.append(image)
+        if len(frames) > FRAME_BATCH_SIZE or curr_frame == max_frame:
 
-        frames.append(image.copy())
-        if len(frames) > 10000 or curr_frame == max_frame:
-            seen = item[-1][-1].split("=")[-1]
-            caught = item[-1][-2].split("=")[-1]
+            # find all types in frames:
             if not os.path.exists(f"gif/{tf_filename}_output_{roundnum}"):
                 os.makedirs(f"gif/{tf_filename}_output_{roundnum}")
+            filename = f"gif/{tf_filename}_output_{roundnum}/{phase}_S{seen}_C{caught}.gif"
             frames[0].save(
-                f"gif/{tf_filename}_output_{roundnum}/{phase}_S{seen}_C{caught}.gif",
+                filename,
                 save_all=True,
                 format="GIF",
                 append_images=frames[1:],
-                duration=1,
+                duration = 1,
                 loop=0,
                 )
+            # load image to verify all frames written:
+            image = Image.open(filename)
+            if image.n_frames != len(frames):
+                print(f"Error: {filename} has {image.n_frames} frames, but {len(frames)} were written.")
+                sys.exit(1)
+
             phase += 1
             frames = []
+    
 
     
 
-    print(locations)
     # write locations out to a file next to the gif
     with open(f"gif/{tf_filename}_output_{roundnum}_S{seen}_C{caught}.txt", "w") as file:
         for location in locations:
@@ -119,14 +171,17 @@ def action_data_parser(filename, env_num):
     max_seen, max_caught, final_score = 0, 0, 0
 
     for i, block in enumerate(action_blocks_raw):
-        button, step, score, caught, seen = block.split(":")
+        button, step, score, caught, seen, x, y, map_num = block.split(":")
+        x = int(x[1:])
+        y = int(y[1:])
+        map_num = int(map_num[1:])
         caught, seen = caught[0] + "=" + caught[1:], seen[0] + "=" + seen[1:]
         if int(caught.split("=")[-1]) > int(str(max_caught).split("=")[-1]):
             max_caught = caught
         if int(seen.split("=")[-1]) > int(str(max_seen).split("=")[-1]):
             max_seen = seen
         final_score = score
-        action_blocks[i] = (env_num, button, step, score, caught, seen)
+        action_blocks[i] = (env_num, button, step, score, caught, seen, x, y, map_num)
 
     return action_blocks, max_seen, max_caught, final_score
 
@@ -142,22 +197,17 @@ def main():
         tfevents_files = glob.glob(os.path.join(args.log_dir, "**/*actions-*.txt"), recursive=True)
         for tfevents_file in tqdm(tfevents_files):
             env_num = tfevents_file.split("/")[-1].split("-")[1].split(".")[0]
-            action_data, seen, caught, final_score = action_data_parser(tfevents_file, env_num)
-            to_emulate.append((action_data, tfevents_file, final_score, seen, caught))
+            # action_data, seen, caught, final_score = action_data_parser(tfevents_file, env_num)
+            to_emulate.append(tfevents_file)
         try:
-            # Filter the top 10 to_emulates based on final_score
-            to_emulate = sorted(to_emulate, key=lambda x: x[2], reverse=True)[:10]
-
             with ProcessPoolExecutor(max_workers=cpu_count()) as executor:
                 futures = []
-                for position, (item, tfevents_file, final_score, seen, caught) in enumerate(to_emulate):
-                    futures.append(executor.submit(process_item, item, args, position, position, tfevents_file, len(to_emulate)))
+                for position, tfevents_file in enumerate(to_emulate):
+                    futures.append(executor.submit(process_item, args, position, position, tfevents_file, len(to_emulate)))
 
                 for future in as_completed(futures):
-                    try:
-                        future.result()  # Get result to raise exceptions if any
-                    except Exception as e:
-                        print(f"Error occurred: {e}")
+
+                    future.result()  # Get result to raise exceptions if any
         except KeyboardInterrupt:
             print("\nKeyboardInterrupt detected! Shutting down processes...")
             
