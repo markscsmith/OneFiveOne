@@ -543,7 +543,7 @@ class PyBoyEnv(gym.Env):
         
         attack_reward = (self.opponent_pokemon_total_hp - opponent_pokemon_total_hp)
         
-        self.attack_reward += attack_reward
+        self.attack_reward += max(attack_reward, 0)
             
         self.opponent_pokemon_total_hp = opponent_pokemon_total_hp
      
