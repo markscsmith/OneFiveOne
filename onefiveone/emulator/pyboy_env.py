@@ -201,8 +201,6 @@ class PyBoyEnv(gym.Env):
         self.frames = 0
         self.step_count = 0
         self.flags = []
-
-        self.last_n_memories = []
         self.poke_levels = [0, 0, 0, 0, 0, 0]
 
 
@@ -249,7 +247,7 @@ class PyBoyEnv(gym.Env):
         
         # Opponent Data
         self.opponent_pokemon_total_hp = 0
-
+        self.last_n_memories = [self.get_mem_block(self.cart.cart_offset())[-1]] * self.n
         _, observation = self.calculate_reward()
 
         return observation, {"seed": seed}
@@ -332,7 +330,7 @@ class PyBoyEnv(gym.Env):
 
         # Player Objectives
         pokedex = self.pyboy.memory[0xD2F7 + offset : 0xD31C + offset + 1]
-        badges = [self.pyboy.memory[0xD356 + offset]]  # Currently not used
+        # badges = [self.pyboy.memory[0xD356 + offset]]  # Currently not used
 
         # Pokemon party data for player and opponent
         my_pokemon = self.pyboy.memory[0xD16B + offset : 0xD272 + offset + 1]
@@ -343,12 +341,13 @@ class PyBoyEnv(gym.Env):
         items = self.pyboy.memory[0xD31D + offset : 0xD346 + offset + 1]
         stored_items = self.pyboy.memory[0xD53A + offset:0xD59F + offset + 1]
 
-        pokemart = self.pyboy.memory[0xCF7B + offset:0xCF85 + offset + 1]
+        # pokemart = self.pyboy.memory[0xCF7B + offset:0xCF85 + offset + 1]
+        
         money_bytes = self.pyboy.memory[0xD347 + offset : 0xD349 + offset + 1]
         money = int(''.join(f'{byte:02x}' for byte in money_bytes))
         
         # Casino coins
-        chips = self.pyboy.memory[0xD5A4 + offset: 0xD5A5 + offset + 1]
+        # chips = self.pyboy.memory[0xD5A4 + offset: 0xD5A5 + offset + 1]
         
         # Flags for various events:
         missable_object_flags = self.pyboy.memory[0xD5A6 + offset: 0xD5C5 + offset + 1]
@@ -357,22 +356,24 @@ class PyBoyEnv(gym.Env):
         mewtwo = [event_flags[1] + event_flags[-1]]
 
         combined_memory = (
-            list(pokemart) +
+            # list(pokemart) +
             list(my_pokemon) +
             list(pokedex) +
             list(items) +
             list(money_bytes) +
             [money] +
-            list(badges) +
+            # list(badges) +
             list(location) +
             list(stored_items) +
-            list(chips) +
+            # list(chips) +
             list(missable_object_flags) +
             list(event_flags) +
             list(ss_anne) +
             list(mewtwo) +
             list(opponent_pokemon)
         )
+
+        pokemart, badges, chips = None, None, None
 
         return [
             pokemart,
@@ -416,10 +417,7 @@ class PyBoyEnv(gym.Env):
             opponent_pokemon,
             combined_memory,
         ) = mem_block
-        if len(self.last_n_memories) == 0:
-            self.last_n_memories = [combined_memory] * self.n
-        else:
-            self.last_n_memories = self.last_n_memories[1:] + [combined_memory]
+        self.last_n_memories = self.last_n_memories[1:] + [combined_memory]
         
         
         
@@ -441,7 +439,7 @@ class PyBoyEnv(gym.Env):
                 self.player_maps.add(map_id)
             else:
                 travel_reward += 0
-        
+        self.player_maps.add(map_id)
         event_reward = 0
 
         chunk_id = f"{px}:{py}:{pbx}:{pby}:{map_id}"
@@ -449,15 +447,10 @@ class PyBoyEnv(gym.Env):
         visited_score = 0
         if self.last_chunk_id != chunk_id:
             if chunk_id in self.visited_xy:
-                # TODO: restore negative and positive rewards for visiting new chunks and revisiting cold ones
-                # Targeted for after issue #10 is resolved.
                 visited_score = 0.01
-                pass
             else:
                 self.visited_xy.add(chunk_id)
                 visited_score =  0.1
-        else:
-            visited_score = -0.01
 
         self.last_chunk_id = chunk_id
 
@@ -503,9 +496,6 @@ class PyBoyEnv(gym.Env):
         last_poke = self.last_pokemon_count
         last_poke_seen = self.last_seen_pokemon_count
 
-        if pokemon_seen == 0:
-            pokemon_owned = 0
-
         if pokemon_owned > last_poke:
             self.seen_and_capture_events[self.pyboy.frame_count] = (
                 pokemon_owned,
@@ -539,11 +529,9 @@ class PyBoyEnv(gym.Env):
 
         party_exp_reward = 0
         old_exp = self.total_poke_exp
-        if poke_total_exp != old_exp:
-            party_exp_reward = np.abs(poke_total_exp - old_exp) / 100
-            self.total_poke_exp = poke_total_exp
         
-
+        party_exp_reward = np.abs(poke_total_exp - old_exp) / 100
+        self.total_poke_exp = poke_total_exp
         
         self.poke_levels = poke_levels
         self.party_exp_reward += party_exp_reward
@@ -552,10 +540,10 @@ class PyBoyEnv(gym.Env):
         # ---- Opponent data to calculate attack rewards ----
         attack_reward = 0
         opponent_pokemon_total_hp = int.from_bytes(opponent_pokemon, byteorder='big')
-        if opponent_pokemon_total_hp > 0 and self.opponent_pokemon_total_hp > opponent_pokemon_total_hp:
-            attack_reward = (self.opponent_pokemon_total_hp - opponent_pokemon_total_hp)
         
-        self.attack_reward += attack_reward
+        attack_reward = (self.opponent_pokemon_total_hp - opponent_pokemon_total_hp)
+        
+        self.attack_reward += max(attack_reward, 0)
             
         self.opponent_pokemon_total_hp = opponent_pokemon_total_hp
      
@@ -571,16 +559,13 @@ class PyBoyEnv(gym.Env):
 
         self.last_stored_item_total = stored_item_total
         self.last_carried_item_total = carried_item_total
-
-        last_total_items = self.last_total_items
-        if carried_item_total + stored_item_total != last_total_items:
-            self.last_total_items = carried_item_total + stored_item_total
+        
+        self.last_total_items = carried_item_total + stored_item_total
 
         # calculate points of items based on the number of items added per step
         last_items = self.last_items
         if len(last_items) == 0:
             last_items = [0] * len(item_counts)
-
         item_diff = [
             np.abs(item_counts[i] - last_items[i]) for i in range(len(item_counts))
         ]
@@ -590,10 +575,7 @@ class PyBoyEnv(gym.Env):
         new_item_points = zip(item_types, item_diff)
 
         for item, points in new_item_points:
-            if item == 0 or item == 255:
-                pass
-            else:
-                self.item_points[item] = points
+            self.item_points[item] = points
 
         item_points = sum(self.item_points.values())
         self.total_item_points += item_points
@@ -603,10 +585,9 @@ class PyBoyEnv(gym.Env):
             self.flags = event_flags + missable_object_flags
         else:
             flag_diff = diff_flags(self.flags, event_flags + missable_object_flags)
-            if len(flag_diff) > 0:
-                event_reward += 1 * len(flag_diff)
-                self.flags = event_flags + missable_object_flags
-                self.flag_score += event_reward
+            event_reward += 1 * len(flag_diff)
+            self.flags = event_flags + missable_object_flags
+            self.flag_score += event_reward
 
 
 

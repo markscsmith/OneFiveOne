@@ -41,20 +41,9 @@ def parse_file(file_path, gif_files = []):
         # refresh the screen to avoid weird output distortion from newlines
 #        print("\033[H\033[J")
 
-        x, y, map_name, reward = line.strip()[1:-1].split(',')
+        y, x, map_name, reward = line.strip()[1:-1].split(',')
         x, y, map_name, reward = int(x), int(y), int(map_name), float(reward)
-        
-        if maps[map_name] is None:
-            new_map = Image.new("RGB", (4096, 4096))
-            new_map.paste(frames[i], (x * 16, y * 16))
-            maps[map_name] = new_map
-            renderer.load_image(new_map)
-            renderer.resize(
-                terminal_size.columns, terminal_size.lines * 2 - terminal_offset
-            )
-            term_image = renderer.to_string(method_class=Ansi24HblockMethod)
-            
-        
+
         if map_name not in map_extents:
             map_extents[map_name] = {"min_x": x, "max_x": x, "min_y": y, "max_y": y}
         else:
@@ -66,6 +55,20 @@ def parse_file(file_path, gif_files = []):
                 map_extents[map_name]["min_y"] = y
             if y > map_extents[map_name]["max_y"]:
                 map_extents[map_name]["max_y"] = y
+        
+        if maps[map_name] is None:
+            new_map = Image.new("RGB", (4096, 4096))
+            new_map.paste(frames[i], (x * 16, y * 16))
+            maps[map_name] = new_map
+            
+        new_map  = maps[map_name].crop((map_extents[map_name]["min_x"] * 16, map_extents[map_name]["min_y"] * 16, map_extents[map_name]["max_x"] * 16 + 160, map_extents[map_name]["max_y"] * 16 + 144))
+        renderer.load_image(new_map)
+        renderer.resize(
+                terminal_size.columns, terminal_size.lines * 2 - terminal_offset
+            )
+        term_image = renderer.to_string(method_class=Ansi24HblockMethod)
+            
+        
         
         if previous_map is not None:
             dx = x - previous_x
@@ -81,26 +84,29 @@ def parse_file(file_path, gif_files = []):
             if dx != 0 or dy != 0 or map_name != previous_map or reward_countdown > 0:
                 image = frames[i]
                 moving_frames.append(image)
-                new_image = Image.new(
-                   "RGB", (image.width, image.height + image.height // 2)
-                )
-                new_image.paste(image, (0, 0))
-                renderer.load_image(image)
-                renderer.resize(
-                    terminal_size.columns, terminal_size.lines * 2 - terminal_offset
-                )
+                # new_image = Image.new(
+                #    "RGB", (image.width, image.height + image.height // 2)
+                # )
+                # new_image.paste(image, (0, 0))
+                
+
+                # renderer.load_image(map_image)
+                # renderer.resize(
+                #     terminal_size.columns, terminal_size.lines * 2 - terminal_offset
+                # )
                 # term_image = renderer.to_string(method_class=Ansi24HblockMethod)
                 # renderer.render(Ansi24HblockMethod)
                 # term_image=""
                 
 
                 maps[int(map_name)].paste(frames[i], (x * 16, y * 16))
+                
                 # renderer.load_image(maps[int(map_name)])
                 # renderer.resize(
                 #     terminal_size.columns, terminal_size.lines * 2 - terminal_offset
                 # )
                 # term_image = renderer.to_string(method_class=Ansi24HblockMethod)
-                # print(f"{term_image}\nStep: {i} Delta x: {dx}, Delta y: {dy}, Delta xblock: {dxblock}, Delta yblock: {dyblock}, Map: {map_name}, Reward:{round(dreward,3)}")
+                print(f"{term_image}\nStep: {i} Delta x: {dx}, Delta y: {dy}, Map: {map_name}, Reward:{round(reward,3)}")
 
 
 

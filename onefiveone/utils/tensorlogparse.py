@@ -102,7 +102,8 @@ def process_item(args, roundnum, position=0, tfevents_file="", total=0):
     env.reset()
     frames = []
     buttons_to_action_map = {"-": 0, "U": 1, "D": 2, "L": 3, "R": 4, "A": 5, "B": 6, "S": 7}
-    item, final_score, seen, caught = action_data_parser(tfevents_file, position)
+    item, current_score, seen, caught = action_data_parser(tfevents_file, position)
+    
     seen = item[-1][4].split("=")[-1]
     caught = item[-1][5].split("=")[-1]
     max_frame = len(item)
@@ -120,8 +121,9 @@ def process_item(args, roundnum, position=0, tfevents_file="", total=0):
         button = buttons_to_action_map[action[1]]
         image = env.speed_step(button)
         # image = env.render_screen_image(target_index=0, frame=curr_frame, max_frame=max_frame, action=action[1], other_info=action[-2:])
-        tr = round(env.total_reward, 3)
-        _, button, _, _, _, _, x, y, map_num = action
+        
+        _, button, _, score, _, _, x, y, map_num = action
+        tr = round(float(score), 3)
         location = [x,
                     y,
                     map_num,
@@ -183,7 +185,7 @@ def action_data_parser(filename, env_num):
         final_score = score
         action_blocks[i] = (env_num, button, step, score, caught, seen, x, y, map_num)
 
-    return action_blocks, max_seen, max_caught, final_score
+    return action_blocks, final_score, max_seen, max_caught, 
 
 def main():
     parser = argparse.ArgumentParser(description="Extract and print TensorBoard data.")
