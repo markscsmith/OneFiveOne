@@ -440,10 +440,8 @@ class PyBoyEnv(gym.Env):
         # Calculate reward from exploring the game world by counting maps, doesn't need to store counter
         if self.last_player_map != map_id:
             if map_id not in self.player_maps:
-                travel_reward += 0.02
+                travel_reward += 5
                 self.player_maps.add(map_id)
-            else:
-                travel_reward += 0
         self.player_maps.add(map_id)
         event_reward = 0
 
