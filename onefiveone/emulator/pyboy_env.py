@@ -8,6 +8,7 @@ import numpy as np
 
 import gymnasium as gym
 from gymnasium.spaces import Box, Discrete
+from gymnasium import spaces
 
 # Emulator libs
 from pyboy import PyBoy
@@ -108,9 +109,12 @@ class PyBoyEnv(gym.Env):
         offset = self.cart.cart_offset()
         block = self.get_mem_block(offset=offset)[-1]
         
-        self.observation_space = Box(
+        self.memory_space = Box(
             low=0, high=255, shape=(self.n, len(block)), dtype=np.uint8
         )
+        self.screen_space = Box(low=0, high=255, shape=(144, 160, 4), dtype=np.uint8)
+
+        self.observation_space = spaces.Dict({"m":self.memory_space, "s":self.screen_space})
 
         self.action_space = Discrete(8, start=0) # 8 buttons to press, only one pressed at a time
         
@@ -371,6 +375,7 @@ class PyBoyEnv(gym.Env):
             list(ss_anne) +
             list(mewtwo) +
             list(opponent_pokemon)
+            # flatten to a single list:
         )
 
         pokemart, badges, chips = None, None, None
@@ -445,12 +450,12 @@ class PyBoyEnv(gym.Env):
         chunk_id = f"{px}:{py}:{pbx}:{pby}:{map_id}"
 
         visited_score = 0
-        if self.last_chunk_id != chunk_id:
-            if chunk_id in self.visited_xy:
-                visited_score = 0.01
-            else:
-                self.visited_xy.add(chunk_id)
-                visited_score =  0.1
+        # if self.last_chunk_id != chunk_id:
+        #     if chunk_id in self.visited_xy:
+        #         visited_score = 0.01
+        #     else:
+        #         self.visited_xy.add(chunk_id)
+        #         visited_score =  0.1
 
         self.last_chunk_id = chunk_id
 
@@ -613,7 +618,7 @@ class PyBoyEnv(gym.Env):
 
         self.total_reward += reward
 
-        return round(reward, 4), self.last_n_memories
+        return round(reward, 4), {"m":self.last_n_memories, "s":self.pyboy.screen.ndarray.copy()}
 
 
     def render(self, target_index=None, reset=False):

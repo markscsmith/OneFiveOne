@@ -205,13 +205,15 @@ def train_model(
     env.set_attr("episode", 0)
     # tensorboard_log = f"{save_path}/tensorboard/{os.uname()[1]}-{time.time()}"
 
+    # run_model = PPO(
+    #    policy="MlpPolicy",
     run_model = PPO(
-        policy="MlpPolicy",
+        policy="MultiInputPolicy",
         # Reduce n_steps if too large; ensure not less than some minimum like 2048 for sufficient learning per update.
         n_steps=n_steps,
         # Reduce batch size if it's too large but ensure a minimum size for stability.
         batch_size=batch_size,
-        n_epochs=1,
+        n_epochs=3,
         gamma=0.998,
         gae_lambda=0.98,
         # learning_rate=learning_rate_schedule,
@@ -221,7 +223,6 @@ def train_model(
         policy_kwargs=policy_kwargs,
         verbose=0,
         device=device,
-        # tensorboard_log=tensorboard_log,
     )
 
 
