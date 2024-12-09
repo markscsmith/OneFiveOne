@@ -168,7 +168,7 @@ if __name__ == "__main__":
     if args.gif_dir:
         gif_dir = args.gif_dir
         for file_name in os.listdir(gif_dir):
-            if file_name.endswith('.txt'):
+            if file_name.endswith('.txt') and not "S0" in file_name:
                 print(f"Processing {file_name}")
                 txt_file_path = os.path.join(gif_dir, file_name)
                 gif_folder_path =  f"{"_".join(txt_file_path.split('_')[:-2])}"
