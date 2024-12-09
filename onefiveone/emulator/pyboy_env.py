@@ -77,10 +77,10 @@ class PyBoyEnv(gym.Env):
         self,
         game_path,
         emunum,
+        num_steps,
         save_state_path=None,
         device="cpu",
         episode=0,
-        num_steps=0,
         cgb=False,
         **kwargs,
     ):
@@ -211,7 +211,7 @@ class PyBoyEnv(gym.Env):
         self.poke_levels = [0, 0, 0, 0, 0, 0]
 
 
-        self.actions = ""
+        self.actions = [None] * self.max_steps
         self.last_pokemon_count = 0
         self.last_seen_pokemon_count = 0
         self.seen_and_capture_events = {}
@@ -261,7 +261,6 @@ class PyBoyEnv(gym.Env):
 
 
     def step(self, action):
-        self.step_count += 1
         max_steps = self.max_steps
         final_multiplier = 1
         multiplier = 2.0 - (2.0 - final_multiplier) * (self.step_count / max_steps)
@@ -276,27 +275,24 @@ class PyBoyEnv(gym.Env):
        
         reward, observation = self.calculate_reward()
         reward = round(reward * multiplier, 4)
-
-        if len(self.actions) == 0:
-            self.actions = f"{button[1]}:{self.step_count}:{self.total_reward:.2f}:C{self.last_pokemon_count}:S{self.last_seen_pokemon_count}:X{self.last_player_x}:Y{self.last_player_y}:M{self.last_player_map}"
-        else:
-            self.actions = f"{self.actions}|{button[1]}:{self.step_count}:{self.total_reward:.2f}:C{self.last_pokemon_count}:S{self.last_seen_pokemon_count}:X{self.last_player_x}:Y{self.last_player_y}:M{self.last_player_map}"
+        self.actions[self.step_count] = f"{button[1]}:{self.step_count}:{self.total_reward:.2f}:C{self.last_pokemon_count}:S{self.last_seen_pokemon_count}:X{self.last_player_x}:Y{self.last_player_y}:M{self.last_player_map}"
         truncated = False
         terminated = False
 
         info = {
             "reward": reward,
-            "total_reward": self.total_reward,
-            "actions": self.actions,
+#            "total_reward": self.total_reward,
+ #           "actions": self.actions,
             "emunum": self.emunum,
             "frames": self.frames,
             "pokemon_caught": self.last_pokemon_count,
             "pokemon_seen": self.last_seen_pokemon_count,
-            "visited_xy": self.visited_xy,
+ #           "visited_xy": self.visited_xy,
             "pokedex": self.pokedex,
-            "seen_and_capture_events": self.seen_and_capture_events,
+  #          "seen_and_capture_events": self.seen_and_capture_events,
         }
 
+        self.step_count += 1
         return observation, reward, terminated, truncated, info
     
     def speed_step(self, action):
@@ -651,7 +647,7 @@ class PyBoyEnv(gym.Env):
             clock_faces = "🕛🕐🕑🕒🕓🕔🕕🕖🕗🕘🕙🕚"
             game_time_string = f"{clock_faces[game_hours % 12]} {game_hours:02d}:{game_minutes % 60:02d}:{game_seconds % 60:02d}"
             image_string = self.renderer.to_string(Ansi24HblockMethod)
-            action_string = [x[0] for x in self.actions[-6:]]
+            action_string = [x[0] for x in self.actions[max(0,self.step_count - 6):self.step_count]]
 
             if target_index is not None:
                 render_string = f"{image_string}🧳 {self.episode} 🧠: {target_index:2d} 🥾 {self.step_count:10d} 🟢 {self.last_pokemon_count:3d} 👀 {self.last_seen_pokemon_count:3d} 🎒 {self.total_item_points:3d} 🌎 {len(self.visited_xy):3d}:{len(self.player_maps):3d} 🏆 {self.total_reward:7.2f} 💪 {self.party_exp_reward:7.2f} 🥊 {self.attack_reward:7d} 💰 {self.money:7d} 📫 {self.flag_score} \n 🚀 {self.total_travel_reward:4.2f} [{self.last_player_x:3d},{self.last_player_y:3d}], 🗺️: {self.last_player_map:3d} Actions {' '.join(action_string)}:{len(self.actions)} 🎉 {self.poke_levels} 🎬 {self.frames:6d} {game_time_string}"
