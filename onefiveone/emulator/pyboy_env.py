@@ -80,11 +80,12 @@ class PyBoyEnv(gym.Env):
         save_state_path=None,
         device="cpu",
         episode=0,
+        num_steps=0,
         cgb=False,
         **kwargs,
     ):
         super(PyBoyEnv, self).__init__()
-        
+        self.max_steps = num_steps
         # Configuring the emulator environment
         self.game_path = game_path
         self.save_state_path = save_state_path
@@ -114,7 +115,9 @@ class PyBoyEnv(gym.Env):
         )
         self.screen_space = Box(low=0, high=255, shape=(144, 160, 4), dtype=np.uint8)
 
-        self.observation_space = spaces.Dict({"m":self.memory_space, "s":self.screen_space})
+        self.location_space = Box(low=0, high=255, shape=(3,), dtype=np.uint8)
+
+        self.observation_space = spaces.Dict({"m":self.memory_space, "s":self.screen_space, "l":self.location_space})
 
         self.action_space = Discrete(8, start=0) # 8 buttons to press, only one pressed at a time
         
@@ -259,6 +262,10 @@ class PyBoyEnv(gym.Env):
 
     def step(self, action):
         self.step_count += 1
+        max_steps = self.max_steps
+        final_multiplier = 1
+        multiplier = 2.0 - (2.0 - final_multiplier) * (self.step_count / max_steps)
+        multiplier = max(multiplier, final_multiplier)  # ensure it doesn't go below 0.5
         self.frames = self.pyboy.frame_count
 
         button = self.buttons[action]
@@ -268,6 +275,8 @@ class PyBoyEnv(gym.Env):
         self.pyboy.tick(PRESS_FRAMES + RELEASE_FRAMES, True)
        
         reward, observation = self.calculate_reward()
+        reward = round(reward * multiplier, 4)
+
         if len(self.actions) == 0:
             self.actions = f"{button[1]}:{self.step_count}:{self.total_reward:.2f}:C{self.last_pokemon_count}:S{self.last_seen_pokemon_count}:X{self.last_player_x}:Y{self.last_player_y}:M{self.last_player_map}"
         else:
@@ -423,9 +432,7 @@ class PyBoyEnv(gym.Env):
             combined_memory,
         ) = mem_block
         self.last_n_memories = self.last_n_memories[1:] + [combined_memory]
-        
-        
-        
+
 
         # ---- Location data to calculate travel reward ----
 
@@ -615,8 +622,7 @@ class PyBoyEnv(gym.Env):
         )
 
         self.total_reward += reward
-
-        return round(reward, 4), {"m":self.last_n_memories, "s":self.pyboy.screen.ndarray.copy()}
+        return round(reward, 4), {"m":self.last_n_memories, "s":self.pyboy.screen.ndarray.copy(), "l":[px, py, map_id]}
 
 
     def render(self, target_index=None, reset=False):
@@ -645,10 +651,12 @@ class PyBoyEnv(gym.Env):
             clock_faces = "🕛🕐🕑🕒🕓🕔🕕🕖🕗🕘🕙🕚"
             game_time_string = f"{clock_faces[game_hours % 12]} {game_hours:02d}:{game_minutes % 60:02d}:{game_seconds % 60:02d}"
             image_string = self.renderer.to_string(Ansi24HblockMethod)
+            action_string = [x[0] for x in self.actions[-6:]]
+
             if target_index is not None:
-                render_string = f"{image_string}🧳 {self.episode} 🧠: {target_index:2d} 🥾 {self.step_count:10d} 🟢 {self.last_pokemon_count:3d} 👀 {self.last_seen_pokemon_count:3d} 🎒 {self.total_item_points:3d} 🌎 {len(self.visited_xy):3d}:{len(self.player_maps):3d} 🏆 {self.total_reward:7.2f} 💪 {self.party_exp_reward:7.2f} 🥊 {self.attack_reward:7d} 💰 {self.money:7d} 📫 {self.flag_score} \n 🚀 {self.total_travel_reward:4.2f} [{self.last_player_x:3d},{self.last_player_y:3d},{self.last_player_x_block:3d},{self.last_player_y_block:3d}], 🗺️: {self.last_player_map:3d} Actions {' '.join(self.actions[-6:])}:{len(self.actions)} 🎉 {self.poke_levels} 🎬 {self.frames:6d} {game_time_string}"
+                render_string = f"{image_string}🧳 {self.episode} 🧠: {target_index:2d} 🥾 {self.step_count:10d} 🟢 {self.last_pokemon_count:3d} 👀 {self.last_seen_pokemon_count:3d} 🎒 {self.total_item_points:3d} 🌎 {len(self.visited_xy):3d}:{len(self.player_maps):3d} 🏆 {self.total_reward:7.2f} 💪 {self.party_exp_reward:7.2f} 🥊 {self.attack_reward:7d} 💰 {self.money:7d} 📫 {self.flag_score} \n 🚀 {self.total_travel_reward:4.2f} [{self.last_player_x:3d},{self.last_player_y:3d}], 🗺️: {self.last_player_map:3d} Actions {' '.join(action_string)}:{len(self.actions)} 🎉 {self.poke_levels} 🎬 {self.frames:6d} {game_time_string}"
             else:
-                render_string = f"{image_string}🧳 {self.episode} 🛠️: {self.emunum:2d} 🥾 {self.step_count:10d} 🟢 {self.last_pokemon_count:3d} 👀 {self.last_seen_pokemon_count:3d} 🎒 {self.total_item_points:3d} 🌎 {len(self.visited_xy):3d}:{len(self.player_maps):3d} 🏆 {self.total_reward:7.2f} 💪 {self.party_exp_reward:7.2f} 🥊 {self.attack_reward:7d}💰 {self.money:7d} 📫 {self.flag_score} \n 🚀 {self.total_travel_reward:4.2f} [{self.last_player_x:3d},{self.last_player_y:3d},{self.last_player_x_block:3d},{self.last_player_y_block:3d}], 🗺️: {self.last_player_map:3d} Actions {' '.join(self.actions[-6:])}:{len(self.actions)} 🎉 {self.poke_levels} 🎬 {self.frames:6d}"
+                render_string = f"{image_string}🧳 {self.episode} 🛠️: {self.emunum:2d} 🥾 {self.step_count:10d} 🟢 {self.last_pokemon_count:3d} 👀 {self.last_seen_pokemon_count:3d} 🎒 {self.total_item_points:3d} 🌎 {len(self.visited_xy):3d}:{len(self.player_maps):3d} 🏆 {self.total_reward:7.2f} 💪 {self.party_exp_reward:7.2f} 🥊 {self.attack_reward:7d}💰 {self.money:7d} 📫 {self.flag_score} \n 🚀 {self.total_travel_reward:4.2f} [{self.last_player_x:3d},{self.last_player_y:3d}], 🗺️: {self.last_player_map:3d} Actions {' '.join(action_string)}:{len(self.actions)} 🎉 {self.poke_levels} 🎬 {self.frames:6d}"
 
             return render_string
         
