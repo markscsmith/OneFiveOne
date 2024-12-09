@@ -145,7 +145,7 @@ class PokeCaughtCallback(BaseCallback):
 
 
 
-def make_env(game_path, emunum, max_frames=500_000, device="cpu", state_file=None):
+def make_env(game_path, emunum, num_steps, device="cpu", state_file=None):
     def _init():
         if state_file is not None and os.path.exists(state_file):
             print(f"Loading state {game_path}.state")
@@ -158,7 +158,7 @@ def make_env(game_path, emunum, max_frames=500_000, device="cpu", state_file=Non
                 game_path,
                 emunum=emunum,
                 save_state_path=game_path + ext,
-                max_frames=max_frames,
+                num_steps=num_steps,
                 device=device,
             )
             new_env.pyboy.load_state(open(game_path + ext, "rb"))
@@ -167,7 +167,7 @@ def make_env(game_path, emunum, max_frames=500_000, device="cpu", state_file=Non
             new_env = PyBoyEnv(
                 game_path,
                 emunum=emunum,
-                max_frames=max_frames,
+                num_steps=num_steps,
                 device=device,
             )
 
@@ -272,7 +272,7 @@ def train_model(
         for emunum, actions in enumerate(actions_set):
             # write the actions to a file
             with open(f"{checkpoint_file_path.rstrip("/")}-actions-{emunum}.txt", "w") as f:
-                f.write(actions)
+                f.write("|".join(actions))
         
 
         del callbacks
@@ -340,7 +340,7 @@ if __name__ == "__main__":
 
     # each step is (PRESS_FRAMES + RELEASE_FRAMES) frames long, at 60fps.  
     seconds = hours * 64 * 64
-    total_steps = seconds * (60 // (PRESS_FRAMES + RELEASE_FRAMES)) * num_cpu
+    total_steps = int(seconds * (60 // (PRESS_FRAMES + RELEASE_FRAMES)) * num_cpu)
     
 
     if num_cpu == 1:
@@ -348,7 +348,7 @@ if __name__ == "__main__":
     else:
         run_env = SubprocVecEnv(
             [
-                make_env(args.game_path, emunum, device=device, state_file=args.state_file)
+                make_env(args.game_path, emunum, device=device, state_file=args.state_file, num_steps=total_steps // num_cpu)
                 for emunum in range(num_cpu)
             ]
         )
