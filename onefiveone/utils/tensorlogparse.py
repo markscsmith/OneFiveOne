@@ -98,12 +98,13 @@ def extract_tensorboard_data(log_dir: str) -> Dict[str, Dict[str, List[Tuple[flo
 
 def process_item(args, roundnum, position=0, tfevents_file="", total=0):
     print(f"Processing item {tfevents_file}...")
-    env = PyBoyEnv(args.rom, emunum=0, cgb=CGB, log_level="CRITICAL")
-    env.reset()
+    
     frames = []
     buttons_to_action_map = {"-": 0, "U": 1, "D": 2, "L": 3, "R": 4, "A": 5, "B": 6, "S": 7}
     item, current_score, seen, caught = action_data_parser(tfevents_file, position)
     
+    env = PyBoyEnv(args.rom, emunum=0, cgb=CGB, log_level="CRITICAL", num_steps = len(item))
+    env.reset()
     seen = item[-1][4].split("=")[-1]
     caught = item[-1][5].split("=")[-1]
     max_frame = len(item)
