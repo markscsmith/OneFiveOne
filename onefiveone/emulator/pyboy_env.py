@@ -608,7 +608,7 @@ class PyBoyEnv(gym.Env):
                 money_reward = np.abs(money - old_money) / money_divider
 
         
-        reward += (
+        reward = (
             party_exp_reward
             + item_points
             + travel_reward
@@ -616,7 +616,8 @@ class PyBoyEnv(gym.Env):
             + event_reward
             + money_reward
         )
-
+        # Scale the reward to reduce risk of clipping:
+        reward *= 0.1
         self.total_reward += reward
         return round(reward, 4), {"m":self.last_n_memories, "s":self.pyboy.screen.ndarray.copy(), "l":[px, py, map_id]}
 
