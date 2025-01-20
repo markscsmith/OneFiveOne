@@ -612,7 +612,7 @@ class PyBoyEnv(gym.Env):
                 money_reward = np.abs(money - old_money) / money_divider
 
         
-        reward += (
+        reward = (
             party_exp_reward
             + item_points
             + travel_reward
@@ -620,7 +620,8 @@ class PyBoyEnv(gym.Env):
             + event_reward
             + money_reward
         )
-
+        # Scale the reward to reduce risk of clipping:
+        reward *= 0.1
         # Calculate movement multiplier
         if action is not None:
             if self.last_action == action and action in [1, 2, 3, 4]:  # Only consider directional actions
