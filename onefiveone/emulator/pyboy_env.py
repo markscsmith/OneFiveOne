@@ -196,6 +196,8 @@ class PyBoyEnv(gym.Env):
         self.last_action = None
         self.consecutive_moves = 0
         
+        self.global_actions = []
+        
         self.reset()
 
     def reset(self, seed=0, **kwargs):
@@ -266,6 +268,8 @@ class PyBoyEnv(gym.Env):
         self.last_improvement_step = 0
         self.best_total_reward = 0
 
+        self.global_actions.append(f"R:{self.step_count}:{self.total_reward:.2f}:C{self.last_pokemon_count}:S{self.last_seen_pokemon_count}:X{self.last_player_x}:Y{self.last_player_y}:M{self.last_player_map}")
+
         return observation, {"seed": seed}
 
 
@@ -283,6 +287,7 @@ class PyBoyEnv(gym.Env):
         
         reward = round(reward * multiplier, 4)
         self.actions[self.step_count] = f"{button[1]}:{self.step_count}:{self.total_reward:.2f}:C{self.last_pokemon_count}:S{self.last_seen_pokemon_count}:X{self.last_player_x}:Y{self.last_player_y}:M{self.last_player_map}"
+        self.global_actions.append(f"{self.actions[self.step_count]}")
         truncated = False
         terminated = False
 

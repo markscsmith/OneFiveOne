@@ -269,11 +269,12 @@ def train_model(
         )
         run_model.save(f"{checkpoint_file_path}-model.zip")
         actions_set = env.get_attr("actions")
-        for emunum, actions in enumerate(actions_set):
-            # write the actions to a file
+        global_actions_set = env.get_attr("global_actions")
+
+        for emunum, global_actions in enumerate(global_actions_set):
+            # write the global actions to a file
             with open(f"{checkpoint_file_path.rstrip("/")}-actions-{emunum}.txt", "w") as f:
-                f.write("|".join(actions))
-        
+                f.write("|".join(global_actions))
 
         del callbacks
         del checkpoint_callback
