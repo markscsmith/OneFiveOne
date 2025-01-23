@@ -193,10 +193,10 @@ def train_model(
     output_layer_size = 1
 
     policy_kwargs = dict(
-        net_arch=dict(
-            pi=[first_layer_size, intermediate_layer_size, intermediate_layer_size, action_layer_size],
-            vf=[first_layer_size, intermediate_layer_size, intermediate_layer_size, output_layer_size],
-        ),
+        # net_arch=dict(
+        #     pi=[first_layer_size, intermediate_layer_size, intermediate_layer_size, action_layer_size],
+        #     vf=[first_layer_size, intermediate_layer_size, intermediate_layer_size, output_layer_size],
+        # ),
     )
 
     # make sure we take care of accidental trailing slashes in the save path which
