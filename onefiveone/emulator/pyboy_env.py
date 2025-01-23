@@ -189,6 +189,9 @@ class PyBoyEnv(gym.Env):
         # Opponent data
         self.opponent_pokemon_total_hp = None # total amount of damage done to opponent pokemon
         
+        self.no_improvement_limit = 1024
+        self.last_improvement_step = 0
+        self.best_total_reward = 0
         
         self.last_action = None
         self.consecutive_moves = 0
@@ -260,6 +263,9 @@ class PyBoyEnv(gym.Env):
         self.last_n_memories = [self.get_mem_block(self.cart.cart_offset())[-1]] * self.n
         _, observation = self.calculate_reward()
 
+        self.last_improvement_step = 0
+        self.best_total_reward = 0
+
         return observation, {"seed": seed}
 
 
@@ -279,6 +285,13 @@ class PyBoyEnv(gym.Env):
         self.actions[self.step_count] = f"{button[1]}:{self.step_count}:{self.total_reward:.2f}:C{self.last_pokemon_count}:S{self.last_seen_pokemon_count}:X{self.last_player_x}:Y{self.last_player_y}:M{self.last_player_map}"
         truncated = False
         terminated = False
+
+        if self.total_reward > self.best_total_reward:
+            self.best_total_reward = self.total_reward
+            self.last_improvement_step = self.step_count
+
+        if (self.step_count - self.last_improvement_step) >= self.no_improvement_limit:
+            truncated = True
 
         info = {
             "reward": reward,
