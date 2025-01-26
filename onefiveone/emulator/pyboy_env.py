@@ -82,6 +82,7 @@ class PyBoyEnv(gym.Env):
         device="cpu",
         episode=0,
         cgb=False,
+        n_steps=2048,
         **kwargs,
     ):
         super(PyBoyEnv, self).__init__()
@@ -189,7 +190,7 @@ class PyBoyEnv(gym.Env):
         # Opponent data
         self.opponent_pokemon_total_hp = None # total amount of damage done to opponent pokemon
         
-        self.no_improvement_limit = 4096
+        self.no_improvement_limit = n_steps
         self.last_improvement_step = 0
         self.best_total_reward = 0
         

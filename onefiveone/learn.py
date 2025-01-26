@@ -145,7 +145,7 @@ class PokeCaughtCallback(BaseCallback):
 
 
 
-def make_env(game_path, emunum, num_steps, device="cpu", state_file=None):
+def make_env(game_path, emunum, num_steps, device="cpu", state_file=None, n_steps=2048):
     def _init():
         if state_file is not None and os.path.exists(state_file):
             print(f"Loading state {game_path}.state")
@@ -160,6 +160,7 @@ def make_env(game_path, emunum, num_steps, device="cpu", state_file=None):
                 save_state_path=game_path + ext,
                 num_steps=num_steps,
                 device=device,
+                n_steps=n_steps,
             )
             new_env.pyboy.load_state(open(game_path + ext, "rb"))
         else:
@@ -345,7 +346,7 @@ if __name__ == "__main__":
     
 
     if num_cpu == 1:
-        run_env = DummyVecEnv([make_env(args.game_path, 0, device=device)])
+        run_env = DummyVecEnv([make_env(args.game_path, 0, device=device, n_steps=n_steps)])
     else:
         run_env = SubprocVecEnv(
             [
