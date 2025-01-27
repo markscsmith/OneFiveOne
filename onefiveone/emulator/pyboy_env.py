@@ -473,12 +473,13 @@ class PyBoyEnv(gym.Env):
         chunk_id = f"{px}:{py}:{pbx}:{pby}:{map_id}"
 
         visited_score = 0
-        # if self.last_chunk_id != chunk_id:
-        #     if chunk_id in self.visited_xy:
-        #         visited_score = 0.01
-        #     else:
-        #         self.visited_xy.add(chunk_id)
-        #         visited_score =  0.1
+        if self.last_chunk_id != chunk_id:
+            if chunk_id not in self.visited_xy:
+                # visited_score = 0.01
+                # pass
+            # else:
+                self.visited_xy.add(chunk_id)
+                visited_score =  0.1
 
         self.last_chunk_id = chunk_id
 
