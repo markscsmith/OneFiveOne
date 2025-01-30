@@ -651,7 +651,6 @@ class PyBoyEnv(gym.Env):
             + money_reward
         )
         # Scale the reward to reduce risk of clipping:
-        reward *= 0.1
 
 
         self.total_reward += reward
