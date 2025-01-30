@@ -199,6 +199,9 @@ class PyBoyEnv(gym.Env):
         
         self.global_actions = []
         
+        self.last_action = None
+        self.consecutive_moves = 0
+        
         self.reset()
 
     def reset(self, seed=0, **kwargs):
