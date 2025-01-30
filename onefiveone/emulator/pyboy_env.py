@@ -190,6 +190,9 @@ class PyBoyEnv(gym.Env):
         self.opponent_pokemon_total_hp = None # total amount of damage done to opponent pokemon
         
         
+        self.last_action = None
+        self.consecutive_moves = 0
+        
         self.reset()
 
     def reset(self, seed=0, **kwargs):
@@ -273,7 +276,8 @@ class PyBoyEnv(gym.Env):
 
         self.pyboy.tick(PRESS_FRAMES + RELEASE_FRAMES, True)
        
-        reward, observation = self.calculate_reward()
+        reward, observation = self.calculate_reward(action)
+        
         reward = round(reward * multiplier, 4)
         self.actions[self.step_count] = f"{button[1]}:{self.step_count}:{self.total_reward:.2f}:C{self.last_pokemon_count}:S{self.last_seen_pokemon_count}:X{self.last_player_x}:Y{self.last_player_y}:M{self.last_player_map}"
         truncated = False
@@ -403,7 +407,7 @@ class PyBoyEnv(gym.Env):
             combined_memory,
         ]
 
-    def calculate_reward(self):
+    def calculate_reward(self, action=None):
         offset = self.cart.cart_offset()
         mem_block = self.get_mem_block(offset).copy()
         reward = 0
@@ -616,6 +620,18 @@ class PyBoyEnv(gym.Env):
             + event_reward
             + money_reward
         )
+
+        # Calculate movement multiplier
+        if action is not None:
+            if self.last_action == action and action in [1, 2, 3, 4]:  # Only consider directional actions
+                self.consecutive_moves += 1
+            else:
+                self.consecutive_moves = 1
+            
+            movement_multiplier = 1 + (self.consecutive_moves - 1) * 0.1
+            reward *= movement_multiplier
+            
+            self.last_action = action
 
         self.total_reward += reward
         return round(reward, 4), {"m":self.last_n_memories, "s":self.pyboy.screen.ndarray.copy(), "l":[px, py, map_id]}
