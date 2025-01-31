@@ -193,8 +193,15 @@ class PyBoyEnv(gym.Env):
         self.no_improvement_limit = n_steps
         self.last_improvement_step = 0
         self.best_total_reward = 0
+
+        self.last_action = None
+        self.consecutive_moves = 0
         
         self.global_actions = []
+        
+        self.last_action = None
+        self.consecutive_moves = 0
+
         
         self.reset()
 
@@ -263,11 +270,6 @@ class PyBoyEnv(gym.Env):
         self.last_n_memories = [self.get_mem_block(self.cart.cart_offset())[-1]] * self.n
         _, observation = self.calculate_reward()
 
-        self.last_improvement_step = 0
-        self.best_total_reward = 0
-
-        self.global_actions.append(f"R:{self.step_count}:{self.total_reward:.2f}:C{self.last_pokemon_count}:S{self.last_seen_pokemon_count}:X{self.last_player_x}:Y{self.last_player_y}:M{self.last_player_map}")
-
         return observation, {"seed": seed}
 
 
@@ -281,7 +283,9 @@ class PyBoyEnv(gym.Env):
 
         self.pyboy.tick(PRESS_FRAMES + RELEASE_FRAMES, True)
        
-        reward, observation = self.calculate_reward()
+        reward, observation = self.calculate_reward(action)
+
+
         reward = round(reward, 4)
         self.actions[self.step_count] = f"{button[1]}:{self.step_count}:{self.total_reward:.2f}:C{self.last_pokemon_count}:S{self.last_seen_pokemon_count}:X{self.last_player_x}:Y{self.last_player_y}:M{self.last_player_map}"
         self.global_actions.append(f"{self.actions[self.step_count]}")
@@ -419,7 +423,7 @@ class PyBoyEnv(gym.Env):
             combined_memory,
         ]
 
-    def calculate_reward(self):
+    def calculate_reward(self, action=None):
         offset = self.cart.cart_offset()
         mem_block = self.get_mem_block(offset).copy()
         reward = 0
@@ -623,7 +627,28 @@ class PyBoyEnv(gym.Env):
                 money_divider = 500
                 money_reward = np.abs(money - old_money) / money_divider
 
-        
+                # Calculate movement multiplier
+        if action is not None:
+            if self.last_action == action and action in [1, 2, 3, 4]:  # Only consider directional actions
+                self.consecutive_moves += 1
+            else:
+                self.consecutive_moves = 1
+            
+            if self.consecutive_moves == 2:
+                movement_multiplier = 1.1
+            elif self.consecutive_moves == 3:
+                movement_multiplier = 1.2
+            elif self.consecutive_moves == 4:
+                movement_multiplier = 1.3
+            elif self.consecutive_moves >= 5:
+                movement_multiplier = 1.4
+            else:
+                movement_multiplier = 1.0
+            
+            travel_reward *= movement_multiplier
+            
+            self.last_action = action
+
         reward = (
             party_exp_reward
             + item_points
@@ -632,8 +657,9 @@ class PyBoyEnv(gym.Env):
             + event_reward
             + money_reward
         )
-        # Scale the reward to reduce risk of clipping:
-        reward *= 0.1
+
+
+
         self.total_reward += reward
         return round(reward, 4), {"m":self.last_n_memories, "s":self.pyboy.screen.ndarray.copy(), "l":[px, py, map_id]}
 
