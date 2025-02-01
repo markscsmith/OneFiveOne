@@ -10,7 +10,6 @@ scipy
 Shimmy
 stable-baselines3==2.3.2
 tensorboard
-tensorflow
 timg
 torch
 torchvision

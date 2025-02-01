@@ -12,7 +12,7 @@ import torch
 
 import gymnasium as gym
 from gymnasium.spaces import Box, Discrete
-from stable_baselines3 import PPO
+from stable_baselines3 import PPO, DQN
 
 from stable_baselines3.common.callbacks import (
     BaseCallback,
@@ -208,7 +208,7 @@ def train_model(
 
     # run_model = PPO(
     #    policy="MlpPolicy",
-    run_model = PPO(
+    run_model = DQN(
         policy="MultiInputPolicy",
         # Reduce n_steps if too large; ensure not less than some minimum like 2048 for sufficient learning per update.
         n_steps=n_steps,
