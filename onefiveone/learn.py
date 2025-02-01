@@ -236,10 +236,10 @@ def train_model(
         batch_size=batch_size,
         # n_epochs=3,
         gamma=0.99,  # Reduced from 0.998
-        gae_lambda=0.98,
+        # gae_lambda=0.98,
         # learning_rate=learning_rate_schedule,
         # learning_rate=learning_rate_decay_schedule,
-        ent_coef=0.02,
+        # ent_coef=0.02,
         env=env,
         policy_kwargs=policy_kwargs,
         verbose=0,
