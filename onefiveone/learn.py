@@ -234,7 +234,7 @@ def train_model(
         target_update_interval=n_steps // 4,
         # Reduce batch size if it's too large but ensure a minimum size for stability.
         batch_size=batch_size,
-        n_epochs=3,
+        # n_epochs=3,
         gamma=0.99,  # Reduced from 0.998
         gae_lambda=0.98,
         # learning_rate=learning_rate_schedule,
