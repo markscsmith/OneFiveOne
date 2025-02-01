@@ -231,7 +231,7 @@ def train_model(
         policy="MultiInputPolicy",
         # Reduce n_steps if too large; ensure not less than some minimum like 2048 for sufficient learning per update.
         buffer_size=n_steps,
-        target_update_interval=n_steps // 4,
+        target_update_interval=n_steps // 16,
         # Reduce batch size if it's too large but ensure a minimum size for stability.
         batch_size=batch_size,
         # n_epochs=3,
@@ -240,6 +240,9 @@ def train_model(
         # learning_rate=learning_rate_schedule,
         # learning_rate=learning_rate_decay_schedule,
         # ent_coef=0.02,
+        exploration_initial_eps=1.0,   # start with high exploration
+        exploration_final_eps=0.05,      # decay to a lower value
+        exploration_fraction=0.3,        # longer period of high exploration
         env=env,
         policy_kwargs=policy_kwargs,
         verbose=0,
