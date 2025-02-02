@@ -197,7 +197,7 @@ class CustomCombinedExtractor(BaseFeaturesExtractor):
             nn.ReLU(),
             nn.Conv2d(32, 64, kernel_size=2, stride=2),
             nn.ReLU(),
-            nn.Conv2d(64, 64, kernel_size=3, stride=2),
+            nn.Conv2d(64, 64, kernel_size=1, stride=2),
             nn.ReLU(),
         )
         dummy_input = torch.zeros(1, screen_shape[2], screen_shape[0], screen_shape[1])
