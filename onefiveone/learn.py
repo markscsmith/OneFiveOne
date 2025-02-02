@@ -192,15 +192,24 @@ class CustomCombinedExtractor(BaseFeaturesExtractor):
         location_shape = observation_space.spaces["l"].shape
 
         # Simple CNN for screen
-        self.cnn = nn.Sequential(
+        self.conv = nn.Sequential(
             nn.Conv2d(screen_shape[2], 32, kernel_size=3, stride=2),
             nn.ReLU(),
             nn.Conv2d(32, 64, kernel_size=3, stride=2),
             nn.ReLU(),
             nn.Conv2d(64, 64, kernel_size=3, stride=2),
             nn.ReLU(),
+        )
+        dummy_input = torch.zeros(1, screen_shape[2], screen_shape[0], screen_shape[1])
+        with torch.no_grad():
+            out = self.conv(dummy_input)
+            n_flatten = out.view(1, -1).shape[1]
+
+        self.linear = nn.Linear(n_flatten, cnn_output_dim)
+        self.cnn = nn.Sequential(
+            self.conv,
             nn.Flatten(),
-            nn.Linear(64 * 16 * 18, cnn_output_dim),  # Adjusted to match final shape
+            self.linear,
             nn.ReLU(),
         )
 
@@ -230,7 +239,9 @@ class CustomCombinedExtractor(BaseFeaturesExtractor):
         self._features_dim = 256
 
     def forward(self, observations):
-        screen_out = self.cnn(observations["s"].permute(0,3,1,2).float())
+        screen_tensor = observations["s"].permute(0, 3, 1, 2).float()
+        print("Screen shape entering CNN:", screen_tensor.shape)
+        screen_out = self.cnn(screen_tensor)
         mem_out = self.mem_mlp(observations["m"].float())
         loc_out = self.loc_mlp(observations["l"].float())
         combined = torch.cat([screen_out, mem_out, loc_out], dim=1)
