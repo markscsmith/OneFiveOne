@@ -239,7 +239,7 @@ class CustomCombinedExtractor(BaseFeaturesExtractor):
         self._features_dim = 256
 
     def forward(self, observations):
-        screen_tensor = observations["s"].permute(0, 3, 1, 2).float()
+        screen_tensor = observations["s"].permute(0, 3, 1, 2).float().contiguous()
         screen_out = self.cnn(screen_tensor)
         mem_out = self.mem_mlp(observations["m"].float())
         loc_out = self.loc_mlp(observations["l"].float())
