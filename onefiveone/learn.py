@@ -195,7 +195,7 @@ class CustomCombinedExtractor(BaseFeaturesExtractor):
         self.conv = nn.Sequential(
             nn.Conv2d(screen_shape[2], 32, kernel_size=1, stride=2),
             nn.ReLU(),
-            nn.Conv2d(32, 64, kernel_size=3, stride=2),
+            nn.Conv2d(32, 64, kernel_size=2, stride=2),
             nn.ReLU(),
             nn.Conv2d(64, 64, kernel_size=3, stride=2),
             nn.ReLU(),
