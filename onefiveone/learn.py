@@ -240,7 +240,6 @@ class CustomCombinedExtractor(BaseFeaturesExtractor):
 
     def forward(self, observations):
         screen_tensor = observations["s"].permute(0, 3, 1, 2).float()
-        print("Screen shape entering CNN:", screen_tensor.shape)
         screen_out = self.cnn(screen_tensor)
         mem_out = self.mem_mlp(observations["m"].float())
         loc_out = self.loc_mlp(observations["l"].float())
