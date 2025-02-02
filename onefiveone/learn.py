@@ -193,14 +193,14 @@ class CustomCombinedExtractor(BaseFeaturesExtractor):
 
         # Simple CNN for screen
         self.cnn = nn.Sequential(
-            nn.Conv2d(screen_shape[2], 32, kernel_size=4, stride=2),
+            nn.Conv2d(screen_shape[2], 32, kernel_size=3, stride=2),
             nn.ReLU(),
-            nn.Conv2d(32, 64, kernel_size=4, stride=2),
+            nn.Conv2d(32, 64, kernel_size=3, stride=2),
             nn.ReLU(),
-            nn.Conv2d(64, 64, kernel_size=3, stride=1),
+            nn.Conv2d(64, 64, kernel_size=3, stride=2),
             nn.ReLU(),
             nn.Flatten(),
-            nn.Linear(64 * 32 * 36, cnn_output_dim),  # Correct flattened size
+            nn.Linear(64 * 16 * 18, cnn_output_dim),  # Adjusted to match final shape
             nn.ReLU(),
         )
 
