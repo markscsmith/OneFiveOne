@@ -309,7 +309,7 @@ def train_model(
         # learning_rate=learning_rate_decay_schedule,
         # ent_coef=0.02,
         exploration_initial_eps=1.0,   # start with high exploration
-        exploration_final_eps=0.05,      # decay to a lower value
+        exploration_final_eps=0.3,      # decay to a lower value
         exploration_fraction=0.3,        # longer period of high exploration
         env=env,
         policy_kwargs=policy_kwargs,
