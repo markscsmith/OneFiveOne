@@ -114,7 +114,7 @@ class PyBoyEnv(gym.Env):
         self.memory_space = Box(
             low=0, high=255, shape=(self.n, len(block)), dtype=np.uint8
         )
-        self.screen_space = Box(low=0, high=255, shape=(144, 160, 4), dtype=np.uint8)
+        self.screen_space = Box(low=0, high=255, shape=(144, 160, 3), dtype=np.uint8)
 
         self.location_space = Box(low=0, high=255, shape=(3,), dtype=np.uint8)
 
@@ -661,7 +661,7 @@ class PyBoyEnv(gym.Env):
 
 
         self.total_reward += reward
-        return round(reward, 4), {"m":self.last_n_memories, "s":self.pyboy.screen.ndarray.copy(), "l":[px, py, map_id]}
+        return round(reward, 4), {"m":self.last_n_memories, "s":self.pyboy.screen.ndarray[..., :3].copy(), "l":[px, py, map_id]}
 
 
     def render(self, target_index=None, reset=False):
