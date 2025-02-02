@@ -178,6 +178,65 @@ def make_env(game_path, emunum, num_steps, device="cpu", state_file=None, n_step
     return _init
 
 
+from stable_baselines3.common.torch_layers import BaseFeaturesExtractor
+import torch.nn as nn
+import torch
+
+class CustomCombinedExtractor(BaseFeaturesExtractor):
+    def __init__(self, observation_space, cnn_output_dim=256):
+        super().__init__(observation_space, features_dim=1)
+
+        # Extract shapes from gym.spaces.Dict({"m","s","l"})
+        screen_shape = observation_space.spaces["s"].shape
+        memory_shape = observation_space.spaces["m"].shape
+        location_shape = observation_space.spaces["l"].shape
+
+        # Simple CNN for screen
+        self.cnn = nn.Sequential(
+            nn.Conv2d(screen_shape[2], 32, kernel_size=8, stride=4),
+            nn.ReLU(),
+            nn.Conv2d(32, 64, kernel_size=4, stride=2),
+            nn.ReLU(),
+            nn.Conv2d(64, 64, kernel_size=3, stride=1),
+            nn.ReLU(),
+            nn.Flatten(),
+            nn.Linear(64 * 16 * 18, cnn_output_dim),  # adjust to match final flatten size
+            nn.ReLU(),
+        )
+
+        # MLP for memory
+        self.mem_mlp = nn.Sequential(
+            nn.Flatten(),
+            nn.Linear(memory_shape[0] * memory_shape[1], 128),
+            nn.ReLU(),
+            nn.Linear(128, 64),
+            nn.ReLU(),
+        )
+
+        # MLP for location
+        self.loc_mlp = nn.Sequential(
+            nn.Linear(location_shape[0], 16),
+            nn.ReLU(),
+            nn.Linear(16, 8),
+            nn.ReLU(),
+        )
+
+        # Combine final layers
+        combined_size = cnn_output_dim + 64 + 8
+        self.fc = nn.Sequential(
+            nn.Linear(combined_size, 256),
+            nn.ReLU(),
+        )
+        self._features_dim = 256
+
+    def forward(self, observations):
+        screen_out = self.cnn(observations["s"].permute(0,3,1,2).float())
+        mem_out = self.mem_mlp(observations["m"].float())
+        loc_out = self.loc_mlp(observations["l"].float())
+        combined = torch.cat([screen_out, mem_out, loc_out], dim=1)
+        return self.fc(combined)
+
+
 def train_model(
     env,
     total_steps,
@@ -195,10 +254,8 @@ def train_model(
     output_layer_size = 1
 
     policy_kwargs = dict(
-        # net_arch=dict(
-        #     pi=[first_layer_size, intermediate_layer_size, intermediate_layer_size, action_layer_size],
-        #     vf=[first_layer_size, intermediate_layer_size, intermediate_layer_size, output_layer_size],
-        # ),
+        features_extractor_class=CustomCombinedExtractor,
+        features_extractor_kwargs=dict(cnn_output_dim=256),
     )
 
     # make sure we take care of accidental trailing slashes in the save path which
