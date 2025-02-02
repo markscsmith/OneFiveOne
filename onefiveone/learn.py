@@ -13,6 +13,7 @@ import torch
 import gymnasium as gym
 from gymnasium.spaces import Box, Discrete
 from stable_baselines3 import PPO, DQN
+from sb3_contrib import QRDQN
 
 from stable_baselines3.common.callbacks import (
     BaseCallback,
@@ -227,7 +228,7 @@ def train_model(
     # )
 
 
-    run_model = DQN(
+    run_model = QRDQN(
         policy="MultiInputPolicy",
         # Reduce n_steps if too large; ensure not less than some minimum like 2048 for sufficient learning per update.
         buffer_size=n_steps,
