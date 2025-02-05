@@ -111,13 +111,16 @@ class PyBoyEnv(gym.Env):
         offset = self.cart.cart_offset()
         block = self.get_mem_block(offset=offset)[-1]
         
+        # TODO: Convert values to float for observation space to improve learning?
+
+        # Normalize the observation spaces
         self.memory_space = Box(
-            low=0, high=255, shape=(self.n, len(block)), dtype=np.uint8
+            low=0.0, high=1.0, shape=(self.n, len(block)), dtype=np.float32
         )
-        self.screen_space = Box(low=0, high=255, shape=(144, 160, 4), dtype=np.uint8)
+        self.screen_space = Box(low=0.0, high=1.0, shape=(144, 160, 4), dtype=np.float32)
+        self.coord_space = Box(low=0.0, high=1.0, shape=(2,), dtype=np.float32)
 
         self.map_space = Discrete(256)
-        self.coord_space = Box(low=0, high=255, shape=(2,), dtype=np.uint8)
 
         self.observation_space = spaces.Dict({
             "m": self.memory_space,
@@ -207,6 +210,11 @@ class PyBoyEnv(gym.Env):
         
         self.last_action = None
         self.consecutive_moves = 0
+
+        # Initialize reward normalization parameters
+        self.reward_mean = 0.0
+        self.reward_var = 1.0
+        self.alpha = 0.001  # Smoothing factor for running mean and variance
 
         
         self.reset()
@@ -428,6 +436,16 @@ class PyBoyEnv(gym.Env):
             opponent_pokemon,
             combined_memory,
         ]
+
+    def normalize_reward(self, reward):
+        # Update running mean and variance
+        self.reward_mean = self.alpha * reward + (1 - self.alpha) * self.reward_mean
+        self.reward_var = self.alpha * (reward - self.reward_mean) ** 2 + (1 - self.alpha) * self.reward_var
+        reward_std = np.sqrt(self.reward_var)
+
+        # Normalize reward
+        normalized_reward = (reward - self.reward_mean) / (reward_std + 1e-8)
+        return normalized_reward
 
     def calculate_reward(self, action=None):
         offset = self.cart.cart_offset()
@@ -664,14 +682,15 @@ class PyBoyEnv(gym.Env):
             + money_reward
         )
 
-
+        # Normalize the reward
+        normalized_reward = self.normalize_reward(reward)
 
         self.total_reward += reward
-        return round(reward, 4), {
-            "m": self.last_n_memories,
-            "s": self.pyboy.screen.ndarray.copy(),
+        return round(normalized_reward, 4), {
+            "m": np.array(self.last_n_memories, dtype=np.float32) / 255.0,
+            "s": self.pyboy.screen.ndarray.copy().astype(np.float32) / 255.0,
             "map_id": map_id,
-            "coords": [px, py]
+            "coords": np.array([px / 255.0, py / 255.0], dtype=np.float32)
         }
 
 
