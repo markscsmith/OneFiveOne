@@ -10,8 +10,6 @@ import numpy as np
 import torch
 
 
-import gymnasium as gym
-from gymnasium.spaces import Box, Discrete
 from stable_baselines3 import PPO
 
 from stable_baselines3.common.callbacks import (
