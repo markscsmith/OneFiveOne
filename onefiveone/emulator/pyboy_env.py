@@ -117,14 +117,14 @@ class PyBoyEnv(gym.Env):
         self.memory_space = Box(
             low=0.0, high=1.0, shape=(self.n, len(block)), dtype=np.float32
         )
-        self.screen_space = Box(low=0.0, high=1.0, shape=(144, 160, 4), dtype=np.float32)
+        # self.screen_space = Box(low=0.0, high=1.0, shape=(144, 160, 4), dtype=np.float32)
         self.coord_space = Box(low=0.0, high=1.0, shape=(2,), dtype=np.float32)
 
         self.map_space = Discrete(256)
 
         self.observation_space = spaces.Dict({
             "m": self.memory_space,
-            "s": self.screen_space,
+        #    "s": self.screen_space,
             "map_id": self.map_space,
             "coords": self.coord_space
         })
@@ -216,6 +216,7 @@ class PyBoyEnv(gym.Env):
         self.reward_var = 1.0
         self.alpha = 0.001  # Smoothing factor for running mean and variance
 
+        self.map_visit_count = {}
         
         self.reset()
 
@@ -631,6 +632,7 @@ class PyBoyEnv(gym.Env):
         self.total_item_points += item_points
 
         # ---- Event data to calculate reward for flags ----
+        event_reward = 0
         if len(self.flags) == 0 or sum(self.flags) == 0:
             self.flags = event_flags + missable_object_flags
         else:
@@ -688,7 +690,7 @@ class PyBoyEnv(gym.Env):
         self.total_reward += reward
         return round(normalized_reward, 4), {
             "m": np.array(self.last_n_memories, dtype=np.float32) / 255.0,
-            "s": self.pyboy.screen.ndarray.copy().astype(np.float32) / 255.0,
+            # "s": self.pyboy.screen.ndarray.copy().astype(np.float32) / 255.0,
             "map_id": map_id,
             "coords": np.array([px / 255.0, py / 255.0], dtype=np.float32)
         }
