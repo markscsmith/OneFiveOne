@@ -118,15 +118,12 @@ class PyBoyEnv(gym.Env):
 
         self.map_space = Discrete(256)
         self.coord_space = Box(low=0, high=255, shape=(2,), dtype=np.uint8)
-        self.location_space = Dict({
-            "map_id": self.map_space,
-            "coords": self.coord_space
-        })
 
         self.observation_space = spaces.Dict({
             "m": self.memory_space,
             "s": self.screen_space,
-            "l": self.location_space
+            "map_id": self.map_space,
+            "coords": self.coord_space
         })
 
         self.action_space = Discrete(8, start=0) # 8 buttons to press, only one pressed at a time
@@ -673,10 +670,8 @@ class PyBoyEnv(gym.Env):
         return round(reward, 4), {
             "m": self.last_n_memories,
             "s": self.pyboy.screen.ndarray.copy(),
-            "l": {
-                "map_id": map_id,
-                "coords": [px, py]
-            }
+            "map_id": map_id,
+            "coords": [px, py]
         }
 
 
