@@ -126,6 +126,7 @@ class PyBoyEnv(gym.Env):
         self.visited_map_space = Box(low=0.0, high=np.inf, shape=(9, 9), dtype=np.float32)
 
         self.text_onscreen_space = Box(low=0, high=1, shape=(1,), dtype=np.float32)
+        self.is_in_battle_space = Box(low=0, high=1, shape=(1,), dtype=np.float32)
 
         self.observation_space = spaces.Dict({
             "m": self.memory_space,
@@ -134,7 +135,8 @@ class PyBoyEnv(gym.Env):
             "coords": self.coord_space,
             "map_one_hot": self.map_one_hot_space,
             "visited_map": self.visited_map_space,
-            "text_onscreen": self.text_onscreen_space
+            "text_onscreen": self.text_onscreen_space,
+            "is_in_battle": self.is_in_battle_space
         })
 
         self.action_space = Discrete(8, start=0) # 8 buttons to press, only one pressed at a time
@@ -228,6 +230,7 @@ class PyBoyEnv(gym.Env):
         
         self.reward_maps = {}  # Dictionary to store reward maps for each map
         self.last_screen = None
+        self.is_in_battle = None
         
         self.reset()
 
@@ -297,6 +300,8 @@ class PyBoyEnv(gym.Env):
         self.reward_maps = {}  # Reset reward maps
         self.text_onscreen = self.pyboy.memory[0xcfc4 + self.cart.cart_offset()]
         self.last_screen = self.pyboy.screen.ndarray.copy()
+        self.is_in_battle = self.pyboy.memory[0xd057 + self.cart.cart_offset()]
+
         _, observation = self.calculate_reward()
 
         return observation, {"seed": seed}
@@ -310,6 +315,7 @@ class PyBoyEnv(gym.Env):
 
         if action != 0:
             self.text_onscreen = self.pyboy.memory[0xcfc4 + self.cart.cart_offset()]
+            self.is_in_battle = self.pyboy.memory[0xd057 + self.cart.cart_offset()]
             self.last_screen = self.pyboy.screen.ndarray.copy()
             self.pyboy.button(button[0], delay=2)
 
@@ -723,6 +729,7 @@ class PyBoyEnv(gym.Env):
                     local_reward_map[dx + 4, dy + 4] = self.reward_maps.get(self.last_player_map, np.zeros((256, 256), dtype=np.float32))[x, y]
 
         text_onscreen_bool = 1.0 if self.text_onscreen == 0 else 0.0
+        is_in_battle_bool = 1.0 if self.is_in_battle == 0 else 0.0
 
         self.total_reward += reward
         return round(normalized_reward, 4), {
@@ -732,7 +739,8 @@ class PyBoyEnv(gym.Env):
             "coords": np.array([px / 255.0, py / 255.0], dtype=np.float32),
             "map_one_hot": map_one_hot,
             "visited_map": local_reward_map,  # Use the 9x9 local reward map
-            "text_onscreen": np.array([text_onscreen_bool], dtype=np.float32)
+            "text_onscreen": np.array([text_onscreen_bool], dtype=np.float32),
+            "is_in_battle": np.array([is_in_battle_bool], dtype=np.float32)
         }
 
 
@@ -759,7 +767,7 @@ class PyBoyEnv(gym.Env):
             action_string = [x[0] for x in self.actions[max(0,self.step_count - 6):self.step_count]]
 
             # Compute min and max scores from the grid of surrounding tiles
-            if not self.text_onscreen:
+            if not self.text_onscreen and not self.is_in_battle:
                 surrounding_scores = []
                 for dx in range(-4, 6):
                     for dy in range(-4, 6):
@@ -831,7 +839,7 @@ class PyBoyEnv(gym.Env):
             image_string = self.renderer.to_string(Ansi24HblockMethod)
 
             if target_index is not None:
-                render_string = f"{image_string}🧳 {self.episode} 🧠: {int(target_index):2d} 🥾 {int(self.step_count):10d} 🟢 {int(self.last_pokemon_count):3d} 👀 {int(self.last_seen_pokemon_count):3d} 🎒 {int(self.total_item_points):3d} 🌎 {len(self.visited_xy):3d}:{len(self.player_maps):3d} 🏆 {self.total_reward:7.2f} 💪 {self.party_exp_reward:7.2f} 🥊 {int(self.attack_reward):7d} 💰 {int(self.money):7d} 📫 {self.flag_score} \n 🚀 {self.total_travel_reward:4.2f} [{int(self.last_player_x):3d},{int(self.last_player_y):3d}], 🗺️: {int(self.last_player_map):3d} Actions {' '.join(action_string)}:{len(self.actions)} 🎉 {self.poke_levels} 🎬 {int(self.frames):6d} {game_time_string} {self.text_onscreen} "
+                render_string = f"{image_string}🧳 {self.episode} 🧠: {int(target_index):2d} 🥾 {int(self.step_count):10d} 🟢 {int(self.last_pokemon_count):3d} 👀 {int(self.last_seen_pokemon_count):3d} 🎒 {int(self.total_item_points):3d} 🌎 {len(self.visited_xy):3d}:{len(self.player_maps):3d} 🏆 {self.total_reward:7.2f} 💪 {self.party_exp_reward:7.2f} 🥊 {int(self.attack_reward):7d} 💰 {int(self.money):7d} 📫 {self.flag_score} \n 🚀 {self.total_travel_reward:4.2f} [{int(self.last_player_x):3d},{int(self.last_player_y):3d}], 🗺️: {int(self.last_player_map):3d} Actions {' '.join(action_string)}:{len(self.actions)} 🎉 {self.poke_levels} 🎬 {int(self.frames):6d} {game_time_string} {self.text_onscreen} {self.is_in_battle}"
             else:
                 render_string = f"{image_string}🧳 {self.episode} 🛠️: {int(self.emunum):2d} 🥾 {int(self.step_count):10d} 🟢 {int(self.last_pokemon_count):3d} 👀 {int(self.last_seen_pokemon_count):3d} 🎒 {int(self.total_item_points):3d} 🌎 {len(self.visited_xy):3d}:{len(self.player_maps):3d} 🏆 {self.total_reward:7.2f} 💪 {self.party_exp_reward:7.2f} 🥊 {int(self.attack_reward):7d}💰 {int(self.money):7d} 📫 {self.flag_score} \n 🚀 {self.total_travel_reward:4.2f} [{int(self.last_player_x):3d},{int(self.last_player_y):3d}], 🗺️: {int(self.last_player_map):3d} Actions {' '.join(action_string)}:{len(self.actions)} 🎉 {self.poke_levels} 🎬 {int(self.frames):6d} "
 
