@@ -231,6 +231,8 @@ class PyBoyEnv(gym.Env):
         self.reward_maps = {}  # Dictionary to store reward maps for each map
         self.last_screen = None
         self.is_in_battle = None
+
+        self.party_health = None
         
         self.reset()
 
@@ -301,7 +303,7 @@ class PyBoyEnv(gym.Env):
         self.text_onscreen = self.pyboy.memory[0xcfc4 + self.cart.cart_offset()]
         self.last_screen = self.pyboy.screen.ndarray.copy()
         self.is_in_battle = self.pyboy.memory[0xd057 + self.cart.cart_offset()]
-
+        self.party_health = [0, 0, 0, 0, 0, 0]
         _, observation = self.calculate_reward()
 
         return observation, {"seed": seed}
@@ -595,7 +597,15 @@ class PyBoyEnv(gym.Env):
             my_pokemon[176:220],
             my_pokemon[220:264],
         ]
-           
+
+        party_health_bytes = [poke[1:2] for poke in party]
+        party_max_health_bytes = [poke[34:35] for poke in party]
+        party_health_values = [int.from_bytes(hp, byteorder='big') for hp in party_health_bytes]
+        party_max_health_values = [int.from_bytes(hp, byteorder='big') for hp in party_max_health_bytes]
+        if sum(party_max_health_values) > 0:
+            party_health = [hp / max_hp for hp, max_hp in zip(party_health_values, party_max_health_values)]
+        else:
+            party_health = [0, 0, 0, 0, 0, 0]
         poke_levels = [poke[33] for poke in party]
         poke_party_bytes = [poke[16:18] for poke in party]
         # TODO: Add HP score to reward calculation: losing HP shouldn't be a reward, but gaining HP should be.
@@ -617,6 +627,10 @@ class PyBoyEnv(gym.Env):
         # ---- Opponent data to calculate attack rewards ----
         attack_reward = 2.0 * (self.opponent_pokemon_total_hp - opponent_pokemon_total_hp)  # was 1.5
         
+        # if the average party health is less than 50% then reduce the reward for attacking
+        
+        attack_reward = attack_reward * np.mean(party_health)
+
         self.attack_reward += max(attack_reward, 0)
             
         self.opponent_pokemon_total_hp = opponent_pokemon_total_hp
