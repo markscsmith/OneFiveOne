@@ -598,14 +598,17 @@ class PyBoyEnv(gym.Env):
             my_pokemon[220:264],
         ]
 
-        party_health_bytes = [poke[1:2] for poke in party]
-        party_max_health_bytes = [poke[34:35] for poke in party]
+        party_health_bytes = [poke[1:3] for poke in party]
+        party_max_health_bytes = [poke[34:36] for poke in party]
         party_health_values = [int.from_bytes(hp, byteorder='big') for hp in party_health_bytes]
+        
         party_max_health_values = [int.from_bytes(hp, byteorder='big') for hp in party_max_health_bytes]
-        if sum(party_max_health_values) > 0:
-            party_health = [hp / max_hp for hp, max_hp in zip(party_health_values, party_max_health_values)]
+        if sum(party_health_values) > 0:
+            party_health = [round(hp / float(max_hp), 2) for hp, max_hp in zip(party_health_values, party_max_health_values) if max_hp > 0]
         else:
             party_health = [0, 0, 0, 0, 0, 0]
+
+        self.party_health = party_health
         poke_levels = [poke[33] for poke in party]
         poke_party_bytes = [poke[16:18] for poke in party]
         # TODO: Add HP score to reward calculation: losing HP shouldn't be a reward, but gaining HP should be.
@@ -628,8 +631,8 @@ class PyBoyEnv(gym.Env):
         attack_reward = 2.0 * (self.opponent_pokemon_total_hp - opponent_pokemon_total_hp)  # was 1.5
         
         # if the average party health is less than 50% then reduce the reward for attacking
-        
-        attack_reward = attack_reward * np.mean(party_health)
+        # self.party_health = party_health
+        attack_reward = attack_reward * np.max(party_health)
 
         self.attack_reward += max(attack_reward, 0)
             
@@ -853,7 +856,7 @@ class PyBoyEnv(gym.Env):
             image_string = self.renderer.to_string(Ansi24HblockMethod)
 
             if target_index is not None:
-                render_string = f"{image_string}🧳 {self.episode} 🧠: {int(target_index):2d} 🥾 {int(self.step_count):10d} 🟢 {int(self.last_pokemon_count):3d} 👀 {int(self.last_seen_pokemon_count):3d} 🎒 {int(self.total_item_points):3d} 🌎 {len(self.visited_xy):3d}:{len(self.player_maps):3d} 🏆 {self.total_reward:7.2f} 💪 {self.party_exp_reward:7.2f} 🥊 {int(self.attack_reward):7d} 💰 {int(self.money):7d} 📫 {self.flag_score} \n 🚀 {self.total_travel_reward:4.2f} [{int(self.last_player_x):3d},{int(self.last_player_y):3d}], 🗺️: {int(self.last_player_map):3d} Actions {' '.join(action_string)}:{len(self.actions)} 🎉 {self.poke_levels} 🎬 {int(self.frames):6d} {game_time_string} {self.text_onscreen} {self.is_in_battle}"
+                render_string = f"{image_string}🧳 {self.episode} 🧠: {int(target_index):2d} 🥾 {int(self.step_count):10d} 🟢 {int(self.last_pokemon_count):3d} 👀 {int(self.last_seen_pokemon_count):3d} 🎒 {int(self.total_item_points):3d} 🌎 {len(self.visited_xy):3d}:{len(self.player_maps):3d} 🏆 {self.total_reward:7.2f} 💪 {self.party_exp_reward:7.2f} 🥊 {int(self.attack_reward):7d} 💰 {int(self.money):7d} 📫 {self.flag_score} \n 🚀 {self.total_travel_reward:4.2f} [{int(self.last_player_x):3d},{int(self.last_player_y):3d}], 🗺️: {int(self.last_player_map):3d} Actions {' '.join(action_string)}:{len(self.actions)} 🎉 {self.poke_levels} {self.party_health} 🎬 {int(self.frames):6d} {game_time_string} {self.text_onscreen} {self.is_in_battle}"
             else:
                 render_string = f"{image_string}🧳 {self.episode} 🛠️: {int(self.emunum):2d} 🥾 {int(self.step_count):10d} 🟢 {int(self.last_pokemon_count):3d} 👀 {int(self.last_seen_pokemon_count):3d} 🎒 {int(self.total_item_points):3d} 🌎 {len(self.visited_xy):3d}:{len(self.player_maps):3d} 🏆 {self.total_reward:7.2f} 💪 {self.party_exp_reward:7.2f} 🥊 {int(self.attack_reward):7d}💰 {int(self.money):7d} 📫 {self.flag_score} \n 🚀 {self.total_travel_reward:4.2f} [{int(self.last_player_x):3d},{int(self.last_player_y):3d}], 🗺️: {int(self.last_player_map):3d} Actions {' '.join(action_string)}:{len(self.actions)} 🎉 {self.poke_levels} 🎬 {int(self.frames):6d} "
 
