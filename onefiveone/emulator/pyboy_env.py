@@ -125,13 +125,16 @@ class PyBoyEnv(gym.Env):
         self.map_one_hot_space = Box(low=0.0, high=1.0, shape=(256,), dtype=np.float32)
         self.visited_map_space = Box(low=0.0, high=np.inf, shape=(9, 9), dtype=np.float32)
 
+        self.text_onscreen_space = Box(low=0, high=1, shape=(1,), dtype=np.float32)
+
         self.observation_space = spaces.Dict({
             "m": self.memory_space,
         #    "s": self.screen_space,
             "map_id": self.map_space,
             "coords": self.coord_space,
             "map_one_hot": self.map_one_hot_space,
-            "visited_map": self.visited_map_space
+            "visited_map": self.visited_map_space,
+            "text_onscreen": self.text_onscreen_space
         })
 
         self.action_space = Discrete(8, start=0) # 8 buttons to press, only one pressed at a time
@@ -504,7 +507,7 @@ class PyBoyEnv(gym.Env):
         # Calculate reward from exploring the game world by counting maps, doesn't need to store counter
         if self.last_player_map != map_id:
             if map_id not in self.player_maps:
-                travel_reward += 10  # was 5
+                # travel_reward += 10  # was 5
                 self.player_maps.add(map_id)
         event_reward = 0
 
@@ -719,6 +722,8 @@ class PyBoyEnv(gym.Env):
                 if 0 <= x < 256 and 0 <= y < 256:
                     local_reward_map[dx + 4, dy + 4] = self.reward_maps.get(self.last_player_map, np.zeros((256, 256), dtype=np.float32))[x, y]
 
+        text_onscreen_bool = 1.0 if self.text_onscreen == 0 else 0.0
+
         self.total_reward += reward
         return round(normalized_reward, 4), {
             "m": np.array(self.last_n_memories, dtype=np.float32) / 255.0,
@@ -726,7 +731,8 @@ class PyBoyEnv(gym.Env):
             "map_id": map_id,
             "coords": np.array([px / 255.0, py / 255.0], dtype=np.float32),
             "map_one_hot": map_one_hot,
-            "visited_map": local_reward_map  # Use the 9x9 local reward map
+            "visited_map": local_reward_map,  # Use the 9x9 local reward map
+            "text_onscreen": np.array([text_onscreen_bool], dtype=np.float32)
         }
 
 
