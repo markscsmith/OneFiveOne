@@ -607,6 +607,10 @@ class PyBoyEnv(gym.Env):
             party_health = [round(hp / float(max_hp), 2) for hp, max_hp in zip(party_health_values, party_max_health_values) if max_hp > 0]
         else:
             party_health = [0, 0, 0, 0, 0, 0]
+        party_health_reward = 0
+        if sum(party_health) > sum(self.party_health) and sum(self.party_health) > 0:
+            party_health_reward = max(sum(party_health) - sum(self.party_health), 0)
+
 
         self.party_health = party_health
         poke_levels = [poke[33] for poke in party]
@@ -717,6 +721,7 @@ class PyBoyEnv(gym.Env):
 
         reward = (
             party_exp_reward
+            + party_health_reward
             + item_points
             + travel_reward
             + attack_reward
