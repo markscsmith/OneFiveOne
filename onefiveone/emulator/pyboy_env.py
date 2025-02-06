@@ -613,7 +613,7 @@ class PyBoyEnv(gym.Env):
             party_health = [0, 0, 0, 0, 0, 0]
         party_health_reward = 0
         if sum(party_health) > sum(self.party_health) and sum(self.party_health) > 0:
-            party_health_reward = max(sum(party_health) * 100 - sum(self.party_health) * 100, 0)
+            party_health_reward = int(max(sum(party_health) * 100 - sum(self.party_health) * 100, 0))
         self.party_health_reward = party_health_reward
         self.total_healing_reward += party_health_reward
 
