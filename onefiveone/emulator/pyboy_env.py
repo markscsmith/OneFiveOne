@@ -123,7 +123,7 @@ class PyBoyEnv(gym.Env):
         self.map_space = Discrete(256)
 
         self.map_one_hot_space = Box(low=0.0, high=1.0, shape=(256,), dtype=np.float32)
-        self.visited_map_space = Box(low=0.0, high=np.inf, shape=(256, 256), dtype=np.float32)
+        self.visited_map_space = Box(low=0.0, high=np.inf, shape=(9, 9), dtype=np.float32)
 
         self.observation_space = spaces.Dict({
             "m": self.memory_space,
@@ -708,6 +708,15 @@ class PyBoyEnv(gym.Env):
         map_one_hot = np.zeros(256, dtype=np.float32)
         map_one_hot[map_id] = 1.0
 
+        # Create a 9x9 array centered around the player's current location
+        local_reward_map = np.zeros((9, 9), dtype=np.float32)
+        for dx in range(-4, 5):
+            for dy in range(-4, 5):
+                x = self.last_player_x + dx
+                y = self.last_player_y + dy
+                if 0 <= x < 256 and 0 <= y < 256:
+                    local_reward_map[dx + 4, dy + 4] = self.reward_maps.get(self.last_player_map, np.zeros((256, 256), dtype=np.float32))[x, y]
+
         self.total_reward += reward
         return round(normalized_reward, 4), {
             "m": np.array(self.last_n_memories, dtype=np.float32) / 255.0,
@@ -715,7 +724,7 @@ class PyBoyEnv(gym.Env):
             "map_id": map_id,
             "coords": np.array([px / 255.0, py / 255.0], dtype=np.float32),
             "map_one_hot": map_one_hot,
-            "visited_map": reward_map.copy()
+            "visited_map": local_reward_map  # Use the 9x9 local reward map
         }
 
 
