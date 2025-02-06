@@ -233,6 +233,7 @@ class PyBoyEnv(gym.Env):
         self.is_in_battle = None
 
         self.party_health = None
+        self.party_health_reward = None
         
         self.reset()
 
@@ -304,6 +305,7 @@ class PyBoyEnv(gym.Env):
         self.last_screen = self.pyboy.screen.ndarray.copy()
         self.is_in_battle = self.pyboy.memory[0xd057 + self.cart.cart_offset()]
         self.party_health = [0, 0, 0, 0, 0, 0]
+        self.party_health_reward = 0
         _, observation = self.calculate_reward()
 
         return observation, {"seed": seed}
@@ -609,7 +611,8 @@ class PyBoyEnv(gym.Env):
             party_health = [0, 0, 0, 0, 0, 0]
         party_health_reward = 0
         if sum(party_health) > sum(self.party_health) and sum(self.party_health) > 0:
-            party_health_reward = max(sum(party_health) - sum(self.party_health), 0)
+            party_health_reward = max(sum(party_health) * 100 - sum(self.party_health) * 100, 0)
+        self.party_health_reward = party_health_reward
 
 
         self.party_health = party_health
@@ -861,7 +864,7 @@ class PyBoyEnv(gym.Env):
             image_string = self.renderer.to_string(Ansi24HblockMethod)
 
             if target_index is not None:
-                render_string = f"{image_string}🧳 {self.episode} 🧠: {int(target_index):2d} 🥾 {int(self.step_count):10d} 🟢 {int(self.last_pokemon_count):3d} 👀 {int(self.last_seen_pokemon_count):3d} 🎒 {int(self.total_item_points):3d} 🌎 {len(self.visited_xy):3d}:{len(self.player_maps):3d} 🏆 {self.total_reward:7.2f} 💪 {self.party_exp_reward:7.2f} 🥊 {int(self.attack_reward):7d} 💰 {int(self.money):7d} 📫 {self.flag_score} \n 🚀 {self.total_travel_reward:4.2f} [{int(self.last_player_x):3d},{int(self.last_player_y):3d}], 🗺️: {int(self.last_player_map):3d} Actions {' '.join(action_string)}:{len(self.actions)} 🎉 {self.poke_levels} {self.party_health} 🎬 {int(self.frames):6d} {game_time_string} {self.text_onscreen} {self.is_in_battle}"
+                render_string = f"{image_string}🧳 {self.episode} 🧠: {int(target_index):2d} 🥾 {int(self.step_count):10d} 🟢 {int(self.last_pokemon_count):3d} 👀 {int(self.last_seen_pokemon_count):3d} 🎒 {int(self.total_item_points):3d} 🌎 {len(self.visited_xy):3d}:{len(self.player_maps):3d} 🏆 {self.total_reward:7.2f} 💪 {self.party_exp_reward:7.2f} 🥊 {int(self.attack_reward):7d} 💰 {int(self.money):7d} 📫 {self.flag_score} 🚑 {self.party_health_reward} \n 🚀 {self.total_travel_reward:4.2f} [{int(self.last_player_x):3d},{int(self.last_player_y):3d}], 🗺️: {int(self.last_player_map):3d} Actions {' '.join(action_string)}:{len(self.actions)} 🎉 {self.poke_levels} {self.party_health} 🎬 {int(self.frames):6d} {game_time_string} {self.text_onscreen} {self.is_in_battle}"
             else:
                 render_string = f"{image_string}🧳 {self.episode} 🛠️: {int(self.emunum):2d} 🥾 {int(self.step_count):10d} 🟢 {int(self.last_pokemon_count):3d} 👀 {int(self.last_seen_pokemon_count):3d} 🎒 {int(self.total_item_points):3d} 🌎 {len(self.visited_xy):3d}:{len(self.player_maps):3d} 🏆 {self.total_reward:7.2f} 💪 {self.party_exp_reward:7.2f} 🥊 {int(self.attack_reward):7d}💰 {int(self.money):7d} 📫 {self.flag_score} \n 🚀 {self.total_travel_reward:4.2f} [{int(self.last_player_x):3d},{int(self.last_player_y):3d}], 🗺️: {int(self.last_player_map):3d} Actions {' '.join(action_string)}:{len(self.actions)} 🎉 {self.poke_levels} 🎬 {int(self.frames):6d} "
 
