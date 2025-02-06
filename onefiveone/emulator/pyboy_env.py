@@ -292,6 +292,7 @@ class PyBoyEnv(gym.Env):
         self.opponent_pokemon_total_hp = 0
         self.last_n_memories = [self.get_mem_block(self.cart.cart_offset())[-1]] * self.n
         self.reward_maps = {}  # Reset reward maps
+        self.text_onscreen = self.pyboy.memory[0xcfc4 + self.cart.cart_offset()]
         self.last_screen = self.pyboy.screen.ndarray.copy()
         _, observation = self.calculate_reward()
 
@@ -305,6 +306,7 @@ class PyBoyEnv(gym.Env):
         button = self.buttons[action]
 
         if action != 0:
+            self.text_onscreen = self.pyboy.memory[0xcfc4 + self.cart.cart_offset()]
             self.last_screen = self.pyboy.screen.ndarray.copy()
             self.pyboy.button(button[0], delay=2)
 
@@ -750,57 +752,56 @@ class PyBoyEnv(gym.Env):
             
             action_string = [x[0] for x in self.actions[max(0,self.step_count - 6):self.step_count]]
 
-            tile_score = self.reward_maps.get(self.last_player_map, np.zeros((256, 256), dtype=np.float32))[self.last_player_x, self.last_player_y]
-
             # Compute min and max scores from the grid of surrounding tiles
-            surrounding_scores = []
-            for dx in range(-4, 6):
-                for dy in range(-4, 6):
-                    x = self.last_player_x + dx
-                    y = self.last_player_y + dy
-                    if 0 <= x < 256 and 0 <= y < 256:
-                        score = self.reward_maps.get(self.last_player_map, np.zeros((256, 256), dtype=np.float32))[x, y]
-                        if score > 0:
-                            surrounding_scores.append(score)
+            if not self.text_onscreen:
+                surrounding_scores = []
+                for dx in range(-4, 6):
+                    for dy in range(-4, 6):
+                        x = self.last_player_x + dx
+                        y = self.last_player_y + dy
+                        if 0 <= x < 256 and 0 <= y < 256:
+                            score = self.reward_maps.get(self.last_player_map, np.zeros((256, 256), dtype=np.float32))[x, y]
+                            if score > 0:
+                                surrounding_scores.append(score)
 
-            if surrounding_scores:
-                min_score = min(surrounding_scores)
-                max_score = max(surrounding_scores)
-            else:
-                min_score = 1
-                max_score = 1
+                if surrounding_scores:
+                    min_score = min(surrounding_scores)
+                    max_score = max(surrounding_scores)
+                else:
+                    min_score = 1
+                    max_score = 1
 
-            # Overlay scores of surrounding tiles
-            for dx in range(-4, 6):
-                for dy in range(-4, 6):
-                    x = self.last_player_x + dx
-                    y = self.last_player_y + dy
-                    if 0 <= x < 256 and 0 <= y < 256:
-                        score = self.reward_maps.get(self.last_player_map, np.zeros((256, 256), dtype=np.float32))[x, y]
-                        if score > 0:
-                            if min_score == max_score and min_score == 0:
-                                scaled_score = 0  # Avoid division by zero
-                            elif min_score == max_score:
-                                scaled_score = 1
+                # Overlay scores of surrounding tiles
+                for dx in range(-4, 6):
+                    for dy in range(-4, 6):
+                        x = self.last_player_x + dx
+                        y = self.last_player_y + dy
+                        if 0 <= x < 256 and 0 <= y < 256:
+                            score = self.reward_maps.get(self.last_player_map, np.zeros((256, 256), dtype=np.float32))[x, y]
+                            if score > 0:
+                                if min_score == max_score and min_score == 0:
+                                    scaled_score = 0  # Avoid division by zero
+                                elif min_score == max_score:
+                                    scaled_score = 1
+                                else:
+                                    scaled_score = int(1 + 8 * (score - min_score) / (max_score - min_score))
                             else:
-                                scaled_score = int(1 + 8 * (score - min_score) / (max_score - min_score))
+                                scaled_score = 0
+                            screen_x = 70 + dx * 16  # Centered around player's position
+                            screen_y = 67 + dy * 16  # Centered around player's position
+                            color = (255, 0, 0) if dx == 0 and dy == 0 else (0, 0, 255)
+                            if score > 0:
+                                image = add_string_overlay(image, f"{scaled_score}", position=(screen_x, screen_y), font_size=16, color=color)
+
                         else:
-                            scaled_score = 0
-                        screen_x = 70 + dx * 16  # Centered around player's position
-                        screen_y = 67 + dy * 16  # Centered around player's position
-                        color = (255, 0, 0) if dx == 0 and dy == 0 else (0, 0, 255)
-                        
-                        image = add_string_overlay(image, f"{scaled_score}", position=(screen_x, screen_y), font_size=16, color=color)
-                            
-                    else:
-                        screen_x = 70 + dx * 16  # Centered around player's position
-                        screen_y = 67 + dy * 16  # Centered around player's position
-                        image = add_string_overlay(image, "M", position=(screen_x, screen_y), font_size=16, color=(255, 0, 0))
+                            screen_x = 70 + dx * 16  # Centered around player's position
+                            screen_y = 67 + dy * 16  # Centered around player's position
+                            image = add_string_overlay(image, "M", position=(screen_x, screen_y), font_size=16, color=(255, 0, 0))
 
             self.renderer.load_image(image)
             self.renderer.resize(
-                terminal_size.columns, terminal_size.lines * 2 - terminal_offset
-            )
+                    terminal_size.columns, terminal_size.lines * 2 - terminal_offset
+                )
 
             # print the 256*256 score grid for this map with float 0.00 formatting
             # scored = False
@@ -824,9 +825,9 @@ class PyBoyEnv(gym.Env):
             image_string = self.renderer.to_string(Ansi24HblockMethod)
 
             if target_index is not None:
-                render_string = f"{image_string}🧳 {self.episode} 🧠: {int(target_index):2d} 🥾 {int(self.step_count):10d} 🟢 {int(self.last_pokemon_count):3d} 👀 {int(self.last_seen_pokemon_count):3d} 🎒 {int(self.total_item_points):3d} 🌎 {len(self.visited_xy):3d}:{len(self.player_maps):3d} 🏆 {self.total_reward:7.2f} 💪 {self.party_exp_reward:7.2f} 🥊 {int(self.attack_reward):7d} 💰 {int(self.money):7d} 📫 {self.flag_score} \n 🚀 {self.total_travel_reward:4.2f} [{int(self.last_player_x):3d},{int(self.last_player_y):3d}], 🗺️: {int(self.last_player_map):3d} Actions {' '.join(action_string)}:{len(self.actions)} 🎉 {self.poke_levels} 🎬 {int(self.frames):6d} {game_time_string} Tile Score: {tile_score:.2f}"
+                render_string = f"{image_string}🧳 {self.episode} 🧠: {int(target_index):2d} 🥾 {int(self.step_count):10d} 🟢 {int(self.last_pokemon_count):3d} 👀 {int(self.last_seen_pokemon_count):3d} 🎒 {int(self.total_item_points):3d} 🌎 {len(self.visited_xy):3d}:{len(self.player_maps):3d} 🏆 {self.total_reward:7.2f} 💪 {self.party_exp_reward:7.2f} 🥊 {int(self.attack_reward):7d} 💰 {int(self.money):7d} 📫 {self.flag_score} \n 🚀 {self.total_travel_reward:4.2f} [{int(self.last_player_x):3d},{int(self.last_player_y):3d}], 🗺️: {int(self.last_player_map):3d} Actions {' '.join(action_string)}:{len(self.actions)} 🎉 {self.poke_levels} 🎬 {int(self.frames):6d} {game_time_string} {self.text_onscreen} "
             else:
-                render_string = f"{image_string}🧳 {self.episode} 🛠️: {int(self.emunum):2d} 🥾 {int(self.step_count):10d} 🟢 {int(self.last_pokemon_count):3d} 👀 {int(self.last_seen_pokemon_count):3d} 🎒 {int(self.total_item_points):3d} 🌎 {len(self.visited_xy):3d}:{len(self.player_maps):3d} 🏆 {self.total_reward:7.2f} 💪 {self.party_exp_reward:7.2f} 🥊 {int(self.attack_reward):7d}💰 {int(self.money):7d} 📫 {self.flag_score} \n 🚀 {self.total_travel_reward:4.2f} [{int(self.last_player_x):3d},{int(self.last_player_y):3d}], 🗺️: {int(self.last_player_map):3d} Actions {' '.join(action_string)}:{len(self.actions)} 🎉 {self.poke_levels} 🎬 {int(self.frames):6d} Tile Score: {tile_score:.2f}"
+                render_string = f"{image_string}🧳 {self.episode} 🛠️: {int(self.emunum):2d} 🥾 {int(self.step_count):10d} 🟢 {int(self.last_pokemon_count):3d} 👀 {int(self.last_seen_pokemon_count):3d} 🎒 {int(self.total_item_points):3d} 🌎 {len(self.visited_xy):3d}:{len(self.player_maps):3d} 🏆 {self.total_reward:7.2f} 💪 {self.party_exp_reward:7.2f} 🥊 {int(self.attack_reward):7d}💰 {int(self.money):7d} 📫 {self.flag_score} \n 🚀 {self.total_travel_reward:4.2f} [{int(self.last_player_x):3d},{int(self.last_player_y):3d}], 🗺️: {int(self.last_player_map):3d} Actions {' '.join(action_string)}:{len(self.actions)} 🎉 {self.poke_levels} 🎬 {int(self.frames):6d} "
 
             return render_string
         
