@@ -700,18 +700,18 @@ class PyBoyEnv(gym.Env):
             else:
                 self.consecutive_moves = 1
             
-            if self.consecutive_moves == 2:
-                movement_multiplier = 1.1
-            elif self.consecutive_moves == 3:
-                movement_multiplier = 1.2
-            elif self.consecutive_moves == 4:
-                movement_multiplier = 1.3
-            elif self.consecutive_moves >= 5:
-                movement_multiplier = 1.4
-            else:
-                movement_multiplier = 1.0
+            # if self.consecutive_moves == 2:
+            #     movement_multiplier = 1.1
+            # elif self.consecutive_moves == 3:
+            #     movement_multiplier = 1.2
+            # elif self.consecutive_moves == 4:
+            #     movement_multiplier = 1.3
+            # elif self.consecutive_moves >= 5:
+            #     movement_multiplier = 1.4
+            # else:
+            #     movement_multiplier = 1.0
             
-            travel_reward *= movement_multiplier
+            # travel_reward *= movement_multiplier
             
             self.last_action = action
 
