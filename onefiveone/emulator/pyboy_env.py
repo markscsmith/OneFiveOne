@@ -745,8 +745,8 @@ class PyBoyEnv(gym.Env):
 
             # Compute min and max scores from the grid of surrounding tiles
             surrounding_scores = []
-            for dx in range(-5, 6):
-                for dy in range(-5, 6):
+            for dx in range(-4, 6):
+                for dy in range(-4, 6):
                     x = self.last_player_x + dx
                     y = self.last_player_y + dy
                     if 0 <= x < 256 and 0 <= y < 256:
@@ -762,8 +762,8 @@ class PyBoyEnv(gym.Env):
                 max_score = 1
 
             # Overlay scores of surrounding tiles
-            for dx in range(-5, 6):
-                for dy in range(-5, 6):
+            for dx in range(-4, 6):
+                for dy in range(-4, 6):
                     x = self.last_player_x + dx
                     y = self.last_player_y + dy
                     if 0 <= x < 256 and 0 <= y < 256:
@@ -778,14 +778,14 @@ class PyBoyEnv(gym.Env):
                         else:
                             scaled_score = 0
                         screen_x = 70 + dx * 16  # Centered around player's position
-                        screen_y = 62 + dy * 16  # Centered around player's position
+                        screen_y = 67 + dy * 16  # Centered around player's position
                         color = (255, 0, 0) if dx == 0 and dy == 0 else (0, 0, 255)
                         
                         image = add_string_overlay(image, f"{scaled_score}", position=(screen_x, screen_y), font_size=16, color=color)
                             
                     else:
                         screen_x = 70 + dx * 16  # Centered around player's position
-                        screen_y = 62 + dy * 16  # Centered around player's position
+                        screen_y = 67 + dy * 16  # Centered around player's position
                         image = add_string_overlay(image, "M", position=(screen_x, screen_y), font_size=16, color=(255, 0, 0))
 
             self.renderer.load_image(image)
