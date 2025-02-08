@@ -128,7 +128,7 @@ def process_item(args, roundnum, position=0, tfevents_file="", total=0):
         _, button, _, score, _, _, x, y, map_num = action
         if round(float(score), 3) < last_score:
             # reset the environment 
-            # env.reset()
+            env.reset()
             print("Resetting environment due to score decrease.", score, last_score, action)
         
         tr = round(float(score), 3)
@@ -142,11 +142,10 @@ def process_item(args, roundnum, position=0, tfevents_file="", total=0):
         image = add_string_overlay(image, f"Step: {curr_frame}/{max_frame}", position=(20, 20))
         frames.append(image)
         if len(frames) > FRAME_BATCH_SIZE or curr_frame == max_frame:
-
-            # find all types in frames:
-            if not os.path.exists(f"gif/{tf_filename}_output_{roundnum}"):
-                os.makedirs(f"gif/{tf_filename}_output_{roundnum}")
-            filename = f"gif/{tf_filename}_output_{roundnum}/{phase}_S{seen}_C{caught}.gif"
+            output_dir = args.output_dir if args.output_dir else "gif"
+            if not os.path.exists(f"{output_dir}/{tf_filename}_output_{roundnum}"):
+                os.makedirs(f"{output_dir}/{tf_filename}_output_{roundnum}")
+            filename = f"{output_dir}/{tf_filename}_output_{roundnum}/{phase}_S{seen}_C{caught}.gif"
             print("Saving", filename)
             frames[0].save(
                 filename,
@@ -169,7 +168,7 @@ def process_item(args, roundnum, position=0, tfevents_file="", total=0):
     
 
     # write locations out to a file next to the gif
-    with open(f"gif/{tf_filename}_output_{roundnum}_S{seen}_C{caught}.txt", "w") as file:
+    with open(f"{output_dir}/{tf_filename}_output_{roundnum}_S{seen}_C{caught}.txt", "w") as file:
         for location in locations:
             file.write(f"{location}\n")
     print("Done processing", tfevents_file)
@@ -193,7 +192,8 @@ def action_data_parser(filename, env_num):
             max_caught = caught
         if int(seen.split("=")[-1]) > int(str(max_seen).split("=")[-1]):
             max_seen = seen
-        final_score = score
+        if float(score) > float(final_score):
+            final_score = score
         action_blocks[i] = (env_num, button, step, score, caught, seen, x, y, map_num)
 
     return action_blocks, final_score, max_seen, max_caught, 
@@ -202,6 +202,7 @@ def main():
     parser = argparse.ArgumentParser(description="Extract and print TensorBoard data.")
     parser.add_argument("--log_dir", type=str, help="Path to the TensorBoard log directory")
     parser.add_argument("--rom", type=str, help="Path to the game ROM file")
+    parser.add_argument("--output_dir", type=str, help="Path to the output directory for gifs", default="gif")
     args = parser.parse_args()
     to_emulate = []
 
