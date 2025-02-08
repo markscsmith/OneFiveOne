@@ -117,19 +117,34 @@ def process_item(args, roundnum, position=0, tfevents_file="", total=0):
     tf_filename = "_".join(tfevents_file.split("/")[-2:])
     phase = 0
     last_score = float(-1)
+    max_seen = 0
+    max_caught = 0
     for action in item:
         # if curr_frame % 50 == 0 and random.randint(0, 100) < 20:
         #     print("\033[H\033[J")
-        
-        button = buttons_to_action_map[action[1]]
-        image = env.speed_step(button)
-        # image = env.render_screen_image(target_index=0, frame=curr_frame, max_frame=max_frame, action=action[1], other_info=action[-2:])
-
-        _, button, _, score, _, _, x, y, map_num = action
+        _, button, _, score, raw_seen, raw_caught, x, y, map_num = action
+        reset = False
         if round(float(score), 3) < last_score:
             # reset the environment 
             env.reset()
+            reset = True
             print("Resetting environment due to score decrease.", score, last_score, action)
+        
+        button = buttons_to_action_map[action[1]]
+        
+        # image = env.render_screen_image(target_index=0, frame=curr_frame, max_frame=max_frame, action=action[1], other_info=action[-2:])
+
+        
+        image = env.speed_step(button)
+        seen = int(raw_seen.split("=")[-1])
+        caught = int(raw_caught.split("=")[-1])
+
+        if seen > max_seen:
+            max_seen = seen
+        if caught > max_caught:
+            max_caught = caught
+
+
         
         tr = round(float(score), 3)
         last_score = tr
@@ -141,11 +156,11 @@ def process_item(args, roundnum, position=0, tfevents_file="", total=0):
         curr_frame += 1
         image = add_string_overlay(image, f"Step: {curr_frame}/{max_frame}", position=(20, 20))
         frames.append(image)
-        if len(frames) > FRAME_BATCH_SIZE or curr_frame == max_frame:
+        if len(frames) > FRAME_BATCH_SIZE or curr_frame == max_frame or reset:
             output_dir = args.output_dir if args.output_dir else "gif"
             if not os.path.exists(f"{output_dir}/{tf_filename}_output_{roundnum}"):
                 os.makedirs(f"{output_dir}/{tf_filename}_output_{roundnum}")
-            filename = f"{output_dir}/{tf_filename}_output_{roundnum}/{phase}_S{seen}_C{caught}.gif"
+            filename = f"{output_dir}/{tf_filename}_output_{roundnum}/{phase}_S{max_seen}_C{max_caught}.gif"
             print("Saving", filename)
             frames[0].save(
                 filename,
@@ -203,34 +218,37 @@ def main():
     parser.add_argument("--log_dir", type=str, help="Path to the TensorBoard log directory")
     parser.add_argument("--rom", type=str, help="Path to the game ROM file")
     parser.add_argument("--output_dir", type=str, help="Path to the output directory for gifs", default="gif")
+    parser.add_argument("--multithread", action="store_true", help="Use multiple threads to process the data")
     args = parser.parse_args()
     to_emulate = []
 
     if args.log_dir and os.path.isdir(args.log_dir):
         print(f"Processing log directory: {args.log_dir}")
         tfevents_files = glob.glob(os.path.join(args.log_dir, "**/*actions-*.txt"), recursive=True)
-        for tfevents_file in tfevents_files:
-            env_num = tfevents_file.split("/")[-1].split("-")[1].split(".")[0]
-            # action_data, seen, caught, final_score = action_data_parser(tfevents_file, env_num)
-            to_emulate.append(tfevents_file)
-        try:
-            with ProcessPoolExecutor(max_workers=cpu_count()) as executor:
-            # with ProcessPoolExecutor(max_workers=1) as executor:
-                futures = []
-                for position, tfevents_file in enumerate(to_emulate):
-                    futures.append(executor.submit(process_item, args, position, position, tfevents_file, len(to_emulate)))
+        if args.multithread:
+            for tfevents_file in tfevents_files:
+                env_num = tfevents_file.split("/")[-1].split("-")[1].split(".")[0]
+                # action_data, seen, caught, final_score = action_data_parser(tfevents_file, env_num)
+                to_emulate.append(tfevents_file)
+            try:
+                with ProcessPoolExecutor(max_workers=cpu_count()) as executor:
+                # with ProcessPoolExecutor(max_workers=1) as executor:
+                    futures = []
+                    for position, tfevents_file in enumerate(to_emulate):
+                        futures.append(executor.submit(process_item, args, position, position, tfevents_file, len(to_emulate)))
 
-                for future in as_completed(futures):
+                    for future in as_completed(futures):
 
-                    future.result()  # Get result to raise exceptions if any
-        except KeyboardInterrupt:
-            print("\nKeyboardInterrupt detected! Shutting down processes...")
-        except Exception as e:
-            print(f"An error occurred: {e}")
-        finally:
-            executor.shutdown(wait=True, cancel_futures=True)  # Cancel any pending futures
-        # for position, tfevents_file in enumerate(tfevents_files):
-        #     process_item(args, 0, position, tfevents_file, len(tfevents_files))
+                        future.result()  # Get result to raise exceptions if any
+            except KeyboardInterrupt:
+                print("\nKeyboardInterrupt detected! Shutting down processes...")
+            except Exception as e:
+                print(f"An error occurred: {e}")
+            finally:
+                executor.shutdown(wait=True, cancel_futures=True)  # Cancel any pending futures
+        else:
+            for position, tfevents_file in enumerate(tfevents_files):
+                process_item(args, 0, position, tfevents_file, len(tfevents_files))
 
     else:
         print(f"The directory {args.log_dir} does not exist.")
