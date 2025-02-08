@@ -112,19 +112,27 @@ def process_item(args, roundnum, position=0, tfevents_file="", total=0):
 
     # Assign unique position to each tqdm instance for multi-line display
     locations = [None] * len(item)
+    print("Processing", len(item), "frames.")
     pos = (position % (cpu_count()))
     tf_filename = "_".join(tfevents_file.split("/")[-2:])
     phase = 0
-    for action in tqdm(item, position=pos, desc=f"Processing {position:3d} of {total}"):
+    last_score = float(-1)
+    for action in item:
         # if curr_frame % 50 == 0 and random.randint(0, 100) < 20:
         #     print("\033[H\033[J")
         
         button = buttons_to_action_map[action[1]]
         image = env.speed_step(button)
         # image = env.render_screen_image(target_index=0, frame=curr_frame, max_frame=max_frame, action=action[1], other_info=action[-2:])
-        
+
         _, button, _, score, _, _, x, y, map_num = action
+        if round(float(score), 3) < last_score:
+            # reset the environment 
+            # env.reset()
+            print("Resetting environment due to score decrease.", score, last_score, action)
+        
         tr = round(float(score), 3)
+        last_score = tr
         location = [x,
                     y,
                     map_num,
@@ -139,6 +147,7 @@ def process_item(args, roundnum, position=0, tfevents_file="", total=0):
             if not os.path.exists(f"gif/{tf_filename}_output_{roundnum}"):
                 os.makedirs(f"gif/{tf_filename}_output_{roundnum}")
             filename = f"gif/{tf_filename}_output_{roundnum}/{phase}_S{seen}_C{caught}.gif"
+            print("Saving", filename)
             frames[0].save(
                 filename,
                 save_all=True,
@@ -171,6 +180,7 @@ def action_data_parser(filename, env_num):
 
     action_blocks_raw = data.split("|")
     action_blocks = [None] * len(action_blocks_raw)
+    print("Processing", len(action_blocks_raw), "action blocks.")
     max_seen, max_caught, final_score = 0, 0, 0
 
     for i, block in enumerate(action_blocks_raw):
@@ -198,12 +208,13 @@ def main():
     if args.log_dir and os.path.isdir(args.log_dir):
         print(f"Processing log directory: {args.log_dir}")
         tfevents_files = glob.glob(os.path.join(args.log_dir, "**/*actions-*.txt"), recursive=True)
-        for tfevents_file in tqdm(tfevents_files):
+        for tfevents_file in tfevents_files:
             env_num = tfevents_file.split("/")[-1].split("-")[1].split(".")[0]
             # action_data, seen, caught, final_score = action_data_parser(tfevents_file, env_num)
             to_emulate.append(tfevents_file)
         try:
             with ProcessPoolExecutor(max_workers=cpu_count()) as executor:
+            # with ProcessPoolExecutor(max_workers=1) as executor:
                 futures = []
                 for position, tfevents_file in enumerate(to_emulate):
                     futures.append(executor.submit(process_item, args, position, position, tfevents_file, len(to_emulate)))
@@ -213,11 +224,12 @@ def main():
                     future.result()  # Get result to raise exceptions if any
         except KeyboardInterrupt:
             print("\nKeyboardInterrupt detected! Shutting down processes...")
-            
         except Exception as e:
             print(f"An error occurred: {e}")
         finally:
             executor.shutdown(wait=True, cancel_futures=True)  # Cancel any pending futures
+        # for position, tfevents_file in enumerate(tfevents_files):
+        #     process_item(args, 0, position, tfevents_file, len(tfevents_files))
 
     else:
         print(f"The directory {args.log_dir} does not exist.")
