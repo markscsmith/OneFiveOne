@@ -63,7 +63,7 @@ class TensorboardLoggingCallback(BaseCallback):
         super().__init__(verbose)
         # We set the frequency at which the callback will be called
         # This could be set to be called at each step by setting it to 1
-        self.log_freq = n_steps
+        self.log_freq = n_steps // 4
         self.buttons_names = "UDLRABS!-udlrabs.-"
 
     def _on_step(self) -> bool:
@@ -186,23 +186,26 @@ def train_model(
     device="cpu",
 ):
 
-    first_layer_size = 5608
-    intermediate_layer_size = 1024
-    action_layer_size = 8  # 8 actions
-    output_layer_size = 1
+    # first_layer_size = 5608
+    # intermediate_layer_size = 1024
+    # action_layer_size = 8  # 8 actions
+    # output_layer_size = 1
+    first_layer_size = 512
+    intermediate_layer_size = 256
 
     policy_kwargs = dict(
-        # net_arch=dict(
-        #     pi=[first_layer_size, intermediate_layer_size, intermediate_layer_size, action_layer_size],
-        #     vf=[first_layer_size, intermediate_layer_size, intermediate_layer_size, output_layer_size],
-        # ),
+        net_arch=dict(
+            pi=[first_layer_size, intermediate_layer_size, intermediate_layer_size],
+            vf=[first_layer_size, intermediate_layer_size, intermediate_layer_size],
+        ),
+        activation_fn=torch.nn.ReLU,
     )
 
     # make sure we take care of accidental trailing slashes in the save path which
     # would cause the checkpoint path to be incorrect.
     checkpoint_path = f"{save_path.rstrip('/')}"
     env.set_attr("episode", 0)
-    # tensorboard_log = f"{save_path}/tensorboard/{os.uname()[1]}-{time.time()}"
+    tensorboard_log = f"{save_path.rstrip('/')}/tensorboard/{os.uname()[1]}-{time.time()}"
 
     # run_model = PPO(
     #    policy="MlpPolicy",
@@ -215,8 +218,8 @@ def train_model(
         n_epochs=3,
         gamma=0.99,  # Reduced from 0.998
         gae_lambda=0.98,
-        learning_rate=learning_rate_schedule,
-        # learning_rate=learning_rate_decay_schedule,
+        # learning_rate=learning_rate_schedule,
+        learning_rate=learning_rate_decay_schedule,
         ent_coef=0.02,
         env=env,
         policy_kwargs=policy_kwargs,
@@ -225,6 +228,7 @@ def train_model(
         vf_coef=0.5,       
         max_grad_norm=0.5,
         device=device,
+        tensorboard_log=tensorboard_log,
     )
 
 
@@ -262,10 +266,10 @@ def train_model(
             n_steps=update_freq,
             callback=PokeCaughtCallback(),
         )
-        # tbcallback = TensorboardLoggingCallback(tensorboard_log)
+        tbcallback = TensorboardLoggingCallback(tensorboard_log)
         env.set_attr("episode", episode)
         # callbacks = [checkpoint_callback, current_stats, tbcallback]
-        callbacks = [current_stats]
+        callbacks = [current_stats, tbcallback]
         run_model.learn(
             total_timesteps=total_steps, callback=callbacks, progress_bar=True
         )

@@ -117,7 +117,7 @@ class PyBoyEnv(gym.Env):
         self.memory_space = Box(
             low=0.0, high=1.0, shape=(self.n, len(block)), dtype=np.float32
         )
-        # self.screen_space = Box(low=0.0, high=1.0, shape=(144, 160, 4), dtype=np.float32)
+        self.screen_space = Box(low=0.0, high=1.0, shape=(144, 160, 4), dtype=np.float32)
         self.coord_space = Box(low=0.0, high=1.0, shape=(2,), dtype=np.float32)
 
         self.map_space = Discrete(256)
@@ -130,7 +130,7 @@ class PyBoyEnv(gym.Env):
 
         self.observation_space = spaces.Dict({
             "m": self.memory_space,
-        #    "s": self.screen_space,
+            "s": self.screen_space,
             "map_id": self.map_space,
             "coords": self.coord_space,
             "map_one_hot": self.map_one_hot_space,
@@ -762,7 +762,7 @@ class PyBoyEnv(gym.Env):
         self.total_reward += reward
         return round(normalized_reward, 4), {
             "m": np.array(self.last_n_memories, dtype=np.float32) / 255.0,
-            # "s": self.pyboy.screen.ndarray.copy().astype(np.float32) / 255.0,
+            "s": self.pyboy.screen.ndarray.copy().astype(np.float32) / 255.0,
             "map_id": map_id,
             "coords": np.array([px / 255.0, py / 255.0], dtype=np.float32),
             "map_one_hot": map_one_hot,

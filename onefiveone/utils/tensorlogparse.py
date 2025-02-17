@@ -160,7 +160,8 @@ def process_item(args, roundnum, position=0, tfevents_file="", total=0):
             output_dir = args.output_dir if args.output_dir else "gif"
             if not os.path.exists(f"{output_dir}/{tf_filename}_output_{roundnum}"):
                 os.makedirs(f"{output_dir}/{tf_filename}_output_{roundnum}")
-            filename = f"{output_dir}/{tf_filename}_output_{roundnum}/{phase}_S{max_seen}_C{max_caught}.gif"
+            filename = f"{output_dir}/{tf_filename}_output_{roundnum}/{phase}_S{max_seen}_C{max_caught}_P{last_score}.gif"
+                
             print("Saving", filename)
             frames[0].save(
                 filename,
@@ -175,6 +176,11 @@ def process_item(args, roundnum, position=0, tfevents_file="", total=0):
             if image.n_frames != len(frames):
                 print(f"Error: {filename} has {image.n_frames} frames, but {len(frames)} were written.")
                 sys.exit(1)
+            
+            if reset:
+                max_seen = 0
+                max_caught = 0
+            
 
             phase += 1
             frames = []
