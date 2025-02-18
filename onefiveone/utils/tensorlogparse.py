@@ -97,7 +97,7 @@ def extract_tensorboard_data(log_dir: str) -> Dict[str, Dict[str, List[Tuple[flo
     }
 
 def process_item(args, roundnum, position=0, tfevents_file="", total=0):
-    print(f"Processing item {tfevents_file}...")
+    tqdm.write(f"Processing item {tfevents_file}...")
     
     frames = []
     buttons_to_action_map = {"-": 0, "U": 1, "D": 2, "L": 3, "R": 4, "A": 5, "B": 6, "S": 7}
@@ -112,87 +112,88 @@ def process_item(args, roundnum, position=0, tfevents_file="", total=0):
 
     # Assign unique position to each tqdm instance for multi-line display
     locations = [None] * len(item)
-    print("Processing", len(item), "frames.")
+    tqdm.write(f"Processing {len(item)} frames.")
     pos = (position % (cpu_count()))
     tf_filename = "_".join(tfevents_file.split("/")[-2:])
     phase = 0
     last_score = float(-1)
     max_seen = 0
     max_caught = 0
-    for action in item:
-        # if curr_frame % 50 == 0 and random.randint(0, 100) < 20:
-        #     print("\033[H\033[J")
-        _, button, _, score, raw_seen, raw_caught, x, y, map_num = action
-        reset = False
-        if round(float(score), 3) < last_score:
-            # reset the environment 
-            env.reset()
-            reset = True
-            print("Resetting environment due to score decrease.", score, last_score, action)
-        
-        button = buttons_to_action_map[action[1]]
-        
-        # image = env.render_screen_image(target_index=0, frame=curr_frame, max_frame=max_frame, action=action[1], other_info=action[-2:])
 
-        
-        image = env.speed_step(button)
-        seen = int(raw_seen.split("=")[-1])
-        caught = int(raw_caught.split("=")[-1])
+    with tqdm(total=max_frame, desc=f"File {position+1}/{total}", position=pos, leave=True) as pbar:
+        for action in item:
+            # if curr_frame % 50 == 0 and random.randint(0, 100) < 20:
+            #     tqdm.write("\033[H\033[J")
+            _, button, _, score, raw_seen, raw_caught, x, y, map_num = action
+            reset = False
+            if round(float(score), 3) < last_score:
+                # reset the environment 
+                env.reset()
+                reset = True
+                tqdm.write(f"Resetting environment due to score decrease. {score}, {last_score}, {action}")
+            
+            button = buttons_to_action_map[action[1]]
+            
+            # image = env.render_screen_image(target_index=0, frame=curr_frame, max_frame=max_frame, action=action[1], other_info=action[-2:])
 
-        if seen > max_seen:
-            max_seen = seen
-        if caught > max_caught:
-            max_caught = caught
+            
+            image = env.speed_step(button)
+            seen = int(raw_seen.split("=")[-1])
+            caught = int(raw_caught.split("=")[-1])
+
+            if seen > max_seen:
+                max_seen = seen
+            if caught > max_caught:
+                max_caught = caught
 
 
-        
-        tr = round(float(score), 3)
-        last_score = tr
-        location = [x,
-                    y,
-                    map_num,
-                    tr,]
-        locations[curr_frame] = location
-        curr_frame += 1
-        image = add_string_overlay(image, f"Step: {curr_frame}/{max_frame}", position=(20, 20))
-        frames.append(image)
-        if len(frames) > FRAME_BATCH_SIZE or curr_frame == max_frame or reset:
-            output_dir = args.output_dir if args.output_dir else "gif"
-            if not os.path.exists(f"{output_dir}/{tf_filename}_output_{roundnum}"):
-                os.makedirs(f"{output_dir}/{tf_filename}_output_{roundnum}")
-            filename = f"{output_dir}/{tf_filename}_output_{roundnum}/{phase}_S{max_seen}_C{max_caught}_P{last_score}.gif"
+            
+            tr = round(float(score), 3)
+            last_score = tr
+            location = [x,
+                        y,
+                        map_num,
+                        tr,]
+            locations[curr_frame] = location
+            curr_frame += 1
+            image = add_string_overlay(image, f"Step: {curr_frame}/{max_frame}", position=(20, 20))
+            frames.append(image)
+            if len(frames) > FRAME_BATCH_SIZE or curr_frame == max_frame or reset:
+                output_dir = args.output_dir if args.output_dir else "gif"
+                if not os.path.exists(f"{output_dir}/{tf_filename}_output_{roundnum}"):
+                    os.makedirs(f"{output_dir}/{tf_filename}_output_{roundnum}")
+                filename = f"{output_dir}/{tf_filename}_output_{roundnum}/{phase}_S{max_seen}_C{max_caught}_P{last_score}.gif"
+                    
+                tqdm.write(f"Saving {filename}")
+                frames[0].save(
+                    filename,
+                    save_all=True,
+                    format="GIF",
+                    append_images=frames[1:],
+                    duration = 1,
+                    loop=0,
+                    )
+                # load image to verify all frames written:
+                image = Image.open(filename)
+                if image.n_frames != len(frames):
+                    tqdm.write(f"Error: {filename} has {image.n_frames} frames, but {len(frames)} were written.")
+                    sys.exit(1)
                 
-            print("Saving", filename)
-            frames[0].save(
-                filename,
-                save_all=True,
-                format="GIF",
-                append_images=frames[1:],
-                duration = 1,
-                loop=0,
-                )
-            # load image to verify all frames written:
-            image = Image.open(filename)
-            if image.n_frames != len(frames):
-                print(f"Error: {filename} has {image.n_frames} frames, but {len(frames)} were written.")
-                sys.exit(1)
-            
-            if reset:
-                max_seen = 0
-                max_caught = 0
-            
+                if reset:
+                    max_seen = 0
+                    max_caught = 0
+                
 
-            phase += 1
-            frames = []
-    
-
+                phase += 1
+                frames = []
+            pbar.update(1)
     
 
     # write locations out to a file next to the gif
     with open(f"{output_dir}/{tf_filename}_output_{roundnum}_S{seen}_C{caught}.txt", "w") as file:
         for location in locations:
             file.write(f"{location}\n")
-    print("Done processing", tfevents_file)
+    tqdm.write(f"Done processing {tfevents_file}")
 
 def action_data_parser(filename, env_num):
     with open(filename, "r") as file:
@@ -229,7 +230,7 @@ def main():
     to_emulate = []
 
     if args.log_dir and os.path.isdir(args.log_dir):
-        print(f"Processing log directory: {args.log_dir}")
+        tqdm.write(f"Processing log directory: {args.log_dir}")
         tfevents_files = glob.glob(os.path.join(args.log_dir, "**/*actions-*.txt"), recursive=True)
         if args.multithread:
             for tfevents_file in tfevents_files:
@@ -244,12 +245,11 @@ def main():
                         futures.append(executor.submit(process_item, args, position, position, tfevents_file, len(to_emulate)))
 
                     for future in as_completed(futures):
-
                         future.result()  # Get result to raise exceptions if any
             except KeyboardInterrupt:
-                print("\nKeyboardInterrupt detected! Shutting down processes...")
+                tqdm.write("\nKeyboardInterrupt detected! Shutting down processes...")
             except Exception as e:
-                print(f"An error occurred: {e}")
+                tqdm.write(f"An error occurred: {e}")
             finally:
                 executor.shutdown(wait=True, cancel_futures=True)  # Cancel any pending futures
         else:
@@ -257,7 +257,7 @@ def main():
                 process_item(args, 0, position, tfevents_file, len(tfevents_files))
 
     else:
-        print(f"The directory {args.log_dir} does not exist.")
+        tqdm.write(f"The directory {args.log_dir} does not exist.")
 
 if __name__ == "__main__":
     main()

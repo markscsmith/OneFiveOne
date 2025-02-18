@@ -41,7 +41,7 @@ def parse_file(file_path, gif_files = []):
         # refresh the screen to avoid weird output distortion from newlines
 #        print("\033[H\033[J")
 
-        y, x, map_name, reward = line.strip()[1:-1].split(',')
+        x, y, map_name, reward = line.strip()[1:-1].split(',')
         x, y, map_name, reward = int(x), int(y), int(map_name), float(reward)
 
         if map_name not in map_extents:
