@@ -16,3 +16,4 @@ torch
 torchvision
 tqdm
 rich
+opencv-python
