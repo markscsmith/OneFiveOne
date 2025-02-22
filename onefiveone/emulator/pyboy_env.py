@@ -784,12 +784,15 @@ class PyBoyEnv(gym.Env):
             terminal_offset = 7
 
             # image = self.pyboy.screen.image
-            image = Image.fromarray(self.last_screen)
+            image = Image.fromarray(self.pyboy.screen.ndarray)
             w = 160
             h = 144
 
             
-            
+            _, _, _, _, _, _, location, _, _, _, _, _, _, _, _ = self.get_mem_block(self.cart.cart_offset())
+            map_id = location[0]
+            py = location[1]
+            px = location[2]
             fc = self.pyboy.frame_count
             game_seconds = fc // 60
             game_minutes = game_seconds // 60
@@ -799,16 +802,16 @@ class PyBoyEnv(gym.Env):
             game_time_string = f"{clock_faces[game_hours % 12]} {game_hours:02d}:{game_minutes % 60:02d}:{game_seconds % 60:02d}"
             
             action_string = [x[0] for x in self.actions[max(0,self.step_count - 6):self.step_count]]
-
+            text_onscreen = self.pyboy.memory[0xcfc4 + self.cart.cart_offset()]
             # Compute min and max scores from the grid of surrounding tiles
-            if not self.text_onscreen and not self.is_in_battle:
+            if not text_onscreen and not self.is_in_battle:
                 surrounding_scores = []
                 for dx in range(-4, 6):
                     for dy in range(-4, 6):
-                        x = self.last_player_x + dx
-                        y = self.last_player_y + dy
+                        x = px + dx
+                        y = py + dy
                         if 0 <= x < 256 and 0 <= y < 256:
-                            score = self.reward_maps.get(self.last_player_map, np.zeros((256, 256), dtype=np.float32))[x, y]
+                            score = self.reward_maps.get(map_id, np.zeros((256, 256), dtype=np.float32))[x, y]
                             if score > 0:
                                 surrounding_scores.append(score)
 
@@ -822,10 +825,10 @@ class PyBoyEnv(gym.Env):
                 # Overlay scores of surrounding tiles
                 for dx in range(-4, 6):
                     for dy in range(-4, 6):
-                        x = self.last_player_x + dx
-                        y = self.last_player_y + dy
+                        x = px + dx
+                        y = py + dy
                         if 0 <= x < 256 and 0 <= y < 256:
-                            score = self.reward_maps.get(self.last_player_map, np.zeros((256, 256), dtype=np.float32))[x, y]
+                            score = self.reward_maps.get(map_id, np.zeros((256, 256), dtype=np.float32))[x, y]
                             if score > 0:
                                 if min_score == max_score and min_score == 0:
                                     scaled_score = 0  # Avoid division by zero
