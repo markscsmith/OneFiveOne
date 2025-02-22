@@ -236,6 +236,9 @@ class PyBoyEnv(gym.Env):
         self.party_health = None
         self.party_health_reward = None
         self.total_healing_reward = None
+
+        self.current_map = None
+        self.last_event = None
         
         self.reset()
 
@@ -281,6 +284,7 @@ class PyBoyEnv(gym.Env):
         self.last_player_map = 0
         self.visited_xy = set()
         self.player_maps = set()
+        self.current_map = set()
         self.last_chunk_id = None
 
         # Player Data
@@ -309,6 +313,7 @@ class PyBoyEnv(gym.Env):
         self.party_health = [0, 0, 0, 0, 0, 0]
         self.party_health_reward = 0
         self.total_healing_reward = 0
+        self.last_event = (0, 0)
         _, observation = self.calculate_reward()
 
         # Resize the screen ndarray
@@ -525,8 +530,10 @@ class PyBoyEnv(gym.Env):
         # Calculate reward from exploring the game world by counting maps, doesn't need to store counter
         if self.last_player_map != map_id:
             if map_id not in self.player_maps:
-                # travel_reward += 10  # was 5
+                travel_reward += 0.5
                 self.player_maps.add(map_id)
+                self.current_map = set()
+                self.last_event = (px, py)
         event_reward = 0
 
         chunk_id = f"{px}:{py}:{map_id}"
@@ -534,12 +541,14 @@ class PyBoyEnv(gym.Env):
         visited_score = 0
         if self.last_chunk_id != chunk_id:
             if chunk_id not in self.visited_xy:
-                # visited_score = 0.01
-                # pass
-            # else:
-                
                 self.visited_xy.add(chunk_id)
-                visited_score =  0.1
+            if chunk_id not in self.current_map:
+                # scale the visited score based on distance from entrance
+                distance = np.sqrt((px - self.last_event[0]) ** 2 + (py - self.last_event[1]) ** 2)
+                visited_score = 0.1 / (distance + 1)
+                self.current_map.add(chunk_id)
+            else:    
+                visited_score =  0.0
 
         self.last_chunk_id = chunk_id
 
@@ -684,7 +693,7 @@ class PyBoyEnv(gym.Env):
         for item, points in new_item_points:
             self.item_points[item] = points
 
-        item_points = sum(self.item_points.values())
+        item_points = sum(self.item_points.values()) / 10
         self.total_item_points += item_points
 
         # ---- Event data to calculate reward for flags ----
@@ -740,6 +749,8 @@ class PyBoyEnv(gym.Env):
             + event_reward
             + money_reward
         )
+        if reward > 0 and travel_reward == 0:
+            self.last_event = (px, py)
 
         # Normalize the reward
         normalized_reward = self.normalize_reward(reward)
@@ -793,6 +804,7 @@ class PyBoyEnv(gym.Env):
             map_id = location[0]
             py = location[1]
             px = location[2]
+            event_x, event_y = self.last_event
             fc = self.pyboy.frame_count
             game_seconds = fc // 60
             game_minutes = game_seconds // 60
@@ -841,6 +853,7 @@ class PyBoyEnv(gym.Env):
                             screen_x = 70 + dx * 16  # Centered around player's position
                             screen_y = 67 + dy * 16  # Centered around player's position
                             color = (255, 0, 0) if dx == 0 and dy == 0 else (0, 0, 255)
+                            color = (255, 0, 255) if event_x == x and event_y == y else color
                             if score > 0:
                                 image = add_string_overlay(image, f"{scaled_score}", position=(screen_x, screen_y), font_size=16, color=color)
 

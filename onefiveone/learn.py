@@ -195,8 +195,8 @@ def train_model(
 
     policy_kwargs = dict(
         net_arch=dict(
-            pi=[first_layer_size, intermediate_layer_size, intermediate_layer_size],
-            vf=[first_layer_size, intermediate_layer_size, intermediate_layer_size],
+            pi=[first_layer_size, first_layer_size, intermediate_layer_size, intermediate_layer_size],
+            vf=[first_layer_size, first_layer_size, intermediate_layer_size, intermediate_layer_size],
         ),
         activation_fn=torch.nn.ReLU,
     )
