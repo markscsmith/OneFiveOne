@@ -24,8 +24,8 @@ import hashlib
 
 # This allows the bot to press a button and wait for the game state to "settle" before pressing another button.
 # 30 frames seems to be a good balance between throughput of the game and allowing the AI to still progress quickly.
-PRESS_FRAMES = 20 # Press button for this many frames
-RELEASE_FRAMES = 40 # Wait this many frames before pressing again
+PRESS_FRAMES = 10 # Press button for this many frames
+RELEASE_FRAMES = 20 # Wait this many frames before pressing again
 
 
 def diff_flags(s1, s2):
