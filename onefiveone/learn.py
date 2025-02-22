@@ -247,7 +247,7 @@ def train_model(
     else:
         print("No checkpoints found.")
 
-    update_freq = n_steps * num_cpu // 4
+    update_freq = n_steps * num_cpu // 8
 
     for episode in range(starting_episode, episodes + 1):
         print(f"Starting episode {episode}")

@@ -2,6 +2,7 @@ import sys
 import os
 import datetime
 import hashlib
+import cv2  # Import OpenCV
 
 # Compute and AI libs
 import numpy as np
@@ -23,8 +24,8 @@ import hashlib
 
 # This allows the bot to press a button and wait for the game state to "settle" before pressing another button.
 # 30 frames seems to be a good balance between throughput of the game and allowing the AI to still progress quickly.
-PRESS_FRAMES = 10 # Press button for this many frames
-RELEASE_FRAMES = 20 # Wait this many frames before pressing again
+PRESS_FRAMES = 20 # Press button for this many frames
+RELEASE_FRAMES = 40 # Wait this many frames before pressing again
 
 
 def diff_flags(s1, s2):
@@ -98,7 +99,7 @@ class PyBoyEnv(gym.Env):
         self.cgb = cgb
         
         # Configuring the details of this instance of the emulator environment
-        self.n = 8  # number of frames to store in the observation space
+        self.n = 16  # number of frames to store in the observation space
         self.emunum = emunum
         self.device = device
         self.episode = episode
@@ -117,7 +118,7 @@ class PyBoyEnv(gym.Env):
         self.memory_space = Box(
             low=0.0, high=1.0, shape=(self.n, len(block)), dtype=np.float32
         )
-        self.screen_space = Box(low=0.0, high=1.0, shape=(144, 160, 4), dtype=np.float32)
+        self.screen_space = Box(low=0.0, high=1.0, shape=(36, 40, 4), dtype=np.float32)
         self.coord_space = Box(low=0.0, high=1.0, shape=(2,), dtype=np.float32)
 
         self.map_space = Discrete(256)
@@ -310,6 +311,9 @@ class PyBoyEnv(gym.Env):
         self.total_healing_reward = 0
         _, observation = self.calculate_reward()
 
+        # Resize the screen ndarray
+        observation["s"] = cv2.resize(observation["s"], (40, 36), interpolation=cv2.INTER_AREA)
+
         return observation, {"seed": seed}
 
 
@@ -322,13 +326,15 @@ class PyBoyEnv(gym.Env):
         if action != 0:
             self.text_onscreen = self.pyboy.memory[0xcfc4 + self.cart.cart_offset()]
             self.is_in_battle = self.pyboy.memory[0xd057 + self.cart.cart_offset()]
-            self.last_screen = self.pyboy.screen.ndarray.copy()
             self.pyboy.button(button[0], delay=2)
+        self.last_screen = self.pyboy.screen.ndarray.copy()
 
         self.pyboy.tick(PRESS_FRAMES + RELEASE_FRAMES, True)
        
         reward, observation = self.calculate_reward(action)
 
+        # Resize the screen ndarray
+        observation["s"] = cv2.resize(observation["s"], (40, 36), interpolation=cv2.INTER_AREA)
 
         reward = round(reward, 4)
         self.actions[self.step_count] = f"{button[1]}:{self.step_count}:{self.total_reward:.2f}:C{self.last_pokemon_count}:S{self.last_seen_pokemon_count}:X{self.last_player_x}:Y{self.last_player_y}:M{self.last_player_map}"
@@ -705,7 +711,7 @@ class PyBoyEnv(gym.Env):
 
                 # Calculate movement multiplier
         if action is not None:
-            if self.last_action == action and action in [1, 2, 3, 4]:  # Only consider directional actions
+            if self.last_action == action and action in [1, 2, 3, 4] and travel_reward > 0:  # Only consider directional actions that result in movement
                 self.consecutive_moves += 1
             else:
                 self.consecutive_moves = 1
