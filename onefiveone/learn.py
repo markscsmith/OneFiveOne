@@ -247,8 +247,7 @@ def train_model(
         exploration_final_eps=0.02,
         tensorboard_log=tensorboard_log,
         device=device,
-        optimize_memory_usage=True
-
+        # optimize_memory_usage=True
     )
 
     starting_episode = 1
