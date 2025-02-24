@@ -247,6 +247,7 @@ def train_model(
         exploration_final_eps=0.02,
         tensorboard_log=tensorboard_log,
         device=device,
+        optimize_memory_usage=True
 
     )
 
@@ -289,7 +290,7 @@ def train_model(
         # callbacks = [checkpoint_callback, current_stats, tbcallback]
         callbacks = [current_stats, tbcallback]
         run_model.learn(
-            total_timesteps=total_steps, callback=callbacks, progress_bar=True
+            total_timesteps=total_steps, callback=callbacks, progress_bar=True, log_interval=512
         )
         run_model.save(f"{checkpoint_file_path}-model.zip")
         actions_set = env.get_attr("actions")
