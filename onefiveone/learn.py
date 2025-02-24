@@ -11,6 +11,8 @@ import torch
 
 
 from stable_baselines3 import PPO
+from stable_baselines3 import DQN
+from sb3_contrib import QRDQN
 
 from stable_baselines3.common.callbacks import (
     BaseCallback,
@@ -190,8 +192,8 @@ def train_model(
     # intermediate_layer_size = 1024
     # action_layer_size = 8  # 8 actions
     # output_layer_size = 1
-    first_layer_size = 512
-    intermediate_layer_size = 256
+    first_layer_size = 1024
+    intermediate_layer_size = 512
 
     policy_kwargs = dict(
         net_arch=dict(
@@ -209,28 +211,44 @@ def train_model(
 
     # run_model = PPO(
     #    policy="MlpPolicy",
-    run_model = PPO(
-        policy="MultiInputPolicy",
-        # Reduce n_steps if too large; ensure not less than some minimum like 2048 for sufficient learning per update.
-        n_steps=n_steps,
-        # Reduce batch size if it's too large but ensure a minimum size for stability.
-        batch_size=batch_size,
-        n_epochs=13,
-        gamma=0.99,  # Reduced from 0.998
-        gae_lambda=0.98,
-        # learning_rate=learning_rate_schedule,
-        # learning_rate=learning_rate_decay_schedule,
-        ent_coef=0.02,
-        env=env,
-        policy_kwargs=policy_kwargs,
-        verbose=0,
-        clip_range=0.2,    
-        vf_coef=0.5,       
-        max_grad_norm=0.5,
-        device=device,
-        tensorboard_log=tensorboard_log,
-    )
+    # run_model = PPO(
+    #     policy="MultiInputPolicy",
+    #     # Reduce n_steps if too large; ensure not less than some minimum like 2048 for sufficient learning per update.
+    #     n_steps=n_steps,
+    #     # Reduce batch size if it's too large but ensure a minimum size for stability.
+    #     batch_size=batch_size,
+    #     n_epochs=3,
+    #     gamma=0.99,  # Reduced from 0.998
+    #     gae_lambda=0.98,
+    #     # learning_rate=learning_rate_schedule,
+    #     # learning_rate=learning_rate_decay_schedule,
+    #     ent_coef=0.02,
+    #     env=env,
+    #     policy_kwargs=policy_kwargs,
+    #     verbose=0,
+    #     clip_range=0.2,    
+    #     vf_coef=0.5,       
+    #     max_grad_norm=0.5,
+    #     device=device,
+    #     tensorboard_log=tensorboard_log,
+    # )
 
+    run_model = QRDQN(
+        "MultiInputPolicy",
+        env,
+        learning_rate=1e-3,
+        buffer_size=total_steps,
+        learning_starts=n_steps // 2,
+        tau=1.0,
+        gamma=0.99,
+        train_freq=batch_size // 4,
+        target_update_interval=n_steps,
+        exploration_fraction=0.1,
+        exploration_final_eps=0.02,
+        tensorboard_log=tensorboard_log,
+        device=device,
+
+    )
 
     starting_episode = 1
 

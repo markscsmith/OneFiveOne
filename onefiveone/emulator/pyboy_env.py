@@ -351,8 +351,8 @@ class PyBoyEnv(gym.Env):
             self.best_total_reward = self.total_reward
             self.last_improvement_step = self.step_count
 
-        if (self.step_count - self.last_improvement_step) >= self.no_improvement_limit:
-            truncated = True
+        # if (self.step_count - self.last_improvement_step) >= self.no_improvement_limit:
+        #     truncated = True
 
         info = {
             "reward": reward,
@@ -542,13 +542,15 @@ class PyBoyEnv(gym.Env):
         if self.last_chunk_id != chunk_id:
             if chunk_id not in self.visited_xy:
                 self.visited_xy.add(chunk_id)
-            if chunk_id not in self.current_map:
-                # scale the visited score based on distance from entrance
-                distance = np.sqrt((px - self.last_event[0]) ** 2 + (py - self.last_event[1]) ** 2)
-                visited_score = 0.1 / (distance + 1)
-                self.current_map.add(chunk_id)
-            else:    
-                visited_score =  0.0
+                visited_score = 0.1
+            # if chunk_id not in self.current_map:
+            #     # scale the visited score based on distance from entrance
+            #     distance = np.sqrt((px - self.last_event[0]) ** 2 + (py - self.last_event[1]) ** 2)
+            #     # visited_score = 0.1 / (distance + 1)
+                
+            #     self.current_map.add(chunk_id)
+            # else:    
+            #     visited_score =  0.0
 
         self.last_chunk_id = chunk_id
 
@@ -594,16 +596,19 @@ class PyBoyEnv(gym.Env):
         last_poke = self.last_pokemon_count
         last_poke_seen = self.last_seen_pokemon_count
 
+        seen_reward = 0
+        caught_reward = 0
+
         if pokemon_owned > last_poke:
             self.seen_and_capture_events[self.pyboy.frame_count] = (
                 pokemon_owned,
                 pokemon_seen,
             )
-            reward += (pokemon_owned - last_poke) * 300  # was 200
+            caught_reward = 5.0
 
         if pokemon_seen > last_poke_seen:
             self.last_seen_pokemon_count = pokemon_seen
-            reward += (pokemon_seen - last_poke_seen) * 300  # was 100
+            seen_reward = 2.5
 
         self.last_pokemon_count = pokemon_owned
         self.last_seen_pokemon_count = pokemon_seen
@@ -719,34 +724,35 @@ class PyBoyEnv(gym.Env):
                 money_reward = np.abs(money - old_money) / money_divider
 
                 # Calculate movement multiplier
-        if action is not None:
-            if self.last_action == action and action in [1, 2, 3, 4] and travel_reward > 0:  # Only consider directional actions that result in movement
-                self.consecutive_moves += 1
-            else:
-                self.consecutive_moves = 1
+        # if action is not None:
+        #     if self.last_action == action and action in [1, 2, 3, 4] and travel_reward > 0:  # Only consider directional actions that result in movement
+        #         self.consecutive_moves += 1
+        #     else:
+        #         self.consecutive_moves = 1
             
-            # if self.consecutive_moves == 2:
-            #     movement_multiplier = 1.1
-            # elif self.consecutive_moves == 3:
-            #     movement_multiplier = 1.2
-            # elif self.consecutive_moves == 4:
-            #     movement_multiplier = 1.3
-            # elif self.consecutive_moves >= 5:
-            #     movement_multiplier = 1.4
-            # else:
-            #     movement_multiplier = 1.0
+        #     if self.consecutive_moves >= 2:
+        #         movement_multiplier = 1.1
+        #     # elif self.consecutive_moves == 3:
+        #     #     movement_multiplier = 1.2
+        #     # elif self.consecutive_moves == 4:
+        #     #     movement_multiplier = 1.3
+        #     # elif self.consecutive_moves >= 5:
+        #     #     movement_multiplier = 1.4
+        #     else:
+        #         movement_multiplier = 1.0
             
-            # travel_reward *= movement_multiplier
+        #     travel_reward *= movement_multiplier
             
-            self.last_action = action
+        #     self.last_action = action
 
         reward = (
-            party_exp_reward
+            # party_exp_reward
+            caught_reward + seen_reward
             + party_health_reward
             + item_points
             + travel_reward
             + attack_reward
-            + event_reward
+            # + event_reward
             + money_reward
         )
         if reward > 0 and travel_reward == 0:
