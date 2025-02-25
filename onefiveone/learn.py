@@ -243,8 +243,8 @@ def train_model(
         gamma=0.99,
         train_freq=batch_size // 4,
         target_update_interval=n_steps,
-        exploration_fraction=0.1,
-        exploration_final_eps=0.02,
+        exploration_fraction=0.5,
+        exploration_final_eps=0.05,
         tensorboard_log=tensorboard_log,
         device=device,
         # optimize_memory_usage=True
