@@ -238,7 +238,7 @@ def train_model(
         env,
         learning_rate=1e-3,
         buffer_size=total_steps // 16,
-        learning_starts=n_steps // 2,
+        learning_starts=0,
         tau=1.0,
         gamma=0.99,
         train_freq=batch_size // 4,
