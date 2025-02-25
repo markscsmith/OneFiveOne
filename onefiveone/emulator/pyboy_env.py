@@ -698,7 +698,7 @@ class PyBoyEnv(gym.Env):
         for item, points in new_item_points:
             self.item_points[item] = points
 
-        item_points = sum(self.item_points.values()) / 10
+        item_points = sum(self.item_points.values())
         self.total_item_points += item_points
 
         # ---- Event data to calculate reward for flags ----
@@ -759,7 +759,8 @@ class PyBoyEnv(gym.Env):
             self.last_event = (px, py)
 
         # Normalize the reward
-        normalized_reward = self.normalize_reward(reward)
+        # normalized_reward = self.normalize_reward(reward)
+        normalized_reward = reward
 
         if map_id not in self.reward_maps:
             self.reward_maps[map_id] = np.zeros((256, 256), dtype=np.float32)
