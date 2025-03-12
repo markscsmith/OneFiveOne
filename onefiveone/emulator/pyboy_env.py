@@ -780,6 +780,7 @@ class PyBoyEnv(gym.Env):
                 if 0 <= x < 256 and 0 <= y < 256:
                     local_reward_map[dx + 4, dy + 4] = self.reward_maps.get(self.last_player_map, np.zeros((256, 256), dtype=np.float32))[x, y]
 
+        # TODO: use the text_onscreen and is_in_battle to adjust rewards and reward for unique text on screen.
         text_onscreen_bool = 1.0 if self.text_onscreen == 0 else 0.0
         is_in_battle_bool = 1.0 if self.is_in_battle == 0 else 0.0
 

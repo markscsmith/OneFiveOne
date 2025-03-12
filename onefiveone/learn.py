@@ -196,10 +196,11 @@ def train_model(
     intermediate_layer_size = 512
 
     policy_kwargs = dict(
-        net_arch=dict(
-            pi=[first_layer_size, first_layer_size, intermediate_layer_size, intermediate_layer_size],
-            vf=[first_layer_size, first_layer_size, intermediate_layer_size, intermediate_layer_size],
-        ),
+        # net_arch=dict(
+        #     pi=[first_layer_size, first_layer_size, intermediate_layer_size, intermediate_layer_size, intermediate_layer_size, intermediate_layer_size],
+        #     vf=[first_layer_size, first_layer_size, intermediate_layer_size, intermediate_layer_size, intermediate_layer_size, intermediate_layer_size],
+        # ),
+        net_arch = [first_layer_size, first_layer_size, intermediate_layer_size, intermediate_layer_size, intermediate_layer_size, intermediate_layer_size, intermediate_layer_size],
         activation_fn=torch.nn.ReLU,
     )
 
@@ -248,6 +249,7 @@ def train_model(
         exploration_final_eps=1,
         tensorboard_log=tensorboard_log,
         device=device,
+        policy_kwargs=policy_kwargs,
         # optimize_memory_usage=True
     )
 
