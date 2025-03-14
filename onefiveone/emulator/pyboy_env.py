@@ -533,7 +533,7 @@ class PyBoyEnv(gym.Env):
         # finding a new map is worth 1 point
         if self.last_player_map != map_id:
             if map_id not in self.player_maps:
-                travel_reward += (0.0001 * 256 ** 2)
+                travel_reward += (0.001 * 256 ** 2)
                 self.player_maps.add(map_id)
                 self.current_map = set()
                 self.last_event = (px, py)
@@ -545,7 +545,7 @@ class PyBoyEnv(gym.Env):
         if self.last_chunk_id != chunk_id:
             if chunk_id not in self.visited_xy:
                 self.visited_xy.add(chunk_id)
-                visited_score = 0.0001
+                visited_score = 0.001
 
         self.last_chunk_id = chunk_id
 
