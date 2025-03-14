@@ -140,7 +140,7 @@ class PyBoyEnv(gym.Env):
             "is_in_battle": self.is_in_battle_space
         })
 
-        self.action_space = Discrete(6, start=1) # 8 buttons to press, only one pressed at a time
+        self.action_space = Discrete(7, start=1) # 8 buttons to press, only one pressed at a time
         
         # Define the mapping of those buttons to the 8 discrete actions
         self.buttons = {
@@ -332,6 +332,8 @@ class PyBoyEnv(gym.Env):
             self.text_onscreen = self.pyboy.memory[0xcfc4 + self.cart.cart_offset()]
             self.is_in_battle = self.pyboy.memory[0xd057 + self.cart.cart_offset()]
             self.pyboy.button(button[0], delay=2)
+            
+
         self.last_screen = self.pyboy.screen.ndarray.copy()
 
         self.pyboy.tick(PRESS_FRAMES + RELEASE_FRAMES, True)
@@ -753,6 +755,10 @@ class PyBoyEnv(gym.Env):
 
         # Normalize the reward
         # normalized_reward = self.normalize_reward(reward)
+        if self.text_onscreen == 0 or self.is_in_battle == 1 and action == 7:
+            reward -= -0.1
+        if self.text_onscreen == 1 and action in [1, 2, 3, 4, 7]:
+            reward -= -0.1
         normalized_reward = reward
 
         if map_id not in self.reward_maps:
