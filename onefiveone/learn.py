@@ -129,20 +129,16 @@ class TensorboardLoggingCallback(BaseCallback):
 
 
 class PokeCaughtCallback(BaseCallback):
-    def __init__(self):
+    def __init__(self, render_interval=100):
         super().__init__()
+        self.render_interval = render_interval
 
     def _on_step(self) -> bool:
-        rewards = self.training_env.get_attr("total_reward")
-        best_env_idx = rewards.index(max(rewards))
-        print(self.training_env.env_method("render", best_env_idx)[best_env_idx])
+        if self.n_calls % self.render_interval == 0:
+            rewards = self.training_env.get_attr("total_reward")
+            best_env_idx = rewards.index(max(rewards))
+            print(self.training_env.env_method("render", best_env_idx)[best_env_idx])
         return True
-
-
-
-
-
-
 
 
 def make_env(game_path, emunum, num_steps, device="cpu", state_file=None, n_steps=2048):
@@ -186,6 +182,7 @@ def train_model(
     file_name,
     save_path="ofo",
     device="cpu",
+    train_freq=8,
 ):
 
     # first_layer_size = 5608
@@ -238,15 +235,16 @@ def train_model(
         "MultiInputPolicy",
         env,
         learning_rate=1e-3,
-        buffer_size=total_steps // 16,
+        buffer_size=int(total_steps / hours),
         learning_starts=0,
-        tau=1.0,
-        gamma=0.99,
-        train_freq=batch_size // 4,
+        tau=0.5,
+        gamma=0.997,
+        batch_size=batch_size,
+        train_freq=train_freq,
         target_update_interval=n_steps,
         exploration_fraction=0.9,
-        exploration_initial_eps=0.5,
-        exploration_final_eps=1,
+        # exploration_initial_eps=0.5,
+        # exploration_final_eps=1,
         tensorboard_log=tensorboard_log,
         device=device,
         policy_kwargs=policy_kwargs,
@@ -285,7 +283,7 @@ def train_model(
         )
         current_stats = EveryNTimesteps(
             n_steps=update_freq,
-            callback=PokeCaughtCallback(),
+            callback=PokeCaughtCallback(args.render_interval),
         )
         tbcallback = TensorboardLoggingCallback(tensorboard_log)
         env.set_attr("episode", episode)
@@ -342,9 +340,11 @@ if __name__ == "__main__":
     parser.add_argument("--num_envs", type=int, default=NUM_CPU)
 
     parser.add_argument("--episodes", type=int, default=16)
-    parser.add_argument("--batch_size", type=int, default=128)
-    parser.add_argument("--n_steps", type=int, default=2048)
+    parser.add_argument("--batch_size", type=int, default=256)
+    parser.add_argument("--n_steps", type=int, default=1024)
     parser.add_argument("--hours", type=float, default=4)
+    parser.add_argument("--render_interval", type=int, default=4)
+    parser.add_argument("--train_freq", type=int, default=8)
 
     args = parser.parse_args()
 
@@ -392,4 +392,5 @@ if __name__ == "__main__":
         file_name=model_file_name,
         save_path=args.output_dir,
         device=device,
+        train_freq=args.train_freq,
     )

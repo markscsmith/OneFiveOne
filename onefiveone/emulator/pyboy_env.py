@@ -140,7 +140,7 @@ class PyBoyEnv(gym.Env):
             "is_in_battle": self.is_in_battle_space
         })
 
-        self.action_space = Discrete(8, start=0) # 8 buttons to press, only one pressed at a time
+        self.action_space = Discrete(6, start=1) # 8 buttons to press, only one pressed at a time
         
         # Define the mapping of those buttons to the 8 discrete actions
         self.buttons = {
@@ -528,9 +528,10 @@ class PyBoyEnv(gym.Env):
         self.my_pokemon = my_pokemon
 
         # Calculate reward from exploring the game world by counting maps, doesn't need to store counter
+        # finding a new map is worth 1 point
         if self.last_player_map != map_id:
             if map_id not in self.player_maps:
-                travel_reward += 0.5
+                travel_reward += (0.0001 * 256 ** 2)
                 self.player_maps.add(map_id)
                 self.current_map = set()
                 self.last_event = (px, py)
@@ -542,15 +543,7 @@ class PyBoyEnv(gym.Env):
         if self.last_chunk_id != chunk_id:
             if chunk_id not in self.visited_xy:
                 self.visited_xy.add(chunk_id)
-                visited_score = 0.1
-            # if chunk_id not in self.current_map:
-            #     # scale the visited score based on distance from entrance
-            #     distance = np.sqrt((px - self.last_event[0]) ** 2 + (py - self.last_event[1]) ** 2)
-            #     # visited_score = 0.1 / (distance + 1)
-                
-            #     self.current_map.add(chunk_id)
-            # else:    
-            #     visited_score =  0.0
+                visited_score = 0.0001
 
         self.last_chunk_id = chunk_id
 
@@ -604,11 +597,11 @@ class PyBoyEnv(gym.Env):
                 pokemon_owned,
                 pokemon_seen,
             )
-            caught_reward = 5.0
+            caught_reward = 100.0
 
         if pokemon_seen > last_poke_seen:
             self.last_seen_pokemon_count = pokemon_seen
-            seen_reward = 2.5
+            seen_reward = 20.0
 
         self.last_pokemon_count = pokemon_owned
         self.last_seen_pokemon_count = pokemon_seen
