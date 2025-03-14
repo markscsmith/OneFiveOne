@@ -756,9 +756,9 @@ class PyBoyEnv(gym.Env):
         # Normalize the reward
         # normalized_reward = self.normalize_reward(reward)
         if self.text_onscreen == 0 or self.is_in_battle == 1 and action == 7:
-            reward -= -0.1
+            reward += -0.001
         if self.text_onscreen == 1 and action in [1, 2, 3, 4, 7]:
-            reward -= -0.1
+            reward += -0.001
         normalized_reward = reward
 
         if map_id not in self.reward_maps:
