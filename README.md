@@ -44,7 +44,7 @@ I've tested this code on macOS Apple Silicon (using the mps accelerator) and bot
 Ultra mega quickstart on macos:
 
    ```sh
-   pythom -m venv venv
+   python -m venv venv
    source venv/bin/activate
    pip install -r requirements.txt
    ```
