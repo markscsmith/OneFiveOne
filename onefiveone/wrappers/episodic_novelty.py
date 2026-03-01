@@ -111,6 +111,10 @@ class EpisodicStateNoveltyWrapper(gym.Wrapper):
         # For ordered eviction when max_episode_states is set
         self._state_order: list = []
 
+    def render(self, *args, **kwargs):
+        """Pass through to base env render, forwarding any extra arguments."""
+        return self.env.render(*args, **kwargs)
+
     def step(self, action):
         obs, reward, terminated, truncated, info = self.env.step(action)
 

@@ -95,6 +95,10 @@ class CountBasedExplorationWrapper(gym.Wrapper):
         self.total_bonus_awarded = 0.0
         self.steps_since_reset = 0
 
+    def render(self, *args, **kwargs):
+        """Pass through to base env render, forwarding any extra arguments."""
+        return self.env.render(*args, **kwargs)
+
     def step(self, action):
         obs, reward, terminated, truncated, info = self.env.step(action)
 
