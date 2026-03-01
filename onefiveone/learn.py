@@ -523,9 +523,20 @@ if __name__ == "__main__":
         revisit_novelty_bonus=0,
     )
 
-    def build_vec_env(n_envs, wrapper_kwargs, emunum_offset=0):
-        """Build a DummyVecEnv or SubprocVecEnv with the given wrapper config."""
-        steps_per_env = total_steps // num_cpu  # keep step budget consistent
+    def build_vec_env(n_envs, wrapper_kwargs, emunum_offset=0, total_model_steps=None):
+        """Build a DummyVecEnv or SubprocVecEnv with the given wrapper config.
+
+        Args:
+            n_envs: Number of parallel environments for this group.
+            wrapper_kwargs: Wrapper configuration dict.
+            emunum_offset: Starting emunum index (for unique IDs across A/B groups).
+            total_model_steps: Total timesteps the model will run via model.learn().
+                If None, defaults to the global total_steps. Each env gets
+                total_model_steps // n_envs steps (matching what sb3 actually runs).
+        """
+        if total_model_steps is None:
+            total_model_steps = total_steps
+        steps_per_env = total_model_steps // n_envs
         if n_envs == 1:
             return DummyVecEnv([
                 make_env(args.game_path, emunum_offset, device=device, n_steps=n_steps,
@@ -548,8 +559,13 @@ if __name__ == "__main__":
         print(f"A/B test mode: {n_exploration} envs for EXPLORATION model, "
               f"{n_control} envs for CONTROL model (total {num_cpu})")
 
-        env_exploration = build_vec_env(n_exploration, wrapper_kwargs_on, emunum_offset=0)
-        env_control = build_vec_env(n_control, wrapper_kwargs_off, emunum_offset=n_exploration)
+        # Each model calls model.learn(total_timesteps=total_steps), and sb3
+        # distributes that across the model's n_envs. So each env actually
+        # runs total_steps // n_envs steps — pass that as the env's max_steps.
+        env_exploration = build_vec_env(n_exploration, wrapper_kwargs_on,
+                                        emunum_offset=0, total_model_steps=total_steps)
+        env_control = build_vec_env(n_control, wrapper_kwargs_off,
+                                     emunum_offset=n_exploration, total_model_steps=total_steps)
 
         train_ab_test(
             env_exploration=env_exploration,
