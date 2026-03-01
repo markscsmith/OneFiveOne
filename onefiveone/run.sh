@@ -1,0 +1,12 @@
+reset && time python3 onefiveone/learn.py \
+    --game_path /Volumes/BENNVENN/POKEMON*.GBC \
+    --hours 4 \
+    --episodes 64 \
+    --ab-test \
+    --use-count-exploration \
+    --count-scale 1.0 \
+    --count-exponent 0.5 \
+    --count-decay 0.95 \
+    --use-novelty-bonus \
+    --novelty-bonus 0.5 \
+    --revisit-novelty-bonus 0.5

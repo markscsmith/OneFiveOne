@@ -21,4 +21,4 @@ def gpu_test():
 
 if __name__ == "__main__":
     results = gpu_test()
-    print(f"PyTorch Device: {results[0]}")
+    print(f"PyTorch Device: {results}")

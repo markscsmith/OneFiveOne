@@ -1,0 +1,4 @@
+{
+  "venvPath": "./",         // Path where your venv folder is located
+  "venv": "venv",           // The name of the venv directory
+}

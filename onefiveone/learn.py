@@ -5,6 +5,12 @@ import datetime
 import hashlib
 import multiprocessing
 from emulator.pyboy_env import PyBoyEnv, PRESS_FRAMES, RELEASE_FRAMES
+from wrappers import (
+    CountBasedExplorationWrapper,
+    EpisodicStateNoveltyWrapper,
+    pokemon_state_key_fn,
+    pokemon_state_hash_fn,
+)
 # Compute and AI libs
 import numpy as np
 import torch
@@ -20,7 +26,8 @@ from stable_baselines3.common.callbacks import (
     CheckpointCallback,
 )
 
-from stable_baselines3.common.env_util import SubprocVecEnv, DummyVecEnv
+from stable_baselines3.common.vec_env.subproc_vec_env import SubprocVecEnv
+from stable_baselines3.common.vec_env.dummy_vec_env import DummyVecEnv
 
 # Emulator libs
 from pyboy import PyBoy
@@ -141,7 +148,22 @@ class PokeCaughtCallback(BaseCallback):
         return True
 
 
-def make_env(game_path, emunum, num_steps, device="cpu", state_file=None, n_steps=2048):
+def make_env(
+    game_path,
+    emunum,
+    num_steps,
+    device="cpu",
+    state_file=None,
+    n_steps=2048,
+    # Exploration wrapper options
+    use_count_exploration=False,
+    count_scale=1.0,
+    count_exponent=0.5,
+    count_decay=1.0,
+    use_novelty_bonus=False,
+    novelty_bonus=0.5,
+    revisit_novelty_bonus=0.5,
+):
     def _init():
         if state_file is not None and os.path.exists(state_file):
             print(f"Loading state {game_path}.state")
@@ -160,7 +182,7 @@ def make_env(game_path, emunum, num_steps, device="cpu", state_file=None, n_step
             )
             new_env.pyboy.load_state(open(game_path + ext, "rb"))
         else:
-            
+
             new_env = PyBoyEnv(
                 game_path,
                 emunum=emunum,
@@ -168,68 +190,63 @@ def make_env(game_path, emunum, num_steps, device="cpu", state_file=None, n_step
                 device=device,
             )
 
+        # Apply exploration wrappers (order: novelty first, count on top)
+        if use_novelty_bonus:
+            new_env = EpisodicStateNoveltyWrapper(
+                new_env,
+                state_hash_fn=pokemon_state_hash_fn,
+                position_key_fn=pokemon_state_key_fn,
+                novelty_bonus=novelty_bonus,
+                revisit_novelty_bonus=revisit_novelty_bonus,
+            )
+            print(f"[env {emunum}] Episodic novelty wrapper enabled "
+                  f"(bonus={novelty_bonus}, revisit={revisit_novelty_bonus})")
+
+        if use_count_exploration:
+            new_env = CountBasedExplorationWrapper(
+                new_env,
+                state_key_fn=pokemon_state_key_fn,
+                scale=count_scale,
+                exponent=count_exponent,
+                decay_on_reset=count_decay,
+            )
+            print(f"[env {emunum}] Count-based exploration wrapper enabled "
+                  f"(scale={count_scale}, exp={count_exponent}, decay={count_decay})")
+
         return new_env
 
     return _init
 
 
-def train_model(
-    env,
-    total_steps,
-    n_steps,
-    batch_size,
-    episodes,
-    file_name,
-    save_path="ofo",
-    device="cpu",
-    train_freq=8,
-):
+def create_model(env, total_steps, n_steps, batch_size, device, train_freq, hours, save_path, label=""):
+    """
+    Create a QRDQN model and load the newest checkpoint if one exists.
 
-    # first_layer_size = 5608
-    # intermediate_layer_size = 1024
-    # action_layer_size = 8  # 8 actions
-    # output_layer_size = 1
+    Args:
+        env: VecEnv to train on.
+        total_steps: Total timesteps per episode.
+        n_steps: Rollout length / target update interval.
+        batch_size: Training batch size.
+        device: Torch device string.
+        train_freq: How often to run a training step.
+        hours: Simulated gameplay hours (used for buffer size calc).
+        save_path: Directory for checkpoints and tensorboard logs.
+        label: Optional label for tensorboard (e.g. "exploration" or "control").
+
+    Returns:
+        (model, starting_episode, checkpoint_path)
+    """
     first_layer_size = 1024
     intermediate_layer_size = 512
 
     policy_kwargs = dict(
-        # net_arch=dict(
-        #     pi=[first_layer_size, first_layer_size, intermediate_layer_size, intermediate_layer_size, intermediate_layer_size, intermediate_layer_size],
-        #     vf=[first_layer_size, first_layer_size, intermediate_layer_size, intermediate_layer_size, intermediate_layer_size, intermediate_layer_size],
-        # ),
         net_arch = [first_layer_size, first_layer_size, intermediate_layer_size, intermediate_layer_size, intermediate_layer_size, intermediate_layer_size, intermediate_layer_size],
         activation_fn=torch.nn.ReLU,
     )
 
-    # make sure we take care of accidental trailing slashes in the save path which
-    # would cause the checkpoint path to be incorrect.
     checkpoint_path = f"{save_path.rstrip('/')}"
-    env.set_attr("episode", 0)
-    tensorboard_log = f"{save_path.rstrip('/')}/tensorboard/{os.uname()[1]}-{time.time()}"
-
-    # run_model = PPO(
-    #    policy="MlpPolicy",
-    # run_model = PPO(
-    #     policy="MultiInputPolicy",
-    #     # Reduce n_steps if too large; ensure not less than some minimum like 2048 for sufficient learning per update.
-    #     n_steps=n_steps,
-    #     # Reduce batch size if it's too large but ensure a minimum size for stability.
-    #     batch_size=batch_size,
-    #     n_epochs=3,
-    #     gamma=0.99,  # Reduced from 0.998
-    #     gae_lambda=0.98,
-    #     # learning_rate=learning_rate_schedule,
-    #     # learning_rate=learning_rate_decay_schedule,
-    #     ent_coef=0.02,
-    #     env=env,
-    #     policy_kwargs=policy_kwargs,
-    #     verbose=0,
-    #     clip_range=0.2,    
-    #     vf_coef=0.5,       
-    #     max_grad_norm=0.5,
-    #     device=device,
-    #     tensorboard_log=tensorboard_log,
-    # )
+    tb_label = f"-{label}" if label else ""
+    tensorboard_log = f"{checkpoint_path}/tensorboard/{os.uname()[1]}-{time.time()}{tb_label}"
 
     run_model = QRDQN(
         "MultiInputPolicy",
@@ -243,70 +260,168 @@ def train_model(
         train_freq=train_freq,
         target_update_interval=n_steps,
         exploration_fraction=0.9,
-        # exploration_initial_eps=0.5,
-        # exploration_final_eps=1,
         tensorboard_log=tensorboard_log,
         device=device,
         policy_kwargs=policy_kwargs,
-        # optimize_memory_usage=True
     )
 
     starting_episode = 1
-
     checkpoints = glob.glob(f"{checkpoint_path.rstrip('/')}/*.zip")
     if len(checkpoints) > 0:
-        print(f"Checkpoints found: {checkpoints}")
-        # get the newest checkpoint
+        print(f"[{label or 'model'}] Checkpoints found: {checkpoints}")
         newest_checkpoint = max(checkpoints, key=os.path.getctime)
-        print(f"Newest checkpoint: {newest_checkpoint}")
+        print(f"[{label or 'model'}] Loading: {newest_checkpoint}")
         starting_episode = int(newest_checkpoint.split("-")[-2]) + 1
         run_model.load(newest_checkpoint)
-
-        print("\ncheckpoint loaded")
+        print(f"[{label or 'model'}] Checkpoint loaded")
     else:
-        print("No checkpoints found.")
+        print(f"[{label or 'model'}] No checkpoints found, starting fresh.")
 
-    update_freq = n_steps * num_cpu // 8
+    env.set_attr("episode", 0)
+    return run_model, starting_episode, checkpoint_path
+
+
+def train_episode(model, env, episode, total_steps, n_steps, num_envs, render_interval, checkpoint_path, label=""):
+    """
+    Train a single episode for a model/env pair.
+
+    Args:
+        model: The sb3 model to train.
+        env: The VecEnv the model is attached to.
+        episode: Current episode number.
+        total_steps: Total timesteps for this episode.
+        n_steps: Used to compute update frequency.
+        num_envs: Number of parallel environments (for freq calculations).
+        render_interval: How often PokeCaughtCallback renders.
+        checkpoint_path: Where to save checkpoints and action logs.
+        label: Label for log messages (e.g. "exploration", "control").
+    """
+    tag = f"[{label}] " if label else ""
+    print(f"{tag}Starting episode {episode}")
+    episode_path = (
+        f"{checkpoint_path.rstrip('/')}/{os.uname()[1]}-{time.time()}-{episode}"
+    )
+    print(f"{tag}Checkpoint path: {episode_path}")
+
+    checkpoint_callback = CheckpointCallback(
+        save_freq=total_steps // (num_envs * 2),
+        save_path=f"{episode_path}",
+        name_prefix="poke",
+        verbose=2,
+    )
+    update_freq = n_steps * num_envs // 8
+    current_stats = EveryNTimesteps(
+        n_steps=update_freq,
+        callback=PokeCaughtCallback(render_interval),
+    )
+
+    env.set_attr("episode", episode)
+    callbacks = [checkpoint_callback, current_stats]
+
+    model.learn(
+        total_timesteps=total_steps, callback=callbacks, progress_bar=True, log_interval=512
+    )
+    model.save(f"{episode_path}-model.zip")
+
+    actions_set = env.get_attr("actions")
+    global_actions_set = env.get_attr("global_actions")
+    for emunum, global_actions in enumerate(global_actions_set):
+        with open(f"{episode_path.rstrip('/')}-actions-{emunum}.txt", "w") as f:
+            f.write("|".join(global_actions))
+
+    del callbacks, checkpoint_callback, current_stats
+
+
+def train_model(
+    env,
+    total_steps,
+    n_steps,
+    batch_size,
+    episodes,
+    file_name,
+    save_path="ofo",
+    device="cpu",
+    train_freq=8,
+    hours=4,
+    num_envs=1,
+    render_interval=4,
+):
+    """Single-model training loop (original behavior)."""
+    model, starting_episode, checkpoint_path = create_model(
+        env, total_steps, n_steps, batch_size, device, train_freq, hours, save_path
+    )
 
     for episode in range(starting_episode, episodes + 1):
-        print(f"Starting episode {episode}")
-        checkpoint_file_path = (
-            f"{checkpoint_path.rstrip('/')}/{os.uname()[1]}-{time.time()}-{episode}"
+        train_episode(
+            model, env, episode, total_steps, n_steps, num_envs,
+            render_interval, checkpoint_path,
         )
 
-        print(f"Checkpoint path: {checkpoint_file_path}")
-        checkpoint_callback = CheckpointCallback(
-            save_freq=total_steps // (num_cpu * 2),
-            save_path=f"{checkpoint_file_path}",
-            name_prefix="poke",
-            verbose=2,
-        )
-        current_stats = EveryNTimesteps(
-            n_steps=update_freq,
-            callback=PokeCaughtCallback(args.render_interval),
-        )
-        tbcallback = TensorboardLoggingCallback(tensorboard_log)
-        env.set_attr("episode", episode)
-        # callbacks = [checkpoint_callback, current_stats, tbcallback]
-        callbacks = [current_stats, tbcallback]
-        run_model.learn(
-            total_timesteps=total_steps, callback=callbacks, progress_bar=True, log_interval=512
-        )
-        run_model.save(f"{checkpoint_file_path}-model.zip")
-        actions_set = env.get_attr("actions")
-        global_actions_set = env.get_attr("global_actions")
+    return model
 
-        for emunum, global_actions in enumerate(global_actions_set):
-            # write the global actions to a file
-            with open(f"{checkpoint_file_path.rstrip("/")}-actions-{emunum}.txt", "w") as f:
-                f.write("|".join(global_actions))
 
-        del callbacks
-        del checkpoint_callback
-        del current_stats
-        # del tbcallback
+def train_ab_test(
+    env_exploration,
+    env_control,
+    total_steps,
+    n_steps,
+    batch_size,
+    episodes,
+    save_path="ofo",
+    device="cpu",
+    train_freq=8,
+    hours=4,
+    num_envs_exploration=1,
+    num_envs_control=1,
+    render_interval=4,
+):
+    """
+    A/B test: train two fully independent models side by side.
 
-    return run_model
+    Each model gets its own VecEnv, its own weights, its own checkpoints, and
+    its own tensorboard log directory. They are trained in alternating episodes
+    so they get roughly equal wall-clock time on the GPU/CPU.
+
+    Args:
+        env_exploration: VecEnv with exploration wrappers applied.
+        env_control: VecEnv without exploration wrappers (control group).
+        total_steps: Timesteps per episode per model.
+        Other args: same as train_model.
+    """
+    exploration_path = f"{save_path.rstrip('/')}/exploration"
+    control_path = f"{save_path.rstrip('/')}/control"
+    os.makedirs(exploration_path, exist_ok=True)
+    os.makedirs(control_path, exist_ok=True)
+
+    model_exp, start_exp, cp_exp = create_model(
+        env_exploration, total_steps, n_steps, batch_size, device, train_freq,
+        hours, exploration_path, label="exploration",
+    )
+    model_ctrl, start_ctrl, cp_ctrl = create_model(
+        env_control, total_steps, n_steps, batch_size, device, train_freq,
+        hours, control_path, label="control",
+    )
+
+    starting_episode = max(start_exp, start_ctrl)
+
+    for episode in range(starting_episode, episodes + 1):
+        print(f"\n{'='*60}")
+        print(f"  A/B TEST — Episode {episode}/{episodes}")
+        print(f"{'='*60}\n")
+
+        print(f"--- EXPLORATION MODEL (with wrappers) ---")
+        train_episode(
+            model_exp, env_exploration, episode, total_steps, n_steps,
+            num_envs_exploration, render_interval, cp_exp, label="exploration",
+        )
+
+        print(f"\n--- CONTROL MODEL (no wrappers) ---")
+        train_episode(
+            model_ctrl, env_control, episode, total_steps, n_steps,
+            num_envs_control, render_interval, cp_ctrl, label="control",
+        )
+
+    return model_exp, model_ctrl
 
 
 if __name__ == "__main__":
@@ -346,6 +461,24 @@ if __name__ == "__main__":
     parser.add_argument("--render_interval", type=int, default=4)
     parser.add_argument("--train_freq", type=int, default=8)
 
+    # Exploration wrapper arguments
+    parser.add_argument("--use-count-exploration", action="store_true",
+                        help="Enable count-based exploration bonus wrapper")
+    parser.add_argument("--count-scale", type=float, default=1.0,
+                        help="Scale factor for count-based exploration bonus")
+    parser.add_argument("--count-exponent", type=float, default=0.5,
+                        help="Decay exponent for visit count bonus (0.5=sqrt)")
+    parser.add_argument("--count-decay", type=float, default=1.0,
+                        help="Decay rate for visit counts between episodes (1.0=persist, 0.0=reset)")
+    parser.add_argument("--use-novelty-bonus", action="store_true",
+                        help="Enable episodic state novelty bonus wrapper")
+    parser.add_argument("--novelty-bonus", type=float, default=0.5,
+                        help="Bonus for encountering a novel state this episode")
+    parser.add_argument("--revisit-novelty-bonus", type=float, default=0.5,
+                        help="Extra bonus for novel state at a previously-visited position")
+    parser.add_argument("--ab-test", action="store_true",
+                        help="A/B test: even-numbered envs get exploration wrappers, odd ones don't")
+
     args = parser.parse_args()
 
     num_cpu = args.num_envs
@@ -371,26 +504,83 @@ if __name__ == "__main__":
     total_steps = int(seconds * (60 // (PRESS_FRAMES + RELEASE_FRAMES)) * num_cpu)
     
 
-    if num_cpu == 1:
-        run_env = DummyVecEnv([make_env(args.game_path, 0, device=device, n_steps=n_steps)])
-    else:
-        run_env = SubprocVecEnv(
-            [
-                make_env(args.game_path, emunum, device=device, state_file=args.state_file, num_steps=total_steps // num_cpu)
-                for emunum in range(num_cpu)
-            ]
-        )
-
-    model_file_name = "model"
-
-    model = train_model(
-        env=run_env,
-        total_steps=total_steps,
-        n_steps=n_steps,
-        batch_size=batch_size,
-        episodes=episodes,
-        file_name=model_file_name,
-        save_path=args.output_dir,
-        device=device,
-        train_freq=args.train_freq,
+    wrapper_kwargs_on = dict(
+        use_count_exploration=args.use_count_exploration,
+        count_scale=args.count_scale,
+        count_exponent=args.count_exponent,
+        count_decay=args.count_decay,
+        use_novelty_bonus=args.use_novelty_bonus,
+        novelty_bonus=args.novelty_bonus,
+        revisit_novelty_bonus=args.revisit_novelty_bonus,
     )
+    wrapper_kwargs_off = dict(
+        use_count_exploration=False,
+        count_scale=0,
+        count_exponent=0.5,
+        count_decay=1.0,
+        use_novelty_bonus=False,
+        novelty_bonus=0,
+        revisit_novelty_bonus=0,
+    )
+
+    def build_vec_env(n_envs, wrapper_kwargs, emunum_offset=0):
+        """Build a DummyVecEnv or SubprocVecEnv with the given wrapper config."""
+        steps_per_env = total_steps // num_cpu  # keep step budget consistent
+        if n_envs == 1:
+            return DummyVecEnv([
+                make_env(args.game_path, emunum_offset, device=device, n_steps=n_steps,
+                         num_steps=steps_per_env, **wrapper_kwargs)
+            ])
+        return SubprocVecEnv([
+            make_env(args.game_path, emunum_offset + i, device=device,
+                     state_file=args.state_file, num_steps=steps_per_env, **wrapper_kwargs)
+            for i in range(n_envs)
+        ])
+
+    if args.ab_test:
+        # Split CPUs evenly between the two models
+        n_exploration = num_cpu // 2
+        n_control = num_cpu - n_exploration
+        if n_exploration < 1 or n_control < 1:
+            print("ERROR: --ab-test requires at least 2 envs (--num_envs >= 2)")
+            sys.exit(1)
+
+        print(f"A/B test mode: {n_exploration} envs for EXPLORATION model, "
+              f"{n_control} envs for CONTROL model (total {num_cpu})")
+
+        env_exploration = build_vec_env(n_exploration, wrapper_kwargs_on, emunum_offset=0)
+        env_control = build_vec_env(n_control, wrapper_kwargs_off, emunum_offset=n_exploration)
+
+        train_ab_test(
+            env_exploration=env_exploration,
+            env_control=env_control,
+            total_steps=total_steps,
+            n_steps=n_steps,
+            batch_size=batch_size,
+            episodes=episodes,
+            save_path=args.output_dir,
+            device=device,
+            train_freq=args.train_freq,
+            hours=hours,
+            num_envs_exploration=n_exploration,
+            num_envs_control=n_control,
+            render_interval=args.render_interval,
+        )
+    else:
+        # Single-model mode (original behavior)
+        run_env = build_vec_env(num_cpu, wrapper_kwargs_on)
+
+        train_model(
+            env=run_env,
+            total_steps=total_steps,
+            n_steps=n_steps,
+            batch_size=batch_size,
+            episodes=episodes,
+            file_name="model",
+            save_path=args.output_dir,
+            device=device,
+            train_freq=args.train_freq,
+            hours=hours,
+            num_envs=num_cpu,
+            render_interval=args.render_interval,
+        )
